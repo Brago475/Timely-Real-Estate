@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  firstName    String   @map("first_name")
+  middleName   String   @default("") @map("middle_name")
+  lastName     String   @map("last_name")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(client)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  clientProjects      ClientProject[]      @relation("ClientProjects")
+  clientConsultants   ClientConsultant[]   @relation("ClientOfConsultant")
+  consultantProjects  ConsultantProject[]  @relation("ConsultantProjects")
+  consultantClients   ClientConsultant[]   @relation("ConsultantOfClient")
+  hoursLogs           HoursLog[]
+  projectComments     ProjectComment[]
+  projectAttachments  ProjectAttachment[]
+  teamFeedPosts       TeamFeedPost[]
+  teamFeedLikes       TeamFeedLike[]
+  createdProjects     Project[]            @relation("ProjectCreator")
+
+  @@map("users")
+}
+
+enum Role {
+  admin
+  consultant
+  client
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String   @default("")
+  status      String   @default("Planning")
+  priority    String   @default("Medium")
+  budget      Decimal? @db.Decimal(12, 2)
+  dateCreated DateTime? @map("date_created") @db.Date
+  dateDue     DateTime? @map("date_due") @db.Date
+  createdBy   Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  creator             User?              @relation("ProjectCreator", fields: [createdBy], references: [id])
+  clientProjects      ClientProject[]
+  consultantProjects  ConsultantProject[]
+  hoursLogs           HoursLog[]
+  comments            ProjectComment[]
+  attachments         ProjectAttachment[]
+
+  @@map("projects")
+}
+
+model ClientProject {
+  id        Int      @id @default(autoincrement())
+  clientId  Int      @map("client_id")
+  projectId Int      @map("project_id")
+  isCurrent Boolean  @default(true) @map("is_current")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client  User    @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, projectId])
+  @@map("client_projects")
+}
+
+model ConsultantProject {
+  id           Int      @id @default(autoincrement())
+  consultantId Int      @map("consultant_id")
+  projectId    Int      @map("project_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  consultant User    @relation("ConsultantProjects", fields: [consultantId], references: [id], onDelete: Cascade)
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([consultantId, projectId])
+  @@map("consultant_projects")
+}
+
+model ClientConsultant {
+  id           Int      @id @default(autoincrement())
+  clientId     Int      @map("client_id")
+  consultantId Int      @map("consultant_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  client     User @relation("ClientOfConsultant", fields: [clientId], references: [id], onDelete: Cascade)
+  consultant User @relation("ConsultantOfClient", fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, consultantId])
+  @@map("client_consultants")
+}
+
+model HoursLog {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  projectId    Int      @map("project_id")
+  consultantId Int      @map("consultant_id")
+  logDate      DateTime @map("log_date") @db.Date
+  hours        Decimal  @db.Decimal(5, 2)
+  description  String   @default("")
+  status       String   @default("pending")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  consultant User    @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@map("hours_logs")
+}
+
+model ProjectComment {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  projectId   Int      @map("project_id")
+  authorId    Int      @map("author_id")
+  commentText String   @map("comment_text")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("project_comments")
+}
+
+model ProjectAttachment {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  projectId  Int      @map("project_id")
+  fileName   String   @map("file_name")
+  fileSize   String   @default("") @map("file_size")
+  fileType   String   @default("") @map("file_type")
+  uploadedBy Int?     @map("uploaded_by")
+  fileUrl    String   @default("") @map("file_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader User?   @relation(fields: [uploadedBy], references: [id])
+
+  @@map("project_attachments")
+}
+
+model TeamFeedPost {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  authorId  Int      @map("author_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  author User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes  TeamFeedLike[]
+
+  @@map("team_feed_posts")
+}
+
+model TeamFeedLike {
+  id        Int      @id @default(autoincrement())
+  postId    Int      @map("post_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post TeamFeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("team_feed_likes")
+}
+
+model EmailOutbox {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  toEmail   String   @map("to_email")
+  fromEmail String   @default("noreply@timely.com") @map("from_email")
+  subject   String
+  body      String   @default("")
+  status    String   @default("sent")
+  createdAt DateTime @default(now()) @map("created_at")
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@map("emails_outbox")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  timestamp   DateTime @default(now())
+  actionType  String   @map("action_type")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  performedBy String   @map("performed_by")
+  details     String   @default("")
+
+  @@map("audit_logs")
+}

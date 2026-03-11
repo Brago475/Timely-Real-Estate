@@ -1,0 +1,50 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: timely-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-timely_db}
+      POSTGRES_USER: ${POSTGRES_USER:-timely}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-timely_secret_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - timely_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-timely}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./Timely_BackEnd
+      dockerfile: Dockerfile
+    container_name: timely-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-timely}:${POSTGRES_PASSWORD:-timely_secret_2026}@db:5432/${POSTGRES_DB:-timely_db}
+      JWT_SECRET: ${JWT_SECRET:-timely-jwt-secret-change-in-production}
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 4000
+    ports:
+      - "4000:4000"
+
+volumes:
+  timely_pgdata:
+```
+
+**Root file 2 — `.env.example`**
+```
+POSTGRES_DB=timely_db
+POSTGRES_USER=timely
+POSTGRES_PASSWORD=timely_secret_2026
+DATABASE_URL=postgresql://timely:timely_secret_2026@db:5432/timely_db
+JWT_SECRET=change-this-to-a-random-64-char-string
+NODE_ENV=production
+PORT=4000
