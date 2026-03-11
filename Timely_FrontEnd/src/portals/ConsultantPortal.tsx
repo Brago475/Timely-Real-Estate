@@ -26,7 +26,7 @@ const ConsultantPortal = ({ user }: { user: any }) => {
                     return;
                 }
 
-                const res = await fetch(`http://localhost:4000/api/consultants`);
+                const res = await fetch(`/api/consultants`);
                 if (res.ok) {
                     const data = await res.json();
                     const consultant = (data.data || []).find(

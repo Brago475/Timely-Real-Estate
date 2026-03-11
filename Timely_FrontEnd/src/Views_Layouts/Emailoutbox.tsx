@@ -30,7 +30,7 @@ const EmailOutbox: React.FC<EmailOutboxProps> = ({ userEmail }) => {
 
     const fetchEmails = async () => {
         try {
-            const res = await fetch("http://localhost:4000/api/emails/outbox?limit=100");
+            const res = await fetch("/api/emails/outbox?limit=100");
             const data = await res.json();
             setEmails(data.data || []);
         } catch (err) {
@@ -48,7 +48,7 @@ const EmailOutbox: React.FC<EmailOutboxProps> = ({ userEmail }) => {
 
         setSending(true);
         try {
-            const res = await fetch("http://localhost:4000/api/emails/send", {
+            const res = await fetch("/api/emails/send", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

@@ -11,7 +11,7 @@ import {
     Shield, Briefcase
 } from "lucide-react";
 
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = "/api";
 
 // Generate unique ID
 const generateId = (prefix: string): string => {

@@ -3,7 +3,7 @@ import { useTheme } from '../Views_Layouts/ThemeContext';
 import { Search, Plus, Filter, ChevronRight, Phone, Users, Briefcase, Clock, X, Edit2, Trash2, User, TrendingUp, CheckCircle2, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, StickyNote, FolderOpen, Link2, Unlink, UserMinus, FolderPlus, RefreshCw, Timer, Play, Pause, Save, CheckCircle, AlertCircle, Info, Mail } from 'lucide-react';
 import AssignmentService from '../services/AssignmentService';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = '/api';
 
 const STORAGE_KEYS = {
     consultantsExtended: 'timely_consultants_extended',

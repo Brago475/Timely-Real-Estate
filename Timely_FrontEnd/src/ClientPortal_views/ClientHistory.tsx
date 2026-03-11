@@ -34,7 +34,7 @@ import {
     TrendingUp,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = "/api";
 
 type ClientHistoryProps = {
     userName?: string;

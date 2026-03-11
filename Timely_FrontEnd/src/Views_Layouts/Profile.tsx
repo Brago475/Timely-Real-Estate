@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 // TASK: move to environment config
-const API_BASE = "http://localhost:4000";
+const API_BASE = "";
 
 type UserRole = "admin" | "consultant" | "client";
 

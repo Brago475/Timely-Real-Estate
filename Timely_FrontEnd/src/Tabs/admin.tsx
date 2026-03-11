@@ -15,7 +15,7 @@ import AdminDocumentRequests from "./AdminDocumentRequests";
 import AdminMessages from "./AdminMessages";
 
 // TASK: move to environment config
-const API_BASE = "http://localhost:4000";
+const API_BASE = "";
 
 const TOAST_DURATION_MS = 3000;
 

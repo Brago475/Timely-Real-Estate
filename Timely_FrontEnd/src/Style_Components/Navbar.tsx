@@ -24,7 +24,7 @@ import {
 import { useTheme } from "../Views_Layouts/ThemeContext";
 
 // TASK: move to environment config
-const API_BASE = "http://localhost:4000";
+const API_BASE = "";
 
 type Project = {
     projectId: string;

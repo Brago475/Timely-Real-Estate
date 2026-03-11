@@ -2,7 +2,7 @@
 // Centralized service for managing assignments between projects, clients, and consultants
 // This ensures bidirectional sync - assign once, appears everywhere
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = '/api';
 
 const STORAGE_KEYS = {
     projectConsultants: 'timely_project_consultants',

@@ -4,7 +4,7 @@ import { useTheme } from '../Views_Layouts/ThemeContext';
 import { Calendar, Plus, Search, Filter, ChevronRight, ChevronLeft, Clock, Users, FileText, CheckCircle2, AlertCircle, Target, TrendingUp, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown, UserPlus, UserMinus, FolderOpen, Link2, RefreshCw, Edit2, CheckCircle, Info, List, LayoutGrid, Timer, Play, Pause, Save } from 'lucide-react';
 import AssignmentService from '../services/AssignmentService';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = '/api';
 const generateId = () => `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 const generateProjectCode = () => `PRJ-${Date.now().toString().slice(-6)}`;
 

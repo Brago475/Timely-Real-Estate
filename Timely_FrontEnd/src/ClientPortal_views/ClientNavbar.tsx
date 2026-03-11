@@ -126,7 +126,7 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                     .filter((pc: any) => String(pc.clientId) === String(customerId))
                     .map((pc: any) => String(pc.projectId));
 
-                const response = await fetch("http://localhost:4000/api/projects");
+                const response = await fetch("/api/projects");
                 const data = await response.json();
                 if (data.data) {
                     const clientProjects = data.data.filter((p: Project) =>

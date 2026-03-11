@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useTheme } from '../Views_Layouts/ThemeContext';
 import { User, Briefcase, Mail, Key, Link2, Copy, Send, Save, Trash2, CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 
-const API_BASE = "http://localhost:4000";
+const API_BASE = "";
 
 type AccountType = "client" | "consultant";
 interface Toast { id: string; message: string; type: 'success' | 'error' | 'info'; }

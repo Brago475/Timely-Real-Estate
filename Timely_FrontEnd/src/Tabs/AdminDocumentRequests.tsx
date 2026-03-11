@@ -223,7 +223,7 @@ const DocumentUploadAPI = {
 };
 
 // ============ COMPONENT ============
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = "/api";
 
 interface AdminDocumentRequestsProps {
     onNavigate?: (page: string) => void;

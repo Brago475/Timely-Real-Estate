@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../Views_Layouts/ThemeContext';
 import { Clock, Play, Pause, Square, Plus, Calendar, User, FolderOpen, Search, Filter, ChevronRight, X, Edit2, Trash2, Timer, TrendingUp, ChevronLeft, RefreshCw, AlertCircle, CheckCircle, Info } from 'lucide-react';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = '/api';
 
 type UserRole = 'admin' | 'consultant' | 'client';
 
