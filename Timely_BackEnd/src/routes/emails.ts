@@ -72,7 +72,7 @@ router.get("/emails/outbox", authenticate, authorize("admin"), async (req: Reque
 
 // GET /api/emails/:emailId — Get a single email
 router.get("/emails/:emailId", authenticate, authorize("admin"), async (req: Request, res: Response) => {
-  const { emailId } = req.params;
+  const emailId = String(req.params.emailId);
 
   try {
     let email = null;
