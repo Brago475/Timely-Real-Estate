@@ -12,7 +12,7 @@ import Login from "./Style_Components/Login";
 import AdminTab from "./Tabs/admin";
 import ReportsTab from "./Tabs/reports";
 import EmailGenerator from "./Views_Layouts/EmailGenerator";
-import ProfilePage from "./Views_Layouts/profile";
+import ProfilePage from "./Views_Layouts/Profile";
 import RealEstateProjects from "./Tabs/projects";
 import ClientsPage from "./Tabs/clients";
 import ConsultantsPage from "./Tabs/consultants";
