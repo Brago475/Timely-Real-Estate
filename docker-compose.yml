@@ -37,14 +37,3 @@ services:
 
 volumes:
   timely_pgdata:
-```
-
-**Root file 2 — `.env.example`**
-```
-POSTGRES_DB=timely_db
-POSTGRES_USER=timely
-POSTGRES_PASSWORD=timely_secret_2026
-DATABASE_URL=postgresql://timely:timely_secret_2026@db:5432/timely_db
-JWT_SECRET=change-this-to-a-random-64-char-string
-NODE_ENV=production
-PORT=4000
