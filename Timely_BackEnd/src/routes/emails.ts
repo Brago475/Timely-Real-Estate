@@ -75,14 +75,13 @@ router.get("/emails/:emailId", authenticate, authorize("admin"), async (req: Req
   const { emailId } = req.params;
 
   try {
-    const email = await prisma.emailOutbox.findFirst({
-      where: {
-        OR: [
-          { id: isNaN(Number(emailId)) ? undefined : Number(emailId) },
-          { code: emailId },
-        ],
-      },
-    });
+    let email = null;
+    if (!isNaN(Number(emailId))) {
+      email = await prisma.emailOutbox.findUnique({ where: { id: Number(emailId) } });
+    }
+    if (!email) {
+      email = await prisma.emailOutbox.findFirst({ where: { code: emailId } });
+    }
 
     if (!email) {
       return res.status(404).json({ error: "Email not found." });
