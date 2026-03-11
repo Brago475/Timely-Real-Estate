@@ -35,5 +35,16 @@ services:
     ports:
       - "4000:4000"
 
+  frontend:
+    build:
+      context: ./Timely_FrontEnd
+      dockerfile: Dockerfile
+    container_name: timely-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
 volumes:
   timely_pgdata:
