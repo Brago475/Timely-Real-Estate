@@ -1,11 +1,13 @@
 ﻿import React, { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Clock, Loader2 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 interface LoginProps {
     onLoginSuccess: (userData: { customerId: string; email: string; name: string; role?: string }) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+    const { login } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -32,7 +34,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 throw new Error(data.error || "Login failed");
             }
 
-            // Store user data
+            // Store token in cookie + user in context
+            login(data.token, data.user);
+
+            // Also keep localStorage for backward compatibility
             localStorage.setItem("timely_user", JSON.stringify(data.user));
             localStorage.setItem("timely_authenticated", "true");
 
@@ -47,12 +52,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-            {/* Subtle background pattern */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950"></div>
 
-            {/* Login Card */}
             <div className="relative w-full max-w-md">
-                {/* Logo & Header */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-600/20">
                         <Clock className="w-8 h-8 text-white" />
@@ -61,9 +63,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <p className="text-slate-400 text-sm">Sign in to your account</p>
                 </div>
 
-                {/* Form Card */}
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
-                    {/* Error Message */}
                     {errorMessage && (
                         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                             <p className="text-sm text-red-400 text-center">{errorMessage}</p>
@@ -71,11 +71,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Email Field */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Email
-                            </label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <Mail className="w-5 h-5 text-slate-500" />
@@ -91,11 +88,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                             </div>
                         </div>
 
-                        {/* Password Field */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Password
-                            </label>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <Lock className="w-5 h-5 text-slate-500" />
@@ -112,14 +106,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     type="button"
                                     onClick={togglePasswordVisibility}
                                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
-                                    aria-label={showPassword ? "Hide password" : "Show password"}
                                 >
                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
                         </div>
 
-                        {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={isLoading}
@@ -136,7 +128,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         </button>
                     </form>
 
-                    {/* Footer */}
                     <div className="mt-6 pt-6 border-t border-slate-800">
                         <p className="text-sm text-slate-500 text-center">
                             Need help?{" "}
@@ -147,7 +138,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     </div>
                 </div>
 
-                {/* Bottom text */}
                 <p className="text-center text-slate-600 text-xs mt-6">
                     Accounts are created by your Timely administrator
                 </p>
