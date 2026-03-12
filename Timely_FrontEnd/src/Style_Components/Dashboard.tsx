@@ -73,17 +73,24 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const { isDark } = useTheme();
 
-    // Monochrome design system — no color unless absolutely necessary
+    // High contrast monochrome — works in both light and dark
     const s = {
-        bg: isDark ? "bg-black" : "bg-white",
-        text: isDark ? "text-neutral-100" : "text-neutral-900",
-        secondary: isDark ? "text-neutral-400" : "text-neutral-500",
-        tertiary: isDark ? "text-neutral-600" : "text-neutral-400",
-        card: isDark ? "bg-neutral-900 border-neutral-800" : "bg-neutral-50 border-neutral-200",
-        cardHover: isDark ? "hover:bg-neutral-800/70" : "hover:bg-neutral-100",
-        inner: isDark ? "bg-neutral-800" : "bg-neutral-100",
-        border: isDark ? "border-neutral-800" : "border-neutral-200",
-        row: isDark ? "hover:bg-neutral-800/50" : "hover:bg-neutral-50",
+        bg: isDark ? "bg-slate-950" : "bg-gray-50",
+        text: isDark ? "text-gray-100" : "text-gray-900",
+        secondary: isDark ? "text-gray-400" : "text-gray-600",
+        tertiary: isDark ? "text-gray-500" : "text-gray-400",
+        card: isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200",
+        cardHover: isDark ? "hover:bg-slate-800 hover:border-slate-700" : "hover:bg-gray-50 hover:border-gray-300",
+        inner: isDark ? "bg-slate-800" : "bg-gray-100",
+        border: isDark ? "border-slate-800" : "border-gray-200",
+        row: isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-white hover:bg-gray-50",
+        rowActive: isDark ? "bg-slate-800" : "bg-gray-100",
+        link: isDark ? "text-gray-400 hover:text-gray-100" : "text-gray-500 hover:text-gray-900",
+        actionHover: isDark ? "hover:text-white hover:bg-slate-800" : "hover:text-gray-900 hover:bg-gray-100",
+        badge: isDark ? "bg-slate-800 text-gray-300" : "bg-gray-100 text-gray-600",
+        avatar: isDark ? "bg-slate-800 text-gray-300" : "bg-gray-200 text-gray-600",
+        progress: isDark ? "bg-gray-300" : "bg-gray-800",
+        todayBg: isDark ? "bg-white text-gray-900" : "bg-gray-900 text-white",
     };
 
     const isAdmin = userRole === "admin";
@@ -173,20 +180,19 @@ const Dashboard: React.FC<DashboardProps> = ({
     const nav = (p: string) => onNavigate?.(p);
     const greeting = today.getHours() < 12 ? "Good morning" : today.getHours() < 18 ? "Good afternoon" : "Good evening";
 
-    // Skeleton
     if (isLoading) {
         return (
             <div className={`${s.bg} px-6 pb-10 max-w-6xl mx-auto`}>
                 <div className="mb-10 pt-4">
-                    <div className={`h-4 w-32 rounded ${isDark ? "bg-neutral-800" : "bg-neutral-200"} animate-pulse mb-3`} />
-                    <div className={`h-7 w-56 rounded ${isDark ? "bg-neutral-800" : "bg-neutral-200"} animate-pulse`} />
+                    <div className={`h-4 w-32 rounded ${s.inner} animate-pulse mb-3`} />
+                    <div className={`h-7 w-56 rounded ${s.inner} animate-pulse`} />
                 </div>
-                <div className="grid grid-cols-4 gap-4 mb-10">
+                <div className="grid grid-cols-4 gap-px mb-10">
                     <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
                 </div>
                 <div className="grid lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2"><div className={`rounded-xl border p-6 ${s.card}`}><SkeletonList rows={4} /></div></div>
-                    <div><div className={`rounded-xl border p-6 ${s.card}`}><div className={`h-52 rounded ${isDark ? "bg-neutral-800" : "bg-neutral-200"} animate-pulse`} /></div></div>
+                    <div><div className={`rounded-xl border p-6 ${s.card}`}><div className={`h-52 rounded ${s.inner} animate-pulse`} /></div></div>
                 </div>
             </div>
         );
@@ -196,7 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className={`${s.bg} ${s.text} min-h-screen`}>
             <div className="px-6 pb-12 max-w-6xl mx-auto">
 
-                {/* Header — clean, quiet */}
+                {/* Header */}
                 <FadeIn>
                     <div className="mb-10">
                         <p className={`text-[11px] tracking-[0.15em] uppercase ${s.tertiary} mb-1`}>
@@ -208,7 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </FadeIn>
 
-                {/* Stats — flat, no icons, just numbers */}
+                {/* Stats Row */}
                 <FadeIn delay={50}>
                     <div className={`grid grid-cols-2 lg:grid-cols-4 border rounded-xl overflow-hidden mb-10 ${s.border}`}>
                         {[
@@ -216,14 +222,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                             { label: "Clients", value: stats.clients, detail: "accounts", page: "client" },
                             { label: "Consultants", value: stats.consultants, detail: "team", page: "consultants" },
                             { label: "Hours", value: fmtH(stats.weekH), detail: "this week", page: "hours" },
-                        ].map((st, i) => (
+                        ].map((st, i, arr) => (
                             <div
                                 key={i}
                                 onClick={() => nav(st.page)}
-                                className={`p-5 cursor-pointer transition-colors ${s.row}
-                                    ${i < 3 ? (isDark ? "border-r border-neutral-800" : "border-r border-neutral-200") : ""}
-                                    ${i < 2 ? (isDark ? "lg:border-r" : "lg:border-r") : ""}
-                                    ${isDark ? "bg-neutral-900" : "bg-white"}`}
+                                className={`p-5 cursor-pointer transition-all duration-150 ${s.row}
+                                    ${i < arr.length - 1 ? `border-r ${s.border}` : ""}`}
                             >
                                 <p className={`text-[11px] uppercase tracking-wider ${s.tertiary} mb-2`}>{st.label}</p>
                                 <p className={`text-2xl font-semibold tracking-tight ${s.text}`}>{st.value}</p>
@@ -233,9 +237,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </FadeIn>
 
-                {/* Quick Actions — text buttons, no background pills */}
+                {/* Quick Actions */}
                 <FadeIn delay={80}>
-                    <div className={`flex items-center gap-6 mb-10 pb-6 border-b ${s.border}`}>
+                    <div className={`flex items-center gap-2 mb-10 pb-6 border-b ${s.border} overflow-x-auto`}>
                         {(isAdmin ? [
                             { label: "New project", page: "projects", icon: Plus },
                             { label: "Add client", page: "admin", icon: Users },
@@ -254,7 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <button
                                 key={i}
                                 onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] ${s.secondary} hover:${s.text} transition-colors`}
+                                className={`flex items-center gap-2 text-[13px] px-3 py-1.5 rounded-lg whitespace-nowrap transition-all duration-150 ${s.link} ${s.actionHover}`}
                             >
                                 <a.icon className="w-3.5 h-3.5" />
                                 {a.label}
@@ -267,21 +271,20 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {/* Left */}
                     <div className="lg:col-span-2 space-y-8">
 
-                        {/* Alerts — simple list, no cards */}
+                        {/* Alerts */}
                         {alerts.length > 0 && (
                             <FadeIn delay={100}>
                                 <div>
-                                    <h2 className={`text-[11px] uppercase tracking-wider ${s.tertiary} mb-3`}>Alerts</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary} mb-3`}>Alerts</h2>
                                     <div className={`border rounded-xl overflow-hidden ${s.border}`}>
                                         {alerts.map((a, i) => (
                                             <div
                                                 key={i}
                                                 onClick={() => a.page && nav(a.page)}
-                                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${s.row}
-                                                    ${i < alerts.length - 1 ? `border-b ${s.border}` : ""}
-                                                    ${isDark ? "bg-neutral-900" : "bg-white"}`}
+                                                className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-150 ${s.row}
+                                                    ${i < alerts.length - 1 ? `border-b ${s.border}` : ""}`}
                                             >
-                                                <Circle className={`w-2 h-2 fill-amber-500 text-amber-500 flex-shrink-0`} />
+                                                <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                                                 <p className={`text-sm ${s.text} flex-1`}>{a.msg}</p>
                                                 <ArrowRight className={`w-3.5 h-3.5 ${s.tertiary}`} />
                                             </div>
@@ -291,16 +294,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </FadeIn>
                         )}
 
-                        {/* Progress — thin bar, minimal */}
+                        {/* Progress */}
                         <FadeIn delay={130}>
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider ${s.tertiary}`}>Completion</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Completion</h2>
                                     <span className={`text-sm font-medium ${s.text}`}>{stats.progress}%</span>
                                 </div>
                                 <div className={`w-full h-1.5 ${s.inner} rounded-full overflow-hidden`}>
                                     <div
-                                        className={`h-full ${isDark ? "bg-neutral-400" : "bg-neutral-900"} rounded-full transition-all duration-700`}
+                                        className={`h-full ${s.progress} rounded-full transition-all duration-700`}
                                         style={{ width: `${stats.progress}%` }}
                                     />
                                 </div>
@@ -312,33 +315,33 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Projects — clean table rows */}
+                        {/* Projects */}
                         <FadeIn delay={160}>
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider ${s.tertiary}`}>Projects</h2>
-                                    <button onClick={() => nav("projects")} className={`text-xs ${s.secondary} hover:${s.text} transition-colors`}>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Projects</h2>
+                                    <button onClick={() => nav("projects")} className={`text-xs transition-colors ${s.link}`}>
                                         View all
                                     </button>
                                 </div>
                                 {projects.length === 0 ? (
-                                    <div className={`border rounded-xl p-8 text-center ${s.border} ${isDark ? "bg-neutral-900" : "bg-white"}`}>
+                                    <div className={`border rounded-xl p-10 text-center ${s.card}`}>
+                                        <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${s.tertiary}`} />
                                         <p className={`text-sm ${s.secondary}`}>No projects yet</p>
                                         {isAdmin && (
-                                            <button onClick={() => nav("projects")} className={`mt-2 text-xs ${s.secondary} underline`}>
+                                            <button onClick={() => nav("projects")} className={`mt-2 text-xs underline ${s.link}`}>
                                                 Create your first project
                                             </button>
                                         )}
                                     </div>
                                 ) : (
                                     <div className={`border rounded-xl overflow-hidden ${s.border}`}>
-                                        {projects.slice(0, 6).map((p, i) => (
+                                        {projects.slice(0, 6).map((p, i, arr) => (
                                             <div
                                                 key={p.projectId}
                                                 onClick={() => nav("projects")}
-                                                className={`flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-colors ${s.row}
-                                                    ${i < Math.min(projects.length, 6) - 1 ? `border-b ${s.border}` : ""}
-                                                    ${isDark ? "bg-neutral-900" : "bg-white"}`}
+                                                className={`flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-150 ${s.row}
+                                                    ${i < Math.min(arr.length, 6) - 1 ? `border-b ${s.border}` : ""}`}
                                             >
                                                 <div className={`w-8 h-8 rounded-lg ${s.inner} flex items-center justify-center flex-shrink-0`}>
                                                     <FolderOpen className={`w-3.5 h-3.5 ${s.secondary}`} />
@@ -349,7 +352,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                         {p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}
                                                     </p>
                                                 </div>
-                                                <span className={`text-[11px] px-2.5 py-1 rounded-md ${isDark ? "bg-neutral-800 text-neutral-400" : "bg-neutral-100 text-neutral-500"}`}>
+                                                <span className={`text-[11px] px-2.5 py-1 rounded-md font-medium ${s.badge}`}>
                                                     {p.status || "Planning"}
                                                 </span>
                                             </div>
@@ -359,12 +362,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Activity — timeline style */}
+                        {/* Activity Timeline */}
                         <FadeIn delay={190}>
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider ${s.tertiary}`}>Activity</h2>
-                                    <button onClick={() => nav("reports")} className={`text-xs ${s.secondary} hover:${s.text} transition-colors`}>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Activity</h2>
+                                    <button onClick={() => nav("reports")} className={`text-xs transition-colors ${s.link}`}>
                                         View all
                                     </button>
                                 </div>
@@ -372,29 +375,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <p className={`text-sm ${s.secondary} py-4`}>No recent activity</p>
                                 ) : (
                                     <div className="relative pl-6">
-                                        {/* Timeline line */}
-                                        <div className={`absolute left-[7px] top-2 bottom-2 w-px ${isDark ? "bg-neutral-800" : "bg-neutral-200"}`} />
+                                        <div className={`absolute left-[7px] top-2 bottom-2 w-px ${isDark ? "bg-slate-800" : "bg-gray-200"}`} />
 
-                                        <div className="space-y-0">
-                                            {activities.slice(0, 6).map(a => (
-                                                <div key={a.id} className="relative flex items-start gap-3 py-2.5">
-                                                    {/* Dot */}
-                                                    <div className={`absolute -left-6 top-3.5 w-[9px] h-[9px] rounded-full border-2
-                                                        ${a.isDelete
-                                                            ? (isDark ? "border-red-500/50 bg-red-500/20" : "border-red-400 bg-red-50")
-                                                            : (isDark ? "border-neutral-600 bg-neutral-800" : "border-neutral-300 bg-white")}`}
-                                                    />
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className={`text-sm ${s.text}`}>
-                                                            <span className="font-medium">{a.user}</span>
-                                                            <span className={` ${s.secondary}`}> {a.action}</span>
-                                                        </p>
-                                                        <p className={`text-[11px] ${s.tertiary} truncate mt-0.5`}>{a.target}</p>
-                                                    </div>
-                                                    <span className={`text-[11px] ${s.tertiary} flex-shrink-0 pt-0.5`}>{a.time}</span>
+                                        {activities.slice(0, 6).map(a => (
+                                            <div key={a.id} className="relative flex items-start gap-3 py-3 group">
+                                                <div className={`absolute -left-6 top-4 w-[9px] h-[9px] rounded-full border-2 transition-colors
+                                                    ${a.isDelete
+                                                        ? (isDark ? "border-red-400 bg-red-400/20" : "border-red-400 bg-red-50")
+                                                        : (isDark ? "border-slate-600 bg-slate-900 group-hover:border-gray-400" : "border-gray-300 bg-white group-hover:border-gray-500")}`}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-sm ${s.text}`}>
+                                                        <span className="font-medium">{a.user}</span>
+                                                        <span className={`${s.secondary}`}> {a.action}</span>
+                                                    </p>
+                                                    <p className={`text-[11px] ${s.tertiary} truncate mt-0.5`}>{a.target}</p>
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <span className={`text-[11px] ${s.tertiary} flex-shrink-0 pt-0.5`}>{a.time}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -408,21 +407,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={100}>
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider ${s.tertiary}`}>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>
                                         {calDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                                     </h2>
                                     <div className="flex gap-1">
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))}
-                                            className={`p-1 rounded ${s.row} transition-colors`}>
+                                            className={`p-1.5 rounded-lg transition-colors ${s.actionHover}`}>
                                             <ChevronLeft className="w-3.5 h-3.5" />
                                         </button>
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))}
-                                            className={`p-1 rounded ${s.row} transition-colors`}>
+                                            className={`p-1.5 rounded-lg transition-colors ${s.actionHover}`}>
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 </div>
-                                <div className={`border rounded-xl p-4 ${s.border} ${isDark ? "bg-neutral-900" : "bg-white"}`}>
+                                <div className={`border rounded-xl p-4 ${s.card}`}>
                                     <div className="grid grid-cols-7 gap-0.5 mb-1">
                                         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                                             <div key={i} className={`text-center text-[10px] font-medium ${s.tertiary} py-1`}>{d}</div>
@@ -430,20 +429,24 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     </div>
                                     <div className="grid grid-cols-7 gap-0.5">
                                         {calDays.map((day, i) => (
-                                            <div key={i} className={`aspect-square flex items-center justify-center text-[11px] rounded-lg relative
+                                            <div key={i} className={`aspect-square flex items-center justify-center text-[11px] rounded-lg relative transition-all duration-150
                                                 ${!day ? "" :
                                                 isToday(day)
-                                                    ? (isDark ? "bg-white text-black font-semibold" : "bg-neutral-900 text-white font-semibold")
-                                                    : `cursor-pointer ${s.row}`}`}>
+                                                    ? `${s.todayBg} font-semibold`
+                                                    : `cursor-pointer ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"} ${s.secondary}`}`}>
                                                 {day}
                                                 {day && (hasDue(day) || isHol(day)) && (
                                                     <div className="absolute bottom-0.5 flex gap-0.5">
-                                                        {isHol(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-neutral-500" : "bg-neutral-400"}`} />}
-                                                        {hasDue(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-neutral-400" : "bg-neutral-600"}`} />}
+                                                        {isHol(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-gray-500" : "bg-gray-400"}`} />}
+                                                        {hasDue(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-gray-300" : "bg-gray-600"}`} />}
                                                     </div>
                                                 )}
                                             </div>
                                         ))}
+                                    </div>
+                                    <div className={`mt-3 pt-3 border-t ${s.border} flex justify-center gap-5 text-[10px] ${s.tertiary}`}>
+                                        <span className="flex items-center gap-1.5"><div className={`w-1.5 h-1.5 rounded-full ${isDark ? "bg-gray-500" : "bg-gray-400"}`} />Holiday</span>
+                                        <span className="flex items-center gap-1.5"><div className={`w-1.5 h-1.5 rounded-full ${isDark ? "bg-gray-300" : "bg-gray-600"}`} />Deadline</span>
                                     </div>
                                 </div>
                             </div>
@@ -453,8 +456,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={150}>
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider ${s.tertiary}`}>Clients</h2>
-                                    <button onClick={() => nav("client")} className={`text-xs ${s.secondary} hover:${s.text} transition-colors`}>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Clients</h2>
+                                    <button onClick={() => nav("client")} className={`text-xs transition-colors ${s.link}`}>
                                         View all
                                     </button>
                                 </div>
@@ -462,19 +465,18 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <p className={`text-sm ${s.secondary}`}>No clients yet</p>
                                 ) : (
                                     <div className={`border rounded-xl overflow-hidden ${s.border}`}>
-                                        {clients.slice(0, 5).map((c, i) => (
+                                        {clients.slice(0, 5).map((c, i, arr) => (
                                             <div
                                                 key={c.customerId}
                                                 onClick={() => nav("client")}
-                                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${s.row}
-                                                    ${i < Math.min(clients.length, 5) - 1 ? `border-b ${s.border}` : ""}
-                                                    ${isDark ? "bg-neutral-900" : "bg-white"}`}
+                                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 ${s.row}
+                                                    ${i < Math.min(arr.length, 5) - 1 ? `border-b ${s.border}` : ""}`}
                                             >
-                                                <div className={`w-7 h-7 rounded-full ${s.inner} flex items-center justify-center text-[10px] font-medium ${s.secondary} flex-shrink-0`}>
+                                                <div className={`w-7 h-7 rounded-full ${s.avatar} flex items-center justify-center text-[10px] font-semibold flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm ${s.text} truncate`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-sm font-medium ${s.text} truncate`}>{c.firstName} {c.lastName}</p>
                                                     <p className={`text-[11px] ${s.tertiary} truncate`}>{c.email}</p>
                                                 </div>
                                             </div>
@@ -488,8 +490,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={200}>
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider ${s.tertiary}`}>Team</h2>
-                                    <button onClick={() => nav("consultants")} className={`text-xs ${s.secondary} hover:${s.text} transition-colors`}>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Team</h2>
+                                    <button onClick={() => nav("consultants")} className={`text-xs transition-colors ${s.link}`}>
                                         View all
                                     </button>
                                 </div>
@@ -497,21 +499,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <p className={`text-sm ${s.secondary}`}>No consultants yet</p>
                                 ) : (
                                     <div className={`border rounded-xl overflow-hidden ${s.border}`}>
-                                        {consultants.slice(0, 5).map((c, i) => (
+                                        {consultants.slice(0, 5).map((c, i, arr) => (
                                             <div
                                                 key={c.consultantId}
                                                 onClick={() => nav("consultants")}
-                                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${s.row}
-                                                    ${i < Math.min(consultants.length, 5) - 1 ? `border-b ${s.border}` : ""}
-                                                    ${isDark ? "bg-neutral-900" : "bg-white"}`}
+                                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 ${s.row}
+                                                    ${i < Math.min(arr.length, 5) - 1 ? `border-b ${s.border}` : ""}`}
                                             >
-                                                <div className={`w-7 h-7 rounded-full ${s.inner} flex items-center justify-center text-[10px] font-medium ${s.secondary} flex-shrink-0`}>
+                                                <div className={`w-7 h-7 rounded-full ${s.avatar} flex items-center justify-center text-[10px] font-semibold flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm ${s.text} truncate`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-sm font-medium ${s.text} truncate`}>{c.firstName} {c.lastName}</p>
                                                     <p className={`text-[11px] ${s.tertiary} truncate`}>{c.email}</p>
                                                 </div>
+                                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isDark ? "bg-emerald-500" : "bg-emerald-500"}`} />
                                             </div>
                                         ))}
                                     </div>
@@ -523,7 +525,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* Team Feed */}
                 <FadeIn delay={250}>
-                    <div className="mt-10">
+                    <div className={`mt-10 pt-8 border-t ${s.border}`}>
                         <TeamFeed userName={userName || "User"} userEmail={userEmail || ""} userRole={userRole || "admin"} maxPosts={10} />
                     </div>
                 </FadeIn>
