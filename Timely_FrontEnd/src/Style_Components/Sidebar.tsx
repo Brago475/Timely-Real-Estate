@@ -1,21 +1,10 @@
 // src/Style_Components/Sidebar.tsx
 import React, { useState, useEffect } from "react";
 import {
-    FaHome,
-    FaUserCog,
-    FaRegSun,
-    FaClock,
-    FaUsers,
-    FaUserTie,
-    FaChartBar,
-    FaSignOutAlt,
-    FaChevronLeft,
-    FaChevronRight,
-    FaEnvelope,
-    FaArrowLeft,
-    FaComments,
-} from "react-icons/fa";
-import { FaRegFolder } from "react-icons/fa6";
+    Home, FolderOpen, Users, UserCheck, BarChart3, Clock,
+    Settings, LogOut, ChevronLeft, ChevronRight, ArrowLeft,
+    Shield, UserPlus, MessageCircle,
+} from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 
 type Props = {
@@ -28,16 +17,6 @@ type Props = {
     userName?: string;
     userEmail?: string;
     userRole?: string;
-};
-
-// Helper to get unread message count for consultants
-const getConsultantUnreadCount = (consultantId: string): number => {
-    try {
-        const messages = JSON.parse(localStorage.getItem(`timely_consultant_messages_${consultantId}`) || "[]");
-        return messages.filter((m: any) => !m.read && !m.archived && !m.deleted).length;
-    } catch {
-        return 0;
-    }
 };
 
 const Sidebar: React.FC<Props> = ({
@@ -53,116 +32,49 @@ const Sidebar: React.FC<Props> = ({
 }) => {
     const { isDark } = useTheme();
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-    const [showProfileDetails, setShowProfileDetails] = useState(false);
-    const [unreadMessages, setUnreadMessages] = useState(0);
-    const [consultantId, setConsultantId] = useState("");
+    const isConsultant = userRole === "consultant";
 
-    // Fetch consultant ID and unread count (only for consultants)
-    useEffect(() => {
-        const fetchConsultantId = async () => {
-            // Only fetch for consultants, not admins
-            if (userRole === "consultant" && userEmail) {
-                try {
-                    const res = await fetch(`/api/consultants`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const consultant = (data.data || []).find(
-                            (c: any) => c.email === userEmail
-                        );
-                        if (consultant) {
-                            setConsultantId(consultant.consultantId);
-                            setUnreadMessages(getConsultantUnreadCount(consultant.consultantId));
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error fetching consultant ID:", e);
-                }
-            }
-        };
-
-        fetchConsultantId();
-
-        // Refresh unread count periodically (only for consultants)
-        const interval = setInterval(() => {
-            if (consultantId && userRole === "consultant") {
-                setUnreadMessages(getConsultantUnreadCount(consultantId));
-            }
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, [userEmail, userRole, consultantId]);
-
-    const styles = {
+    const s = {
         sidebar: isDark
-            ? "bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-slate-800/50 shadow-black/20"
-            : "bg-white border-gray-200 shadow-gray-200/50",
+            ? "bg-slate-900 border-slate-800"
+            : "bg-white border-gray-200",
         text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-500",
-        textSubtle: isDark ? "text-slate-500" : "text-gray-400",
-        menuActive: isDark
-            ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-cyan-500/30"
+        muted: isDark ? "text-slate-400" : "text-gray-500",
+        subtle: isDark ? "text-slate-500" : "text-gray-400",
+        active: isDark
+            ? "bg-blue-500/10 border-blue-500/20"
             : "bg-blue-50 border-blue-200",
-        menuHover: isDark
-            ? "hover:bg-slate-700/50 hover:border-slate-600/50"
-            : "hover:bg-gray-100 hover:border-gray-200",
-        menuActiveText: isDark ? "text-cyan-400" : "text-blue-600",
-        menuActiveIcon: isDark
-            ? "bg-gradient-to-br from-cyan-500 to-blue-500 shadow-cyan-500/25"
-            : "bg-blue-500",
-        menuIcon: isDark ? "bg-slate-700/50 text-slate-400" : "bg-gray-100 text-gray-500",
-        menuIconHover: isDark ? "bg-slate-600 text-white" : "bg-gray-200 text-gray-700",
-        card: isDark
-            ? "bg-slate-800/50 border-slate-700/50 hover:bg-slate-800/70"
-            : "bg-gray-50 border-gray-200 hover:bg-gray-100",
-        divider: isDark
-            ? "bg-gradient-to-r from-transparent via-slate-700 to-transparent"
-            : "bg-gray-200",
-        button: isDark
-            ? "bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700"
-            : "bg-white hover:bg-gray-100 text-gray-500 border-gray-200",
-        activeBar: isDark
-            ? "bg-gradient-to-b from-cyan-400 to-blue-500"
-            : "bg-blue-500",
+        activeText: isDark ? "text-blue-400" : "text-blue-600",
+        activeIcon: "bg-blue-600 text-white shadow-lg shadow-blue-600/20",
+        hover: isDark ? "hover:bg-slate-800" : "hover:bg-gray-50",
+        icon: isDark ? "bg-slate-800 text-slate-400" : "bg-gray-100 text-gray-500",
+        divider: isDark ? "border-slate-800" : "border-gray-100",
+        card: isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-gray-50 border-gray-200",
     };
 
     const getInitials = (name: string) => {
         const parts = name.trim().split(" ");
-        if (parts.length >= 2) {
-            return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-        }
-        return name.slice(0, 2).toUpperCase();
+        return parts.length >= 2
+            ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+            : name.slice(0, 2).toUpperCase();
     };
 
-    // Base menu items (for both admin and consultant)
-    const baseMenuItems = [
-        { id: "dashboard", label: "Dashboard", icon: FaHome },
-        { id: "projects", label: "Projects", icon: FaRegFolder },
-        { id: "client", label: "Clients", icon: FaUsers },
-        { id: "consultants", label: "Consultants", icon: FaUserTie },
-        { id: "reports", label: "Reports", icon: FaChartBar },
-        { id: "hours", label: "Hours", icon: FaClock },
+    const menuItems = [
+        { id: "dashboard", label: "Dashboard", icon: Home },
+        { id: "projects", label: "Projects", icon: FolderOpen },
+        { id: "client", label: "Clients", icon: Users },
+        { id: "consultants", label: "Consultants", icon: UserCheck },
+        { id: "reports", label: "Reports", icon: BarChart3 },
+        { id: "hours", label: "Hours", icon: Clock },
+        ...(isConsultant
+            ? [{ id: "messages", label: "Messages", icon: MessageCircle }]
+            : []),
     ];
 
-    // Messages item - only for consultants (admins access Messages via Admin Panel)
-    const messagesItem = {
-        id: "messages",
-        label: "Messages",
-        icon: FaComments,
-        badge: unreadMessages > 0 ? unreadMessages : undefined
-    };
-
-    // Build menu items based on role
-    const menuItems = isAdmin
-        ? baseMenuItems  // Admin: no messages in sidebar (they use Admin Panel > Messages)
-        : [...baseMenuItems, messagesItem];  // Consultant: include messages
-
-    // Admin-only section
     const adminItems = [
-        { id: "admin", label: "Admin Panel", icon: FaUserCog },
-        { id: "EmailGenerator", label: "Create Account", icon: FaEnvelope },
+        { id: "admin", label: "Admin Panel", icon: Shield },
+        { id: "EmailGenerator", label: "Create Account", icon: UserPlus },
     ];
-
-    const bottomItems = [{ id: "settings", label: "Settings", icon: FaRegSun }];
 
     const NavItem = ({
         id,
@@ -170,151 +82,107 @@ const Sidebar: React.FC<Props> = ({
         icon: Icon,
         isActive,
         isLogout = false,
-        badge,
     }: {
         id: string;
         label: string;
         icon: React.ComponentType<{ className?: string }>;
         isActive: boolean;
         isLogout?: boolean;
-        badge?: number;
     }) => {
-        const isHovered = hoveredItem === id;
+        const hovered = hoveredItem === id;
 
         return (
             <li
-                className={`
-          relative mb-1 rounded-xl cursor-pointer select-none
-          transition-all duration-200 ease-out border
-          ${isActive
-                        ? styles.menuActive
-                        : isLogout
-                            ? "hover:bg-red-500/10 border-transparent hover:border-red-500/30"
-                            : `${styles.menuHover} border-transparent`
-                    }
-        `}
+                className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 border
+                    ${isActive ? s.active
+                        : isLogout ? "hover:bg-red-500/10 border-transparent"
+                        : `${s.hover} border-transparent`}`}
                 onClick={() => onNavigate(id)}
                 onMouseEnter={() => setHoveredItem(id)}
                 onMouseLeave={() => setHoveredItem(null)}
             >
+                {/* Active indicator bar */}
                 {isActive && (
-                    <div
-                        className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 ${styles.activeBar} rounded-r-full`}
-                    />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-500 rounded-r-full" />
                 )}
 
-                <div
-                    className={`
-            px-4 py-3 flex items-center gap-3 transition-colors duration-200
-            ${isActive
-                            ? styles.menuActiveText
-                            : isLogout
-                                ? "text-red-400"
-                                : styles.textMuted
-                        }
-            ${isHovered && !isActive && !isLogout ? styles.text : ""}
-          `}
+                <div className={`px-3 py-2.5 flex items-center gap-3 transition-colors duration-200
+                    ${isActive ? s.activeText
+                        : isLogout ? "text-red-400"
+                        : s.muted}
+                    ${hovered && !isActive && !isLogout ? s.text : ""}`}
                 >
-                    <div
-                        className={`
-              w-9 h-9 rounded-lg flex items-center justify-center
-              transition-all duration-200 relative
-              ${isActive
-                                ? `${styles.menuActiveIcon} text-white shadow-lg`
-                                : isLogout
-                                    ? "bg-red-500/10 text-red-400"
-                                    : styles.menuIcon
-                            }
-              ${isHovered && !isActive && !isLogout
-                                ? `${styles.menuIconHover} scale-105`
-                                : ""
-                            }
-            `}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200
+                        ${isActive ? s.activeIcon
+                            : isLogout ? "bg-red-500/10 text-red-400"
+                            : s.icon}
+                        ${hovered && !isActive && !isLogout ? "scale-105" : ""}`}
                     >
                         <Icon className="w-4 h-4" />
-                        {/* Badge for unread count */}
-                        {badge && badge > 0 && (
-                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-                                {badge > 9 ? "9+" : badge}
-                            </span>
-                        )}
                     </div>
-                    <span className={`font-medium text-sm ${isActive ? styles.text : ""}`}>
+                    <span className={`text-sm font-medium ${isActive ? s.text : ""}`}>
                         {label}
                     </span>
-
-                    {isHovered && !isActive && (
-                        <FaChevronRight
-                            className={`
-                w-3 h-3 ml-auto animate-pulse
-                ${isLogout ? "text-red-400" : styles.textSubtle}
-              `}
-                        />
-                    )}
                 </div>
             </li>
         );
     };
 
+    // Timely house logo SVG inline
+    const TimelyLogo = () => (
+        <svg className="w-8 h-8" viewBox="0 0 120 112" fill="none">
+            <polygon
+                points="60,12 10,52 20,52 20,100 100,100 100,52 110,52"
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth="5"
+                strokeLinejoin="round"
+            />
+            <rect x="47" y="65" width="26" height="35" rx="2" fill="#3b82f6" />
+            <circle cx="60" cy="48" r="14" fill="none" stroke="#c9a84c" strokeWidth="2.5" />
+            <line x1="60" y1="48" x2="60" y2="38" stroke="#c9a84c" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="60" y1="48" x2="68" y2="48" stroke="#c9a84c" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="60" cy="48" r="2" fill="#c9a84c" />
+        </svg>
+    );
+
     return (
         <aside
-            className={`
-        ${sidebarToggle ? "w-0 -translate-x-full" : "w-72 translate-x-0"}
-        ${styles.sidebar}
-        fixed top-0 left-0 h-full
-        border-r transition-all duration-300 ease-in-out
-        z-40 overflow-hidden shadow-2xl
-      `}
+            className={`${sidebarToggle ? "w-0 -translate-x-full" : "w-72 translate-x-0"}
+                ${s.sidebar} fixed top-0 left-0 h-full border-r
+                transition-all duration-300 ease-in-out z-40 overflow-hidden`}
         >
-            {isDark && (
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute top-0 left-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-                    <div className="absolute bottom-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
-                </div>
-            )}
+            <div className="h-full flex flex-col px-4 py-5">
 
-            <div className="relative h-full flex flex-col px-4 py-6">
-                {/* Top: back button + logo */}
-                <div className="mb-8">
-                    <div className="flex items-center gap-3 px-2">
-                        {onBack && activePage !== "dashboard" && (
+                {/* Logo */}
+                <div className="mb-8 px-2">
+                    <div className="flex items-center gap-3">
+                        {onBack && activePage !== "dashboard" ? (
                             <button
                                 onClick={onBack}
-                                className={`w-10 h-10 ${styles.button} border rounded-xl flex items-center justify-center hover:text-white transition-all`}
-                                title="Go back"
+                                className={`w-9 h-9 ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-400" : "bg-gray-100 hover:bg-gray-200 text-gray-500"} rounded-xl flex items-center justify-center transition-colors`}
                             >
-                                <FaArrowLeft className="w-4 h-4" />
+                                <ArrowLeft className="w-4 h-4" />
                             </button>
+                        ) : (
+                            <TimelyLogo />
                         )}
-
-                        {(!onBack || activePage === "dashboard") && (
-                            <div
-                                className={`w-10 h-10 ${isDark
-                                        ? "bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/25"
-                                        : "bg-blue-600"
-                                    } rounded-xl flex items-center justify-center`}
-                            >
-                                <span className="text-white font-bold text-lg">T</span>
-                            </div>
-                        )}
-
                         <div>
-                            <h1 className={`text-xl ${styles.text} font-bold tracking-tight`}>
+                            <h1 className={`text-lg font-semibold tracking-tight ${s.text}`}>
                                 Timely
                             </h1>
-                            <p className={`text-xs ${styles.textSubtle}`}>Management Portal</p>
+                            <p className={`text-[10px] tracking-[0.2em] uppercase ${s.subtle}`}>
+                                Real Estate
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                {/* MAIN NAVIGATION */}
+                {/* Main Navigation */}
                 <div className="flex-1 overflow-y-auto">
-                    {/* Main Menu */}
                     <div className="mb-6">
-                        <p
-                            className={`px-4 mb-3 text-xs font-semibold ${styles.textSubtle} uppercase tracking-wider`}
-                        >
-                            Main Menu
+                        <p className={`px-3 mb-2 text-[10px] font-semibold ${s.subtle} uppercase tracking-[0.15em]`}>
+                            Menu
                         </p>
                         <ul>
                             {menuItems.map((item) => (
@@ -324,19 +192,15 @@ const Sidebar: React.FC<Props> = ({
                                     label={item.label}
                                     icon={item.icon}
                                     isActive={activePage === item.id}
-                                    badge={(item as any).badge}
                                 />
                             ))}
                         </ul>
                     </div>
 
-                    {/* Admin Section (admin only) */}
+                    {/* Admin Section */}
                     {isAdmin && (
                         <div className="mb-6">
-                            <p
-                                className={`px-4 mb-3 text-xs font-semibold ${isDark ? "text-amber-500/80" : "text-amber-600"
-                                    } uppercase tracking-wider`}
-                            >
+                            <p className={`px-3 mb-2 text-[10px] font-semibold ${isDark ? "text-amber-500/70" : "text-amber-600"} uppercase tracking-[0.15em]`}>
                                 Administration
                             </p>
                             <ul>
@@ -354,94 +218,60 @@ const Sidebar: React.FC<Props> = ({
                     )}
                 </div>
 
-                {/* Bottom: Settings + Logout + User Card */}
+                {/* Bottom Section */}
                 <div className="mt-auto">
-                    <div className={`h-px ${styles.divider} mb-4`} />
+                    <div className={`h-px ${s.divider} border-t mb-3`} />
 
                     <ul>
-                        {bottomItems.map((item) => (
-                            <NavItem
-                                key={item.id}
-                                id={item.id}
-                                label={item.label}
-                                icon={item.icon}
-                                isActive={activePage === item.id}
-                            />
-                        ))}
+                        <NavItem
+                            id="settings"
+                            label="Settings"
+                            icon={Settings}
+                            isActive={activePage === "settings"}
+                        />
                         <NavItem
                             id="logout"
                             label="Logout"
-                            icon={FaSignOutAlt}
+                            icon={LogOut}
                             isActive={false}
                             isLogout={true}
                         />
                     </ul>
 
-                    {/* User card */}
-                    <div
-                        className={`mt-4 p-3 ${styles.card} rounded-xl border cursor-pointer transition-all`}
-                        onClick={() => setShowProfileDetails(!showProfileDetails)}
-                    >
+                    {/* User Card */}
+                    <div className={`mt-3 p-3 ${s.card} rounded-xl border transition-colors`}>
                         <div className="flex items-center gap-3">
-                            <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${userRole === "admin"
-                                        ? "bg-gradient-to-br from-amber-500 to-orange-500"
-                                        : userRole === "consultant"
-                                            ? "bg-gradient-to-br from-purple-500 to-pink-500"
-                                            : "bg-gradient-to-br from-cyan-500 to-blue-500"
-                                    }`}
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold
+                                ${userRole === "admin"
+                                    ? "bg-gradient-to-br from-amber-500 to-orange-500"
+                                    : userRole === "consultant"
+                                        ? "bg-gradient-to-br from-purple-500 to-pink-500"
+                                        : "bg-gradient-to-br from-blue-500 to-blue-600"}`}
                             >
                                 {getInitials(userName)}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium ${styles.text}`}>
-                                    {userRole === "admin"
-                                        ? "Admin"
-                                        : userRole === "consultant"
-                                            ? "Consultant"
-                                            : "Client"}
+                                <p className={`text-sm font-medium ${s.text} truncate`}>{userName}</p>
+                                <p className={`text-[11px] ${s.subtle} truncate`}>
+                                    {userRole === "admin" ? "Administrator"
+                                        : userRole === "consultant" ? "Consultant"
+                                        : "Client"}
                                 </p>
-                                <div className="flex items-center gap-1">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                                    <span className={`text-xs ${styles.textSubtle}`}>Online</span>
-                                </div>
                             </div>
-                            <FaChevronRight
-                                className={`w-3 h-3 ${styles.textSubtle} transition-transform duration-200 ${showProfileDetails ? "rotate-90" : ""
-                                    }`}
-                            />
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
                         </div>
-
-                        {showProfileDetails && (
-                            <div
-                                className={`mt-3 pt-3 border-t ${isDark ? "border-slate-700/50" : "border-gray-200"
-                                    } space-y-2`}
-                            >
-                                <div>
-                                    <p className={`text-xs ${styles.textSubtle}`}>Name</p>
-                                    <p className={`text-sm ${styles.text} truncate`}>{userName}</p>
-                                </div>
-                                <div>
-                                    <p className={`text-xs ${styles.textSubtle}`}>Email</p>
-                                    <p className={`text-sm ${styles.textMuted} truncate`}>
-                                        {userEmail || "No email"}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
+                {/* Collapse toggle */}
                 {setSidebarToggle && (
                     <button
                         onClick={() => setSidebarToggle(!sidebarToggle)}
-                        className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-12 ${styles.button} border rounded-r-lg flex items-center justify-center hover:text-white transition-all`}
+                        className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-12
+                            ${isDark ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-white" : "bg-white border-gray-200 text-gray-400 hover:text-gray-700"}
+                            border rounded-r-lg flex items-center justify-center transition-colors`}
                     >
-                        {sidebarToggle ? (
-                            <FaChevronRight className="w-3 h-3" />
-                        ) : (
-                            <FaChevronLeft className="w-3 h-3" />
-                        )}
+                        {sidebarToggle ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
                     </button>
                 )}
             </div>
