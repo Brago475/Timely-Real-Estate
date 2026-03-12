@@ -1,6 +1,3 @@
-// src/Style_Components/Notifications.tsx
-// Standalone notification logic — imported by Navbar
-
 import { useState, useEffect, useCallback } from "react";
 
 export type NotificationType = "success" | "warning" | "info" | "error";
@@ -13,6 +10,21 @@ export interface Notification {
     time: string;
     read: boolean;
 }
+
+const STORAGE_KEY = "timely_read_notifications";
+
+const getReadIds = (): Set<string> => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+        return new Set();
+    }
+};
+
+const saveReadIds = (ids: Set<string>) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+};
 
 const formatTime = (ts: string): string => {
     if (!ts) return "Just now";
@@ -57,15 +69,17 @@ export function useNotifications() {
             const data = await res.json();
 
             if (data.data) {
+                const readIds = getReadIds();
                 const notifs: Notification[] = data.data.map((log: any, i: number) => {
                     const { title, type } = formatAction(log.actionType);
+                    const id = `notif_${log.timestamp}_${i}`;
                     return {
-                        id: `notif_${log.timestamp}_${i}`,
+                        id,
                         type,
                         title,
                         message: log.details || log.entityId || "",
                         time: formatTime(log.timestamp),
-                        read: false,
+                        read: readIds.has(id),
                     };
                 });
                 setNotifications(notifs);
@@ -77,16 +91,21 @@ export function useNotifications() {
         }
     }, []);
 
-    // Load on mount
     useEffect(() => {
         fetchNotifications();
     }, [fetchNotifications]);
 
     const markAllRead = () => {
+        const readIds = getReadIds();
+        notifications.forEach(n => readIds.add(n.id));
+        saveReadIds(readIds);
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     };
 
     const markRead = (id: string) => {
+        const readIds = getReadIds();
+        readIds.add(id);
+        saveReadIds(readIds);
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     };
 
