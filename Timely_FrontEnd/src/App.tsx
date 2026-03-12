@@ -1,9 +1,7 @@
-﻿// src/App.tsx
-// main application entry point
-// handles authentication, routing, and layout based on user role
-
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { ThemeProvider, useTheme } from "./Views_Layouts/ThemeContext";
+import { useAuth } from "./context/AuthContext";
+import { apiGet } from "./services/api";
 import SidebarLayout from "./Style_Components/Sidebar";
 import Navbar from "./Style_Components/Navbar";
 import Dashboard from "./Style_Components/Dashboard";
@@ -39,6 +37,7 @@ const normalizeRole = (role?: string): UserRole => {
 
 function AppContent() {
     const { isDark } = useTheme();
+    const { user: authUser, isLoggedIn, login, logout: authLogout } = useAuth();
 
     const [sidebarToggle, setSidebarToggle] = useState(false);
     const [isAuthed, setIsAuthed] = useState(false);
@@ -54,59 +53,58 @@ function AppContent() {
     const isClient = currentRole === "client";
     const isStaff = isAdmin || isConsultant;
 
-    // restore auth from localStorage on mount
+    // Restore auth from AuthContext or localStorage on mount
     useEffect(() => {
-        const storedUser = localStorage.getItem("timely_user");
-        const authenticated = localStorage.getItem("timely_authenticated");
+        if (isLoggedIn && authUser) {
+            const normalizedUser: UserInfo = {
+                customerId: authUser.customerId,
+                email: authUser.email,
+                name: authUser.name,
+                role: normalizeRole(authUser.role),
+            };
+            setUserData(normalizedUser);
+            setIsAuthed(true);
+        } else {
+            // Fallback to localStorage for backward compatibility
+            const storedUser = localStorage.getItem("timely_user");
+            const authenticated = localStorage.getItem("timely_authenticated");
 
-        if (storedUser && authenticated === "true") {
-            try {
-                const parsed = JSON.parse(storedUser) as {
-                    customerId: string;
-                    consultantId?: string;
-                    email: string;
-                    name: string;
-                    role?: string;
-                };
-
-                const normalizedUser: UserInfo = {
-                    customerId: parsed.customerId,
-                    consultantId: parsed.consultantId,
-                    email: parsed.email,
-                    name: parsed.name,
-                    role: normalizeRole(parsed.role),
-                };
-
-                setUserData(normalizedUser);
-                setIsAuthed(true);
-            } catch (err) {
-                console.error("Error parsing stored user:", err);
+            if (storedUser && authenticated === "true") {
+                try {
+                    const parsed = JSON.parse(storedUser);
+                    const normalizedUser: UserInfo = {
+                        customerId: parsed.customerId,
+                        consultantId: parsed.consultantId,
+                        email: parsed.email,
+                        name: parsed.name,
+                        role: normalizeRole(parsed.role),
+                    };
+                    setUserData(normalizedUser);
+                    setIsAuthed(true);
+                } catch (err) {
+                    console.error("Error parsing stored user:", err);
+                }
             }
         }
-
         setIsLoading(false);
-    }, []);
+    }, [isLoggedIn, authUser]);
 
-    // Fetch consultant ID when user is a consultant
+    // Fetch consultant ID when user is a consultant (uses token via apiGet)
     useEffect(() => {
         const fetchConsultantId = async () => {
             if (userData?.role === "consultant" && userData?.email) {
-                // Check if already have consultantId
                 if (userData.consultantId) {
                     setConsultantId(userData.consultantId);
                     return;
                 }
 
                 try {
-                    const res = await fetch(`/api/consultants`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const consultant = (data.data || []).find(
-                            (c: any) => c.email === userData.email
-                        );
-                        if (consultant) {
-                            setConsultantId(consultant.consultantId);
-                        }
+                    const data = await apiGet("/consultants");
+                    const consultant = (data.data || []).find(
+                        (c: any) => c.email === userData.email
+                    );
+                    if (consultant) {
+                        setConsultantId(consultant.consultantId);
                     }
                 } catch (e) {
                     console.error("Error fetching consultant ID:", e);
@@ -117,7 +115,6 @@ function AppContent() {
         fetchConsultantId();
     }, [userData]);
 
-    // called by Login.tsx after successful login
     const handleLoginSuccess = (user: {
         customerId: string;
         consultantId?: string;
@@ -138,7 +135,6 @@ function AppContent() {
         localStorage.setItem("timely_user", JSON.stringify(normalizedUser));
         localStorage.setItem("timely_authenticated", "true");
 
-        // clients go to their dedicated portal, staff go to dashboard
         if (normalizedUser.role === "client") {
             setActivePage("client_home");
             setPageHistory(["client_home"]);
@@ -156,48 +152,30 @@ function AppContent() {
         setPageHistory(["dashboard"]);
         localStorage.removeItem("timely_user");
         localStorage.removeItem("timely_authenticated");
+        authLogout();
     };
 
-    // guarded navigation - enforces role-based access control
     const handleNavigation = (page: string) => {
         if (page === "logout") {
             handleLogout();
             return;
         }
 
-        // admin-only pages
         const adminOnlyPages = new Set(["admin", "EmailGenerator"]);
-        if (adminOnlyPages.has(page) && !isAdmin) {
-            return;
-        }
+        if (adminOnlyPages.has(page) && !isAdmin) return;
 
-        // staff-only pages (admin and consultant)
         const staffOnlyPages = new Set([
-            "dashboard",
-            "projects",
-            "client",
-            "consultants",
-            "reports",
-            "hours",
-            "settings",
-            "profile",
-            "messages",  // Added messages for consultants
+            "dashboard", "projects", "client", "consultants",
+            "reports", "hours", "settings", "profile", "messages",
         ]);
+        if (staffOnlyPages.has(page) && !isStaff) return;
 
-        if (staffOnlyPages.has(page) && !isStaff) {
-            return;
-        }
-
-        // client-only page
-        if (page === "client_home" && !isClient) {
-            return;
-        }
+        if (page === "client_home" && !isClient) return;
 
         setActivePage(page);
         setPageHistory((prev) => [...prev, page]);
     };
 
-    // back button navigation
     const handleBack = () => {
         setPageHistory((prev) => {
             if (prev.length <= 1) return prev;
@@ -209,7 +187,6 @@ function AppContent() {
         });
     };
 
-    // show login when not authenticated
     if (!isAuthed) {
         return (
             <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-slate-950" : "bg-slate-100"}`}>
@@ -218,7 +195,6 @@ function AppContent() {
         );
     }
 
-    // clients get their own dedicated portal without the staff sidebar/navbar
     if (isClient) {
         return (
             <ClientPortal
@@ -230,7 +206,6 @@ function AppContent() {
         );
     }
 
-    // render page content based on active page
     const renderActivePage = () => {
         switch (activePage) {
             case "dashboard":
@@ -255,7 +230,6 @@ function AppContent() {
             case "hours":
                 return <HoursPage />;
             case "messages":
-                // Only consultants see this (admins use Admin Panel > Messages tab)
                 return (
                     <ConsultantMessages
                         consultantId={consultantId}
@@ -285,7 +259,6 @@ function AppContent() {
         }
     };
 
-    // sidebarToggle: true = hidden, false = visible
     const sidebarVisible = !sidebarToggle;
 
     return (

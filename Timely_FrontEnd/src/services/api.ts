@@ -59,3 +59,21 @@ export const apiPost = <T = any>(endpoint: string, body: any) =>
     method: "POST",
     body: JSON.stringify(body),
   });
+
+  // Global fetch interceptor
+// Patches native fetch so ALL existing fetch() calls automatically get the JWT token
+const originalFetch = window.fetch;
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const match = document.cookie.match(/(?:^|; )timely_token=([^;]*)/);
+  const token = match ? decodeURIComponent(match[1]) : null;
+
+  if (token) {
+    const headers = new Headers(init?.headers);
+    if (!headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    init = { ...init, headers };
+  }
+
+  return originalFetch(input, init);
+};

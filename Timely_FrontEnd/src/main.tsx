@@ -1,3 +1,4 @@
+import "./services/api";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AuthProvider } from "./context/AuthContext";
