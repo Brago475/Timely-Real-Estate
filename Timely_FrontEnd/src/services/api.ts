@@ -1,47 +1,46 @@
-const API_BASE = "/api";
-
-function getToken(): string | null {
-  const match = document.cookie.match(/(?:^|; )timely_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
+// Module-level token storage — shared across all imports
+let _token: string | null = null;
 
 export function setToken(token: string): void {
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString();
-  document.cookie = `timely_token=${encodeURIComponent(token)}; expires=${expires}; path=/; SameSite=Strict`;
+  _token = token;
+  sessionStorage.setItem("timely_token", token);
+}
+
+export function getToken(): string | null {
+  if (_token) return _token;
+  _token = sessionStorage.getItem("timely_token");
+  return _token;
 }
 
 export function removeToken(): void {
-  document.cookie = "timely_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  _token = null;
+  sessionStorage.removeItem("timely_token");
 }
 
 export function isAuthenticated(): boolean {
   return getToken() !== null;
 }
 
+// API helper for new code
 export async function api<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const response = await fetch(`/api${endpoint}`, { ...options, headers });
 
   if (response.status === 401) {
     removeToken();
     window.location.href = "/";
-    throw new Error("Session expired. Please log in again.");
+    throw new Error("Session expired");
   }
 
   if (!response.ok) {
@@ -53,19 +52,13 @@ export async function api<T = any>(
 }
 
 export const apiGet = <T = any>(endpoint: string) => api<T>(endpoint);
-
 export const apiPost = <T = any>(endpoint: string, body: any) =>
-  api<T>(endpoint, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  api<T>(endpoint, { method: "POST", body: JSON.stringify(body) });
 
-  // Global fetch interceptor
-// Patches native fetch so ALL existing fetch() calls automatically get the JWT token
-const originalFetch = window.fetch;
+// Global fetch interceptor — patches ALL existing fetch() calls
+const originalFetch = window.fetch.bind(window);
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  const match = document.cookie.match(/(?:^|; )timely_token=([^;]*)/);
-  const token = match ? decodeURIComponent(match[1]) : null;
+  const token = getToken();
 
   if (token) {
     const headers = new Headers(init?.headers);

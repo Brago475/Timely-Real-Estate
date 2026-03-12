@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
 import { setToken, removeToken, isAuthenticated } from "../services/api";
 
@@ -13,7 +13,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   isLoggedIn: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
@@ -21,7 +20,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  token: null,
   isLoggedIn: false,
   login: () => {},
   logout: () => {},
@@ -37,29 +35,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const [token, setTokenState] = useState<string | null>(() => {
-    return isAuthenticated() ? "exists" : null;
-  });
-
   const login = (newToken: string, newUser: User) => {
     setToken(newToken);
-    setTokenState(newToken);
     setUser(newUser);
     sessionStorage.setItem("timely_user", JSON.stringify(newUser));
   };
 
   const logout = () => {
     removeToken();
-    setTokenState(null);
     setUser(null);
     sessionStorage.removeItem("timely_user");
+    localStorage.removeItem("timely_user");
+    localStorage.removeItem("timely_authenticated");
     window.location.href = "/";
   };
 
   const isLoggedIn = user !== null && isAuthenticated();
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoggedIn, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoggedIn, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
