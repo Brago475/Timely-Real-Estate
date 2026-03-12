@@ -3,19 +3,12 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
     Menu, Search, Bell, ChevronRight, Settings, LogOut,
     User, FolderOpen, Home, X, Clock, CheckCircle,
-    AlertTriangle, MessageCircle, Mail,
+    AlertTriangle, Mail, MessageCircle,
 } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
+import { useNotifications } from "./Notifications";
 
 type UserRole = "admin" | "consultant" | "client";
-
-type Notification = {
-    id: string | number;
-    type: "success" | "warning" | "info" | "message";
-    message: string;
-    time: string;
-    read: boolean;
-};
 
 type SearchResult = {
     type: "project" | "consultant" | "client" | "page";
@@ -66,6 +59,7 @@ const Navbar: React.FC<NavbarProps> = ({
     userRole,
 }) => {
     const { isDark } = useTheme();
+    const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
 
     const s = {
         header: isDark ? "bg-slate-900/95 border-slate-800 backdrop-blur-md" : "bg-white/95 border-gray-200 backdrop-blur-md",
@@ -75,7 +69,6 @@ const Navbar: React.FC<NavbarProps> = ({
         btn: isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
         dropdown: isDark ? "bg-slate-800 border-slate-700 shadow-2xl shadow-black/40" : "bg-white border-gray-200 shadow-xl shadow-black/10",
         dropHover: isDark ? "hover:bg-slate-700" : "hover:bg-gray-50",
-        input: isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-gray-50 border-gray-200 text-gray-900",
         divider: isDark ? "border-slate-700" : "border-gray-100",
         accent: isDark ? "text-blue-400" : "text-blue-600",
     };
@@ -84,7 +77,6 @@ const Navbar: React.FC<NavbarProps> = ({
     const allowedPages = useMemo(() => new Set(ROLE_PAGES[safeRole]), [safeRole]);
     const pageInfo = PAGE_INFO[activePage] || { title: activePage, icon: <Home className="w-4 h-4" /> };
 
-    // State
     const [showSearch, setShowSearch] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -93,30 +85,16 @@ const Navbar: React.FC<NavbarProps> = ({
     const [projects, setProjects] = useState<any[]>([]);
     const [consultants, setConsultants] = useState<any[]>([]);
     const [clients, setClients] = useState<any[]>([]);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
 
-    // Refs
     const searchRef = useRef<HTMLInputElement>(null);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const notifRef = useRef<HTMLDivElement>(null);
     const userRef = useRef<HTMLDivElement>(null);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
-
     const initials = (userName || "U").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
     const roleLabel = safeRole === "admin" ? "Admin" : safeRole === "consultant" ? "Consultant" : "Client";
 
-    const formatTime = (ts: string): string => {
-        if (!ts) return "Just now";
-        const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
-        if (mins < 1) return "Just now";
-        if (mins < 60) return `${mins}m ago`;
-        const hrs = Math.floor(mins / 60);
-        if (hrs < 24) return `${hrs}h ago`;
-        return `${Math.floor(hrs / 24)}d ago`;
-    };
-
-    // Load data
+    // Load search data
     useEffect(() => {
         const load = async () => {
             try {
@@ -131,26 +109,6 @@ const Navbar: React.FC<NavbarProps> = ({
             } catch { }
         };
         load();
-    }, []);
-
-    // Load notifications from audit logs
-    useEffect(() => {
-        const loadNotifs = async () => {
-            try {
-                const res = await fetch("/api/audit-logs/latest?limit=8");
-                const data = await res.json();
-                if (data.data) {
-                    setNotifications(data.data.map((log: any, i: number) => ({
-                        id: `audit_${i}`,
-                        type: log.actionType?.includes("DELETE") ? "warning" : "success",
-                        message: log.details || log.actionType?.toLowerCase().replace(/_/g, " ") || "Activity",
-                        time: formatTime(log.timestamp),
-                        read: false,
-                    })));
-                }
-            } catch { }
-        };
-        loadNotifs();
     }, []);
 
     // Close dropdowns on outside click
@@ -169,7 +127,6 @@ const Navbar: React.FC<NavbarProps> = ({
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    // Focus search on open
     useEffect(() => {
         if (showSearch && searchRef.current) searchRef.current.focus();
     }, [showSearch]);
@@ -218,10 +175,6 @@ const Navbar: React.FC<NavbarProps> = ({
         else if (r.type === "client") onNavigate?.("client");
     };
 
-    const markAllRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    };
-
     const resultIcon = (type: string) => {
         if (type === "project") return <FolderOpen className="w-3.5 h-3.5 text-amber-500" />;
         if (type === "consultant") return <User className="w-3.5 h-3.5 text-blue-500" />;
@@ -232,7 +185,7 @@ const Navbar: React.FC<NavbarProps> = ({
     const notifIcon = (type: string) => {
         if (type === "success") return <CheckCircle className="w-4 h-4 text-emerald-500" />;
         if (type === "warning") return <AlertTriangle className="w-4 h-4 text-amber-500" />;
-        if (type === "message") return <Mail className="w-4 h-4 text-blue-500" />;
+        if (type === "error") return <AlertTriangle className="w-4 h-4 text-red-500" />;
         return <Bell className="w-4 h-4 text-blue-500" />;
     };
 
@@ -242,18 +195,11 @@ const Navbar: React.FC<NavbarProps> = ({
 
                 {/* Left: Menu + Breadcrumb */}
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setSidebarToggle(!sidebarToggle)}
-                        className={`p-2 ${s.btn} rounded-lg transition-colors`}
-                    >
+                    <button onClick={() => setSidebarToggle(!sidebarToggle)} className={`p-2 ${s.btn} rounded-lg transition-colors`}>
                         <Menu className="w-4 h-4" />
                     </button>
-
                     <div className="flex items-center gap-1.5 text-sm">
-                        <button
-                            onClick={() => onNavigate?.("dashboard")}
-                            className={`${s.muted} hover:${s.accent} transition-colors`}
-                        >
+                        <button onClick={() => onNavigate?.("dashboard")} className={`${s.muted} hover:${s.accent} transition-colors`}>
                             <Home className="w-3.5 h-3.5" />
                         </button>
                         <ChevronRight className={`w-3 h-3 ${s.subtle}`} />
@@ -279,7 +225,7 @@ const Navbar: React.FC<NavbarProps> = ({
                                         placeholder="Search..."
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
-                                        className={`w-56 bg-transparent ${s.text} text-sm focus:outline-none placeholder:${s.subtle}`}
+                                        className={`w-56 bg-transparent ${s.text} text-sm focus:outline-none`}
                                     />
                                     <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} className={s.muted}>
                                         <X className="w-3.5 h-3.5" />
@@ -330,14 +276,14 @@ const Navbar: React.FC<NavbarProps> = ({
                         >
                             <Bell className="w-4 h-4" />
                             {unreadCount > 0 && (
-                                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center font-semibold">
+                                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center font-semibold">
                                     {unreadCount > 9 ? "9+" : unreadCount}
                                 </span>
                             )}
                         </button>
 
                         {showNotifications && (
-                            <div className={`absolute right-0 top-full mt-2 w-80 ${s.dropdown} border rounded-xl overflow-hidden z-50`}>
+                            <div className={`absolute right-0 top-full mt-2 w-80 ${s.dropdown} border rounded-xl overflow-hidden z-50 animate-fadeIn`}>
                                 <div className={`px-4 py-3 border-b ${s.divider} flex items-center justify-between`}>
                                     <h3 className={`${s.text} text-sm font-semibold`}>Notifications</h3>
                                     {unreadCount > 0 && (
@@ -348,22 +294,25 @@ const Navbar: React.FC<NavbarProps> = ({
                                 </div>
                                 <div className="max-h-80 overflow-y-auto">
                                     {notifications.length === 0 ? (
-                                        <div className={`p-6 text-center ${s.muted}`}>
-                                            <Bell className="w-6 h-6 mx-auto mb-2 opacity-40" />
-                                            <p className="text-xs">No notifications</p>
+                                        <div className={`p-8 text-center ${s.muted}`}>
+                                            <Bell className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                                            <p className="text-xs">No notifications yet</p>
                                         </div>
                                     ) : (
                                         notifications.map(n => (
                                             <div
                                                 key={n.id}
-                                                className={`px-4 py-3 flex items-start gap-3 ${s.dropHover} transition-colors border-l-2
+                                                onClick={() => markRead(n.id)}
+                                                className={`px-4 py-3 flex items-start gap-3 ${s.dropHover} transition-colors border-l-2 cursor-pointer
                                                     ${n.read ? "border-transparent" : `border-blue-500 ${isDark ? "bg-blue-500/5" : "bg-blue-50/50"}`}`}
                                             >
                                                 <div className="mt-0.5">{notifIcon(n.type)}</div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-xs ${n.read ? s.muted : s.text}`}>{n.message}</p>
+                                                    <p className={`text-[11px] font-medium ${n.read ? s.muted : s.text}`}>{n.title}</p>
+                                                    <p className={`text-xs ${s.muted} mt-0.5 truncate`}>{n.message}</p>
                                                     <p className={`text-[10px] ${s.subtle} mt-0.5`}>{n.time}</p>
                                                 </div>
+                                                {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0" />}
                                             </div>
                                         ))
                                     )}
@@ -391,7 +340,7 @@ const Navbar: React.FC<NavbarProps> = ({
                         </button>
 
                         {showUserMenu && (
-                            <div className={`absolute right-0 top-full mt-2 w-52 ${s.dropdown} border rounded-xl overflow-hidden z-50`}>
+                            <div className={`absolute right-0 top-full mt-2 w-52 ${s.dropdown} border rounded-xl overflow-hidden z-50 animate-fadeIn`}>
                                 <div className={`px-4 py-3 border-b ${s.divider}`}>
                                     <p className={`${s.text} text-sm font-medium`}>{userName}</p>
                                     <p className={`${s.muted} text-xs mt-0.5`}>{userEmail}</p>
