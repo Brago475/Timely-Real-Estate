@@ -36,8 +36,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
 
             <div className="relative z-10 flex min-h-screen">
-                {/* Left — Solid Login Panel */}
-                <div className={`w-full lg:w-[520px] min-h-screen bg-black flex flex-col justify-center px-10 lg:px-16 ${shake ? "animate-shake" : ""}`}>
+                {/* Left — Login Panel */}
+                <div className={`w-full lg:w-[520px] min-h-screen bg-black/90 backdrop-blur-sm flex flex-col justify-center px-10 lg:px-16 ${shake ? "animate-shake" : ""}`}>
 
                     {/* Logo */}
                     <div className="flex items-center gap-4 mb-12">
@@ -78,9 +78,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     </div>
 
                     {/* Footer */}
-                    <p className="mt-8 text-sm leading-relaxed text-neutral-400">By signing in, you agree to the Timely Terms of Service and Privacy Policy.</p>
+                    <p className="mt-8 text-xs leading-relaxed text-neutral-500">By signing in, you agree to the Timely Terms of Service and Privacy Policy.</p>
 
-                    <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-xs text-neutral-500">
+                    <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-neutral-600">
                         <span>About</span><span>Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>Timely &copy; {new Date().getFullYear()}</span>
                     </div>
                 </div>
