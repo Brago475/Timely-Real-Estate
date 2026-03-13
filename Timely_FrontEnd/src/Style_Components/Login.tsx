@@ -30,62 +30,56 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
     return (
         <div className="min-h-screen text-white relative overflow-hidden bg-black">
-            {/* Background Image */}
+            {/* Background */}
             <div className="fixed inset-0 z-0">
                 <img src={loginBg} alt="" className="w-full h-full object-cover" style={{ minWidth: '100vw', minHeight: '100vh' }} />
             </div>
 
             <div className="relative z-10 flex min-h-screen">
-                {/* Left — Login Panel */}
-                <div className={`w-full lg:w-[520px] min-h-screen bg-black/90 backdrop-blur-sm flex flex-col justify-center px-10 lg:px-16 ${shake ? "animate-shake" : ""}`}>
+                {/* Left — Login Card */}
+                <div className="w-full lg:w-[520px] min-h-screen flex items-center justify-center p-6 lg:p-12 bg-black/40 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none">
+                    <div className={`w-full max-w-[420px] bg-black/80 backdrop-blur-2xl rounded-3xl p-10 border border-white/10 ${shake ? "animate-shake" : ""}`}>
 
-                    {/* Logo */}
-                    <div className="flex items-center gap-4 mb-12">
-                        <img src={timelyLogo} alt="Timely" className="w-14 h-14 object-contain" />
-                        <div>
-                            <h2 className="text-xl font-bold text-white tracking-tight">Timely</h2>
-                            <p className="text-[10px] tracking-[0.2em] uppercase text-gray-400">Real Estate</p>
+                        {/* Logo */}
+                        <div className="flex justify-center mb-10">
+                            <img src={timelyLogo} alt="Timely" className="w-20 h-20 object-contain" />
                         </div>
-                    </div>
 
-                    {/* Error */}
-                    {error && (
-                        <div className="mb-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3">
-                            <p className="text-sm font-medium text-red-400">{error}</p>
-                        </div>
-                    )}
+                        {/* Error */}
+                        {error && (
+                            <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/15 px-4 py-3">
+                                <p className="text-sm font-medium text-red-400 text-center">{error}</p>
+                            </div>
+                        )}
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <input type="email" placeholder="Email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="h-14 w-full rounded-full border border-neutral-700 bg-neutral-900 px-5 text-sm text-white placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none" />
-                        </div>
-                        <div className="relative">
-                            <input type={showPassword ? "text" : "password"} placeholder="Password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="h-14 w-full rounded-full border border-neutral-700 bg-neutral-900 px-5 pr-14 text-sm text-white placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none" />
-                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition">
-                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {/* Form */}
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <input type="email" placeholder="Email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="h-14 w-full rounded-2xl border border-white/15 bg-black/60 px-5 text-[15px] text-white placeholder:text-neutral-500 focus:border-white/30 focus:outline-none transition-colors" />
+                            </div>
+                            <div className="relative">
+                                <input type={showPassword ? "text" : "password"} placeholder="Password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="h-14 w-full rounded-2xl border border-white/15 bg-black/60 px-5 pr-14 text-[15px] text-white placeholder:text-neutral-500 focus:border-white/30 focus:outline-none transition-colors" />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition">
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
+                            </div>
+                            <button type="submit" disabled={isLoading} className="h-14 w-full rounded-2xl bg-white text-black font-bold text-[15px] transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-white/10">
+                                {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Signing in...</> : "Sign in"}
                             </button>
+                        </form>
+
+                        {/* Forgot password */}
+                        <div className="mt-8">
+                            <p className="mb-4 text-[17px] font-bold text-white tracking-[-0.02em]">Forgot your password?</p>
+                            <button type="button" className="h-14 w-full rounded-2xl border border-white/15 bg-transparent text-white font-semibold hover:bg-white/5 transition text-[15px]">Contact administrator</button>
                         </div>
-                        <button type="submit" disabled={isLoading} className="h-14 w-full rounded-full bg-white text-black font-bold text-[15px] transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-2">
-                            {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Signing in...</> : "Sign in"}
-                        </button>
-                    </form>
 
-                    {/* Forgot password */}
-                    <div className="mt-8">
-                        <p className="mb-4 text-lg font-bold tracking-[-0.02em]">Forgot your password?</p>
-                        <button type="button" className="h-14 w-full rounded-full border border-neutral-700 bg-transparent text-white font-semibold hover:bg-neutral-900 transition">Contact administrator</button>
-                    </div>
-
-                    {/* Footer */}
-                    <p className="mt-8 text-xs leading-relaxed text-neutral-500">By signing in, you agree to the Timely Terms of Service and Privacy Policy.</p>
-
-                    <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-neutral-600">
-                        <span>About</span><span>Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>Timely &copy; {new Date().getFullYear()}</span>
+                        {/* Footer */}
+                        <p className="mt-8 text-xs leading-relaxed text-neutral-500">By signing in, you agree to the Timely Terms of Service and Privacy Policy.</p>
                     </div>
                 </div>
 
-                {/* Right — Background with Tagline */}
+                {/* Right — Tagline */}
                 <div className="hidden lg:flex flex-1 flex-col items-center justify-center px-16 xl:px-24">
                     <h1 className="text-[4rem] xl:text-[5.5rem] font-extrabold leading-[0.92] tracking-[-0.04em] text-white text-center" style={{ textShadow: '0 4px 30px rgba(0,0,0,0.8), 0 2px 10px rgba(0,0,0,0.6)' }}>
                         Manage<br />Everything.<br />Miss Nothing.
