@@ -35,8 +35,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 <img src={loginBg} alt="" className="w-full h-full object-cover" style={{ minWidth: '100vw', minHeight: '100vh' }} />
             </div>
 
-            <div className="relative z-10 flex min-h-screen items-center justify-center gap-12 xl:gap-16 px-6">
-                {/* Tagline — Left */}
+            <div className="relative z-10 flex flex-row-reverse min-h-screen items-center justify-center gap-12 xl:gap-16 px-6">
+                {/* Tagline — Right */}
                 <div className="hidden lg:flex flex-col items-start max-w-lg">
                     <h1 className="text-[4rem] xl:text-[5.5rem] font-extrabold leading-[0.92] tracking-[-0.04em] text-white" style={{ textShadow: '0 4px 30px rgba(0,0,0,0.8), 0 2px 10px rgba(0,0,0,0.6)' }}>
                         Manage<br />Everything.<br />Miss Nothing.
@@ -46,7 +46,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     </p>
                 </div>
 
-                {/* Login Card — Right */}
+                {/* Login Card — Left */}
                 <div className={`w-full max-w-[420px] bg-black/80 backdrop-blur-2xl rounded-3xl p-10 border border-white/10 ${shake ? "animate-shake" : ""}`}>
 
                     {/* Logo + Name */}
@@ -54,8 +54,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         <div className="bg-white/15 rounded-2xl p-4 backdrop-blur-sm">
                             <img src={timelyLogo} alt="Timely" className="w-16 h-16 object-contain" />
                         </div>
-                        <h2 className="text-xl font-bold text-white mt-4 tracking-tight">Timely</h2>
-                        <p className="text-[10px] tracking-[0.2em] uppercase text-neutral-400">Real Estate</p>
+                        <h2 className="text-2xl font-bold text-white mt-4 tracking-tight" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>Timely</h2>
+                        <p className="text-[11px] tracking-[0.25em] uppercase text-neutral-300 font-medium mt-0.5">Real Estate</p>
                     </div>
 
                     {/* Mobile tagline */}
@@ -93,7 +93,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     </div>
 
                     {/* Footer */}
-                    <p className="mt-8 text-xs leading-relaxed text-neutral-500">By signing in, you agree to the Timely Terms of Service and Privacy Policy.</p>
+                    <p className="mt-8 text-sm leading-relaxed text-neutral-300">By signing in, you agree to the Timely <span className="text-blue-400 cursor-pointer hover:text-blue-300">Terms of Service</span> and <span className="text-blue-400 cursor-pointer hover:text-blue-300">Privacy Policy</span>.</p>
                 </div>
             </div>
 
