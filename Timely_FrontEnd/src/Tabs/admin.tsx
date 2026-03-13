@@ -1,180 +1,57 @@
 // src/Tabs/admin.tsx
-// admin dashboard - central hub for system administration
-// provides management for clients, consultants, projects, time logs, emails, alerts, documents, and messages
-// only accessible by users with admin role
-
 import React, { useEffect, useState, useMemo } from "react";
-import {
-    Users, Briefcase, FolderOpen, Mail, Shield, Clock, AlertTriangle,
-    RefreshCw, Search, Key, UserCheck, BarChart3, PieChart,
-    Send, Check, X, Download, Megaphone, Ban, CheckCircle, XCircle,
-    Plus, Edit2, Trash2, Timer, FileText, MessageCircle
-} from "lucide-react";
+import { Users, Briefcase, FolderOpen, Mail, Shield, Clock, AlertTriangle, RefreshCw, Search, Key, UserCheck, BarChart3, PieChart, Send, Check, X, Download, Megaphone, Ban, CheckCircle, XCircle, Plus, Edit2, Trash2, Timer, FileText, MessageCircle, Info } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import AdminDocumentRequests from "./AdminDocumentRequests";
 import AdminMessages from "./AdminMessages";
 
-// TASK: move to environment config
 const API_BASE = "";
-
-const TOAST_DURATION_MS = 3000;
-
 type UserRole = "admin" | "consultant" | "client";
 type UserStatus = "active" | "inactive" | "suspended";
 type ApprovalStatus = "pending" | "approved" | "denied";
 type AlertType = "warning" | "error" | "info";
 type AdminView = "dashboard" | "users" | "consultants" | "projects" | "timelogs" | "emails" | "alerts" | "documents" | "messages";
 
-interface User {
-    customerId: string;
-    clientCode: string;
-    firstName: string;
-    middleName: string;
-    lastName: string;
-    email: string;
-    tempPassword: string;
-    status?: UserStatus;
-    role?: string;
-}
+interface User { customerId: string; clientCode: string; firstName: string; middleName: string; lastName: string; email: string; tempPassword: string; status?: UserStatus; role?: string; }
+interface Consultant { consultantId: string; consultantCode: string; firstName: string; lastName: string; email: string; role: string; status?: UserStatus; }
+interface Project { projectId: string; projectCode: string; projectName: string; clientName: string; status: string; }
+interface HoursLog { logId: string; projectId: string; consultantId: string; date: string; hours: number; description: string; createdAt: string; approvalStatus?: ApprovalStatus; }
+interface Email { emailId: string; to: string; from: string; subject: string; body: string; status: string; createdAt: string; }
+interface Alert { id: string; type: AlertType; message: string; timestamp: string; expiresAt?: string; isCustom?: boolean; }
+interface AdminTabProps { onNavigate?: (page: string) => void; }
+interface Toast { id: string; message: string; type: "success" | "error" | "info"; }
 
-interface Consultant {
-    consultantId: string;
-    consultantCode: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    role: string;
-    status?: UserStatus;
-}
-
-interface Project {
-    projectId: string;
-    projectCode: string;
-    projectName: string;
-    clientName: string;
-    status: string;
-}
-
-interface HoursLog {
-    logId: string;
-    projectId: string;
-    consultantId: string;
-    date: string;
-    hours: number;
-    description: string;
-    createdAt: string;
-    approvalStatus?: ApprovalStatus;
-}
-
-interface Email {
-    emailId: string;
-    to: string;
-    from: string;
-    subject: string;
-    body: string;
-    status: string;
-    createdAt: string;
-}
-
-interface Alert {
-    id: string;
-    type: AlertType;
-    message: string;
-    timestamp: string;
-    expiresAt?: string;
-    isCustom?: boolean;
-}
-
-interface AdminTabProps {
-    onNavigate?: (page: string) => void;
-}
-
-// generates a random password with mixed characters for security
-const generateRandomPassword = (): string => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@$%";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-        password += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return password;
-};
-
-// formats iso date string to readable locale format
-const formatDate = (iso: string): string => {
-    if (!iso) return "";
-    return new Date(iso).toLocaleString();
-};
-
-// exports data array to csv file for download
-const exportToCSV = (data: any[], filename: string, onSuccess: (msg: string) => void, onError: (msg: string) => void) => {
-    if (data.length === 0) {
-        onError("No data to export");
-        return;
-    }
-    const headers = Object.keys(data[0]);
-    const csvContent = [
-        headers.join(","),
-        ...data.map(row => headers.map(h => {
-            const val = row[h] ?? "";
-            return typeof val === "string" && (val.includes(",") || val.includes('"'))
-                ? `"${val.replace(/"/g, '""')}"`
-                : val;
-        }).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    onSuccess(`Exported ${data.length} records`);
-};
-
-// helper to get pending document requests count
-const getPendingDocumentRequestsCount = (): number => {
-    try {
-        const requests = JSON.parse(localStorage.getItem("timely_document_requests") || "[]");
-        return requests.filter((r: any) => r.status === "uploaded").length;
-    } catch {
-        return 0;
-    }
-};
-
-// helper to get unread messages count
-const getUnreadMessagesCount = (): number => {
-    try {
-        const messages = JSON.parse(localStorage.getItem("timely_global_messages") || "[]");
-        return messages.filter((m: any) => !m.read && m.from?.role === "client").length;
-    } catch {
-        return 0;
-    }
-};
-
+const fmtStatus = (s: string): string => s ? s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "";
+const fmtDate = (iso: string): string => iso ? new Date(iso).toLocaleString() : "";
+const genPassword = (): string => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@$%"; let p = ""; for (let i = 0; i < 12; i++) p += c[Math.floor(Math.random() * c.length)]; return p; };
+const exportCSV = (data: any[], filename: string, onOk: (m: string) => void, onErr: (m: string) => void) => { if (!data.length) { onErr("No data"); return; } const h = Object.keys(data[0]); const csv = [h.join(","), ...data.map(r => h.map(k => { const v = r[k] ?? ""; return typeof v === "string" && (v.includes(",") || v.includes('"')) ? `"${v.replace(/"/g, '""')}"` : v; }).join(","))].join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`; a.click(); onOk(`Exported ${data.length} records`); };
+const getPendingDocs = (): number => { try { return JSON.parse(localStorage.getItem("timely_document_requests") || "[]").filter((r: any) => r.status === "uploaded").length; } catch { return 0; } };
+const getUnreadMsgs = (): number => { try { return JSON.parse(localStorage.getItem("timely_global_messages") || "[]").filter((m: any) => !m.read && m.from?.role === "client").length; } catch { return 0; } };
 
 const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const { isDark } = useTheme();
 
-    // centralized style definitions for consistent theming
-    const styles = {
-        card: isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200",
-        cardInner: isDark ? "bg-slate-900" : "bg-gray-50",
-        text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-500",
-        input: isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-gray-300 text-gray-900",
-        hover: isDark ? "hover:bg-slate-700" : "hover:bg-gray-100",
-        selected: isDark ? "bg-slate-700" : "bg-blue-50",
-        divider: isDark ? "divide-slate-700" : "divide-gray-200",
-        border: isDark ? "border-slate-700" : "border-gray-200",
+    const n = {
+        bg: isDark ? "neu-bg-dark" : "neu-bg-light", card: isDark ? "neu-dark" : "neu-light",
+        flat: isDark ? "neu-dark-flat" : "neu-light-flat", inset: isDark ? "neu-dark-inset" : "neu-light-inset",
+        pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
+        text: isDark ? "text-white" : "text-gray-900", secondary: isDark ? "text-gray-300" : "text-gray-600",
+        tertiary: isDark ? "text-gray-500" : "text-gray-400", strong: isDark ? "text-white" : "text-black",
+        label: isDark ? "text-blue-400" : "text-blue-600", link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
+        badge: isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700",
+        input: isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        modal: isDark ? "bg-[#111111] border-gray-800" : "bg-[#f0f0f0] border-gray-300",
+        modalHead: isDark ? "bg-[#111111]" : "bg-[#f0f0f0]",
+        btnPrimary: "bg-blue-600 hover:bg-blue-500 text-white", btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        btnDanger: "bg-red-600 hover:bg-red-500 text-white", divider: isDark ? "border-gray-800" : "border-gray-200",
+        edgeHover: isDark ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]" : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
+        edgeHoverFlat: isDark ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]" : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),4px_4px_10px_rgba(0,0,0,0.08),-4px_-4px_10px_rgba(255,255,255,0.9)]",
+        barBg: isDark ? "bg-gray-800" : "bg-gray-200",
     };
 
-    // navigation and user state
     const [currentView, setCurrentView] = useState<AdminView>("dashboard");
     const [adminEmail, setAdminEmail] = useState("admin@timely.com");
     const [adminName, setAdminName] = useState("Admin");
-
-    // data state - fetched from api
     const [users, setUsers] = useState<User[]>([]);
     const [consultants, setConsultants] = useState<Consultant[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -183,417 +60,91 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [pendingDocRequests, setPendingDocRequests] = useState(0);
     const [unreadMessages, setUnreadMessages] = useState(0);
-
-    // ui state
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [userStatusFilter, setUserStatusFilter] = useState<"all" | UserStatus>("all");
     const [timelogStatusFilter, setTimelogStatusFilter] = useState<"all" | ApprovalStatus>("all");
-
-    // selection state for detail panels
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [selectedConsultant, setSelectedConsultant] = useState<Consultant | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-
-    // modal visibility state
-    const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
-    const [showChangeRoleModal, setShowChangeRoleModal] = useState(false);
-    const [showComposeEmailModal, setShowComposeEmailModal] = useState(false);
-    const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+    const [showResetPwModal, setShowResetPwModal] = useState(false);
+    const [showRoleModal, setShowRoleModal] = useState(false);
+    const [showComposeModal, setShowComposeModal] = useState(false);
+    const [showAnnounceModal, setShowAnnounceModal] = useState(false);
     const [showAlertModal, setShowAlertModal] = useState(false);
     const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
-
-    // form state for modals
     const [newPassword, setNewPassword] = useState("");
     const [newRole, setNewRole] = useState("");
     const [composeTo, setComposeTo] = useState("");
     const [composeSubject, setComposeSubject] = useState("");
     const [composeBody, setComposeBody] = useState("");
     const [emailSuggestions, setEmailSuggestions] = useState<{ name: string; email: string }[]>([]);
-    const [showEmailSuggestions, setShowEmailSuggestions] = useState(false);
-    const [announcementSubject, setAnnouncementSubject] = useState("");
-    const [announcementBody, setAnnouncementBody] = useState("");
-    const [announcementTarget, setAnnouncementTarget] = useState<"all" | "clients" | "consultants">("all");
-    const [newAlertMessage, setNewAlertMessage] = useState("");
-    const [newAlertType, setNewAlertType] = useState<AlertType>("info");
-    const [newAlertExpiry, setNewAlertExpiry] = useState("");
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [announceSubject, setAnnounceSubject] = useState("");
+    const [announceBody, setAnnounceBody] = useState("");
+    const [announceTarget, setAnnounceTarget] = useState<"all" | "clients" | "consultants">("all");
+    const [alertMsg, setAlertMsg] = useState("");
+    const [alertType, setAlertType] = useState<AlertType>("info");
+    const [alertExpiry, setAlertExpiry] = useState("");
 
-    // toast notification state
-    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [toasts, setToasts] = useState<Toast[]>([]);
+    const showToast = (msg: string, type: "success" | "error" | "info" = "success") => { const id = `t_${Date.now()}`; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000); };
 
-    const showToast = (message: string, type: "success" | "error" = "success") => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), TOAST_DURATION_MS);
+    const safeFetch = async (url: string) => { try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); } catch { return null; } };
+    const fetchUsers = async () => { const d = await safeFetch(`${API_BASE}/api/users-report`); if (d?.data) setUsers(d.data.map((u: User) => ({ ...u, status: u.status || "active", role: u.role || "client" }))); };
+    const fetchConsultants = async () => { const d = await safeFetch(`${API_BASE}/api/consultants`); if (d?.data) setConsultants(d.data.map((c: Consultant) => ({ ...c, status: c.status || "active" }))); };
+    const fetchProjects = async () => { const d = await safeFetch(`${API_BASE}/api/projects`); if (d?.data) setProjects(d.data); };
+    const fetchHours = async () => { const d = await safeFetch(`${API_BASE}/api/hours-logs`); if (d?.data) setHoursLogs(d.data); };
+    const fetchEmails = async () => { const d = await safeFetch(`${API_BASE}/api/emails/outbox?limit=100`); if (d?.data) setEmails(d.data); };
+
+    const genAlerts = () => {
+        const sys: Alert[] = [];
+        const susp = users.filter(u => u.status === "suspended").length;
+        const pend = hoursLogs.filter(l => l.approvalStatus === "pending").length;
+        if (susp > 0) sys.push({ id: "sys-s", type: "warning", message: `${susp} user(s) suspended`, timestamp: new Date().toISOString() });
+        if (pend > 0) sys.push({ id: "sys-p", type: "warning", message: `${pend} time log(s) pending`, timestamp: new Date().toISOString() });
+        const custom = alerts.filter(a => a.isCustom && (!a.expiresAt || new Date(a.expiresAt) > new Date()));
+        setAlerts([...sys, ...custom]);
     };
 
-    // api fetch functions
-    const fetchUsers = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/users-report`);
-            if (res.ok) {
-                const json = await res.json();
-                const usersWithDefaults = (json.data || []).map((u: User) => ({
-                    ...u,
-                    status: u.status || "active",
-                    role: u.role || "client"
-                }));
-                setUsers(usersWithDefaults);
-            }
-        } catch (err) {
-            console.error("Error fetching users:", err);
-        }
-    };
+    const refreshAll = async () => { setIsLoading(true); await Promise.all([fetchUsers(), fetchConsultants(), fetchProjects(), fetchHours(), fetchEmails()]); setPendingDocRequests(getPendingDocs()); setUnreadMessages(getUnreadMsgs()); setIsLoading(false); };
 
-    const fetchConsultants = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/consultants`);
-            if (res.ok) {
-                const json = await res.json();
-                const consultantsWithDefaults = (json.data || []).map((c: Consultant) => ({
-                    ...c,
-                    status: c.status || "active"
-                }));
-                setConsultants(consultantsWithDefaults);
-            }
-        } catch (err) {
-            console.error("Error fetching consultants:", err);
-        }
-    };
+    useEffect(() => { try { const s = localStorage.getItem("timely_user"); if (s) { const u = JSON.parse(s); if (u?.email) setAdminEmail(u.email); if (u?.firstName) setAdminName(`${u.firstName} ${u.lastName || ""}`); } const sa = localStorage.getItem("timely_custom_alerts"); if (sa) setAlerts(JSON.parse(sa).filter((a: Alert) => a.isCustom)); } catch {} refreshAll(); }, []);
+    useEffect(() => { genAlerts(); }, [users, projects, hoursLogs]);
+    useEffect(() => { localStorage.setItem("timely_custom_alerts", JSON.stringify(alerts.filter(a => a.isCustom))); }, [alerts]);
+    useEffect(() => { if (currentView === "documents") setPendingDocRequests(getPendingDocs()); if (currentView === "messages") setUnreadMessages(getUnreadMsgs()); }, [currentView]);
 
-    const fetchProjects = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/projects`);
-            if (res.ok) {
-                const json = await res.json();
-                setProjects(json.data || []);
-            }
-        } catch (err) {
-            console.error("Error fetching projects:", err);
-        }
-    };
+    const stats = useMemo(() => ({ activeUsers: users.filter(u => u.status === "active").length, inactiveUsers: users.filter(u => u.status === "inactive").length, suspendedUsers: users.filter(u => u.status === "suspended").length, totalHours: hoursLogs.reduce((s, l) => s + (Number(l.hours) || 0), 0), pendingLogs: hoursLogs.filter(l => l.approvalStatus === "pending").length, approvedLogs: hoursLogs.filter(l => l.approvalStatus === "approved").length, deniedLogs: hoursLogs.filter(l => l.approvalStatus === "denied").length }), [users, hoursLogs]);
 
-    const fetchHoursLogs = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/hours-logs`);
-            if (res.ok) {
-                const json = await res.json();
-                setHoursLogs(json.data || []);
-            }
-        } catch (err) {
-            console.error("Error fetching hours:", err);
-        }
-    };
+    const filteredUsers = useMemo(() => users.filter(u => { const ms = `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(searchTerm.toLowerCase()); const mf = userStatusFilter === "all" || u.status === userStatusFilter; return ms && mf; }), [users, searchTerm, userStatusFilter]);
+    const filteredLogs = useMemo(() => hoursLogs.filter(l => timelogStatusFilter === "all" || l.approvalStatus === timelogStatusFilter), [hoursLogs, timelogStatusFilter]);
 
-    const fetchEmails = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/emails/outbox?limit=100`);
-            if (res.ok) {
-                const json = await res.json();
-                setEmails(json.data || []);
-            }
-        } catch (err) {
-            console.error("Error fetching emails:", err);
-        }
-    };
+    const getConName = (cid: string) => { const c = consultants.find(c => c.consultantId === cid); return c ? `${c.firstName} ${c.lastName}` : `#${cid}`; };
+    const getProjName = (pid: string) => projects.find(p => p.projectId === pid)?.projectName || `#${pid}`;
+    const getConHours = (cid: string) => hoursLogs.filter(l => l.consultantId === cid).reduce((s, l) => s + (Number(l.hours) || 0), 0);
+    const getProjHours = (pid: string) => hoursLogs.filter(l => l.projectId === pid).reduce((s, l) => s + (Number(l.hours) || 0), 0);
 
-    const generateSystemAlerts = () => {
-        const systemAlerts: Alert[] = [];
-        const suspendedCount = users.filter(u => u.status === "suspended").length;
-        const pendingLogsCount = hoursLogs.filter(l => l.approvalStatus === "pending").length;
+    const handleEmailInput = (v: string) => { setComposeTo(v); if (v.length >= 2) { const all = [...users.map(u => ({ name: `${u.firstName} ${u.lastName}`, email: u.email })), ...consultants.map(c => ({ name: `${c.firstName} ${c.lastName}`, email: c.email }))]; const m = all.filter(p => p.name.toLowerCase().includes(v.toLowerCase()) || p.email.toLowerCase().includes(v.toLowerCase())); setEmailSuggestions(m.slice(0, 5)); setShowSuggestions(m.length > 0); } else setShowSuggestions(false); };
+    const handleResetPw = () => { if (!selectedUser || !newPassword) return; showToast(`Password reset for ${selectedUser.email}`); setShowResetPwModal(false); setNewPassword(""); setSelectedUser(null); };
+    const handleChangeRole = () => { if (!selectedUser || !newRole) return; setUsers(p => p.map(u => u.customerId === selectedUser.customerId ? { ...u, role: newRole } : u)); showToast(`Role → ${newRole}`); setShowRoleModal(false); setNewRole(""); setSelectedUser(null); };
+    const toggleUserSusp = (u: User) => { const ns: UserStatus = u.status === "suspended" ? "active" : "suspended"; setUsers(p => p.map(x => x.customerId === u.customerId ? { ...x, status: ns } : x)); showToast(`${u.firstName} ${ns === "suspended" ? "suspended" : "activated"}`); };
+    const toggleConSusp = (c: Consultant) => { const ns: UserStatus = c.status === "suspended" ? "active" : "suspended"; setConsultants(p => p.map(x => x.consultantId === c.consultantId ? { ...x, status: ns } : x)); showToast(`${c.firstName} ${ns === "suspended" ? "suspended" : "activated"}`); };
+    const approveLog = (id: string) => { setHoursLogs(p => p.map(l => l.logId === id ? { ...l, approvalStatus: "approved" as const } : l)); showToast("Approved"); };
+    const denyLog = (id: string) => { setHoursLogs(p => p.map(l => l.logId === id ? { ...l, approvalStatus: "denied" as const } : l)); showToast("Denied"); };
 
-        if (suspendedCount > 0) {
-            systemAlerts.push({
-                id: "sys-suspended",
-                type: "warning",
-                message: `${suspendedCount} user(s) currently suspended`,
-                timestamp: new Date().toISOString()
-            });
-        }
-        if (pendingLogsCount > 0) {
-            systemAlerts.push({
-                id: "sys-pending",
-                type: "warning",
-                message: `${pendingLogsCount} time log(s) pending approval`,
-                timestamp: new Date().toISOString()
-            });
-        }
+    const sendEmail = async () => { if (!composeTo || !composeSubject) { showToast("To and Subject required", "error"); return; } try { const r = await fetch(`${API_BASE}/api/emails/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: composeTo, from: "noreply@timely.com", subject: composeSubject, body: composeBody }) }); const d = await r.json(); if (r.ok && d.success) { showToast("Email sent"); setShowComposeModal(false); setComposeTo(""); setComposeSubject(""); setComposeBody(""); fetchEmails(); } else throw new Error(d.error); } catch (e: any) { showToast(e.message || "Failed", "error"); } };
 
-        const customAlerts = alerts.filter(a => a.isCustom);
-        const validCustomAlerts = customAlerts.filter(a => !a.expiresAt || new Date(a.expiresAt) > new Date());
+    const sendAnnounce = async () => { if (!announceSubject || !announceBody) { showToast("Subject and body required", "error"); return; } let recip: string[] = []; if (announceTarget === "all" || announceTarget === "clients") recip.push(...users.map(u => u.email)); if (announceTarget === "all" || announceTarget === "consultants") recip.push(...consultants.map(c => c.email)); let sent = 0; for (const email of recip) { try { const r = await fetch(`${API_BASE}/api/emails/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: email, from: "noreply@timely.com", subject: `[Announcement] ${announceSubject}`, body: announceBody }) }); if (r.ok) sent++; } catch {} } showToast(`Sent to ${sent} recipients`); setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); fetchEmails(); };
 
-        setAlerts([...systemAlerts, ...validCustomAlerts]);
-    };
+    const createAlert = () => { if (!alertMsg) { showToast("Message required", "error"); return; } setAlerts(p => [...p, { id: `c-${Date.now()}`, type: alertType, message: alertMsg, timestamp: new Date().toISOString(), expiresAt: alertExpiry || undefined, isCustom: true }]); setAlertMsg(""); setAlertExpiry(""); setShowAlertModal(false); showToast("Alert created"); };
+    const updateAlert = () => { if (!editingAlert || !alertMsg) return; setAlerts(p => p.map(a => a.id === editingAlert.id ? { ...a, message: alertMsg, type: alertType, expiresAt: alertExpiry || undefined } : a)); setEditingAlert(null); setAlertMsg(""); setAlertExpiry(""); setShowAlertModal(false); showToast("Updated"); };
+    const deleteAlert = (id: string) => { setAlerts(p => p.filter(a => a.id !== id)); showToast("Deleted"); };
 
-    const refreshAllData = async () => {
-        setIsLoading(true);
-        await Promise.all([fetchUsers(), fetchConsultants(), fetchProjects(), fetchHoursLogs(), fetchEmails()]);
-        setPendingDocRequests(getPendingDocumentRequestsCount());
-        setUnreadMessages(getUnreadMessagesCount());
-        setIsLoading(false);
-    };
+    const statusBadge = (s: string) => s === "active" ? "bg-emerald-500/20 text-emerald-400" : s === "suspended" ? "bg-red-500/20 text-red-400" : "bg-gray-500/20 text-gray-400";
+    const approvalBadge = (s: string) => s === "approved" ? "bg-emerald-500/20 text-emerald-400" : s === "denied" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400";
 
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem("timely_user");
-            if (stored) {
-                const user = JSON.parse(stored);
-                if (user?.email) setAdminEmail(user.email);
-                if (user?.firstName) setAdminName(`${user.firstName} ${user.lastName || ""}`);
-            }
-            const savedAlerts = localStorage.getItem("timely_custom_alerts");
-            if (savedAlerts) {
-                const parsed = JSON.parse(savedAlerts);
-                setAlerts(parsed.filter((a: Alert) => a.isCustom));
-            }
-        } catch { }
-        refreshAllData();
-    }, []);
-
-    useEffect(() => {
-        generateSystemAlerts();
-    }, [users, projects, hoursLogs]);
-
-    useEffect(() => {
-        const customAlerts = alerts.filter(a => a.isCustom);
-        localStorage.setItem("timely_custom_alerts", JSON.stringify(customAlerts));
-    }, [alerts]);
-
-    useEffect(() => {
-        if (currentView === "documents") {
-            setPendingDocRequests(getPendingDocumentRequestsCount());
-        }
-        if (currentView === "messages") {
-            setUnreadMessages(getUnreadMessagesCount());
-        }
-    }, [currentView]);
-
-    const stats = useMemo(() => {
-        const activeUsers = users.filter(u => u.status === "active").length;
-        const inactiveUsers = users.filter(u => u.status === "inactive").length;
-        const suspendedUsers = users.filter(u => u.status === "suspended").length;
-        const totalHours = hoursLogs.reduce((sum, l) => sum + (Number(l.hours) || 0), 0);
-        const pendingLogs = hoursLogs.filter(l => l.approvalStatus === "pending").length;
-        const approvedLogs = hoursLogs.filter(l => l.approvalStatus === "approved").length;
-        const deniedLogs = hoursLogs.filter(l => l.approvalStatus === "denied").length;
-
-        return { activeUsers, inactiveUsers, suspendedUsers, totalHours, pendingLogs, approvedLogs, deniedLogs };
-    }, [users, hoursLogs]);
-
-    const filteredUsers = useMemo(() => {
-        return users.filter(u => {
-            const matchesSearch = `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesFilter = userStatusFilter === "all" || u.status === userStatusFilter;
-            return matchesSearch && matchesFilter;
-        });
-    }, [users, searchTerm, userStatusFilter]);
-
-    const filteredTimeLogs = useMemo(() => {
-        return hoursLogs.filter(l => timelogStatusFilter === "all" || l.approvalStatus === timelogStatusFilter);
-    }, [hoursLogs, timelogStatusFilter]);
-
-    const getConsultantName = (consultantId: string): string => {
-        const consultant = consultants.find(c => c.consultantId === consultantId);
-        return consultant ? `${consultant.firstName} ${consultant.lastName}` : `#${consultantId}`;
-    };
-
-    const getProjectName = (projectId: string): string => {
-        const project = projects.find(p => p.projectId === projectId);
-        return project ? project.projectName : `#${projectId}`;
-    };
-
-    const getConsultantHours = (consultantId: string): number => {
-        return hoursLogs
-            .filter(l => l.consultantId === consultantId)
-            .reduce((sum, l) => sum + (Number(l.hours) || 0), 0);
-    };
-
-    const getProjectHours = (projectId: string): number => {
-        return hoursLogs
-            .filter(l => l.projectId === projectId)
-            .reduce((sum, l) => sum + (Number(l.hours) || 0), 0);
-    };
-
-    const handleEmailInput = (value: string) => {
-        setComposeTo(value);
-        if (value.length >= 2) {
-            const allPeople = [
-                ...users.map(u => ({ name: `${u.firstName} ${u.lastName}`, email: u.email })),
-                ...consultants.map(c => ({ name: `${c.firstName} ${c.lastName}`, email: c.email }))
-            ];
-            const matches = allPeople.filter(p =>
-                p.name.toLowerCase().includes(value.toLowerCase()) ||
-                p.email.toLowerCase().includes(value.toLowerCase())
-            );
-            setEmailSuggestions(matches.slice(0, 5));
-            setShowEmailSuggestions(matches.length > 0);
-        } else {
-            setShowEmailSuggestions(false);
-        }
-    };
-
-    const handleResetPassword = async () => {
-        if (!selectedUser || !newPassword) return;
-        showToast(`Password reset for ${selectedUser.email}`, "success");
-        setShowResetPasswordModal(false);
-        setNewPassword("");
-        setSelectedUser(null);
-    };
-
-    const handleChangeRole = async () => {
-        if (!selectedUser || !newRole) return;
-        setUsers(prev => prev.map(u =>
-            u.customerId === selectedUser.customerId ? { ...u, role: newRole } : u
-        ));
-        showToast(`Role updated to ${newRole}`, "success");
-        setShowChangeRoleModal(false);
-        setNewRole("");
-        setSelectedUser(null);
-    };
-
-    const handleToggleUserSuspension = (user: User) => {
-        const newStatus: UserStatus = user.status === "suspended" ? "active" : "suspended";
-        setUsers(prev => prev.map(u =>
-            u.customerId === user.customerId ? { ...u, status: newStatus } : u
-        ));
-        showToast(`${user.firstName} ${user.lastName} ${newStatus === "suspended" ? "suspended" : "unsuspended"}`, "success");
-    };
-
-    const handleToggleConsultantSuspension = (consultant: Consultant) => {
-        const newStatus: UserStatus = consultant.status === "suspended" ? "active" : "suspended";
-        setConsultants(prev => prev.map(c =>
-            c.consultantId === consultant.consultantId ? { ...c, status: newStatus } : c
-        ));
-        showToast(`${consultant.firstName} ${consultant.lastName} ${newStatus === "suspended" ? "suspended" : "unsuspended"}`, "success");
-    };
-
-    const handleApproveTimeLog = (logId: string) => {
-        setHoursLogs(prev => prev.map(l =>
-            l.logId === logId ? { ...l, approvalStatus: "approved" as const } : l
-        ));
-        showToast("Time log approved", "success");
-    };
-
-    const handleDenyTimeLog = (logId: string) => {
-        setHoursLogs(prev => prev.map(l =>
-            l.logId === logId ? { ...l, approvalStatus: "denied" as const } : l
-        ));
-        showToast("Time log denied", "success");
-    };
-
-    const handleSendEmail = async () => {
-        if (!composeTo || !composeSubject) {
-            showToast("To and Subject are required", "error");
-            return;
-        }
-        try {
-            const res = await fetch(`${API_BASE}/api/emails/send`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    to: composeTo,
-                    from: "noreply@timely.com",
-                    subject: composeSubject,
-                    body: composeBody
-                })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                showToast("Email sent successfully", "success");
-                setShowComposeEmailModal(false);
-                setComposeTo("");
-                setComposeSubject("");
-                setComposeBody("");
-                setTimeout(() => fetchEmails(), 500);
-            } else {
-                throw new Error(data.error || "Failed to send");
-            }
-        } catch (err: any) {
-            showToast(err.message || "Failed to send email", "error");
-        }
-    };
-
-    const handleSendAnnouncement = async () => {
-        if (!announcementSubject || !announcementBody) {
-            showToast("Subject and body required", "error");
-            return;
-        }
-
-        let recipients: string[] = [];
-        if (announcementTarget === "all" || announcementTarget === "clients") {
-            recipients = [...recipients, ...users.map(u => u.email)];
-        }
-        if (announcementTarget === "all" || announcementTarget === "consultants") {
-            recipients = [...recipients, ...consultants.map(c => c.email)];
-        }
-
-        let sentCount = 0;
-        for (const email of recipients) {
-            try {
-                const res = await fetch(`${API_BASE}/api/emails/send`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        to: email,
-                        from: "noreply@timely.com",
-                        subject: `[Announcement] ${announcementSubject}`,
-                        body: announcementBody
-                    })
-                });
-                if (res.ok) sentCount++;
-            } catch { }
-        }
-
-        showToast(`Announcement sent to ${sentCount} recipient(s)`, "success");
-        setShowAnnouncementModal(false);
-        setAnnouncementSubject("");
-        setAnnouncementBody("");
-        setTimeout(() => fetchEmails(), 500);
-    };
-
-    const handleCreateAlert = () => {
-        if (!newAlertMessage) {
-            showToast("Alert message required", "error");
-            return;
-        }
-        const newAlert: Alert = {
-            id: `custom-${Date.now()}`,
-            type: newAlertType,
-            message: newAlertMessage,
-            timestamp: new Date().toISOString(),
-            expiresAt: newAlertExpiry || undefined,
-            isCustom: true
-        };
-        setAlerts(prev => [...prev, newAlert]);
-        resetAlertForm();
-        showToast("Alert created", "success");
-    };
-
-    const handleUpdateAlert = () => {
-        if (!editingAlert || !newAlertMessage) return;
-        setAlerts(prev => prev.map(a =>
-            a.id === editingAlert.id
-                ? { ...a, message: newAlertMessage, type: newAlertType, expiresAt: newAlertExpiry || undefined }
-                : a
-        ));
-        setEditingAlert(null);
-        resetAlertForm();
-        showToast("Alert updated", "success");
-    };
-
-    const handleDeleteAlert = (alertId: string) => {
-        setAlerts(prev => prev.filter(a => a.id !== alertId));
-        showToast("Alert deleted", "success");
-    };
-
-    const resetAlertForm = () => {
-        setNewAlertMessage("");
-        setNewAlertExpiry("");
-        setShowAlertModal(false);
-    };
-
-    // navigation tabs configuration - includes documents and messages tabs
-    const navigationTabs: { id: AdminView; label: string; icon: any; badge?: number }[] = [
+    const tabs: { id: AdminView; label: string; icon: any; badge?: number }[] = [
         { id: "dashboard", label: "Overview", icon: BarChart3 },
         { id: "users", label: "Clients", icon: Users },
         { id: "consultants", label: "Consultants", icon: Briefcase },
@@ -605,799 +156,218 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
         { id: "alerts", label: "Alerts", icon: AlertTriangle, badge: alerts.length || undefined },
     ];
 
-    // dashboard overview
-    const renderDashboard = () => (
-        <div className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-                <button onClick={() => setShowAnnouncementModal(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium">
-                    <Megaphone className="w-4 h-4" /> Send Announcement
-                </button>
-                <button onClick={() => onNavigate?.("EmailGenerator")} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
-                    <Plus className="w-4 h-4" /> Add Client
-                </button>
-                <button onClick={() => onNavigate?.("projects")} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium">
-                    <FolderOpen className="w-4 h-4" /> View Projects
-                </button>
-                <button onClick={() => onNavigate?.("hours")} className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium">
-                    <Clock className="w-4 h-4" /> Log Hours
-                </button>
-                <button onClick={() => setCurrentView("documents")} className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-medium">
-                    <FileText className="w-4 h-4" /> Request Documents
-                </button>
-                <button onClick={() => setCurrentView("messages")} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">
-                    <MessageCircle className="w-4 h-4" /> Messages {unreadMessages > 0 && <span className="px-1.5 py-0.5 bg-white/20 rounded-full text-xs">{unreadMessages}</span>}
-                </button>
-            </div>
+    // ═══ MODAL HELPER ═══
+    const Modal: React.FC<{ show: boolean; onClose: () => void; title: string; icon?: React.ReactNode; children: React.ReactNode }> = ({ show, onClose, title, icon, children }) => {
+        if (!show) return null;
+        return (<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4"><div className={`${n.modal} border rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto`}><div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}><h2 className={`text-lg font-semibold ${n.text} flex items-center gap-2`}>{icon}{title}</h2><button onClick={onClose} className={`p-2 rounded-lg ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button></div><div className="p-5 space-y-4">{children}</div></div></div>);
+    };
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div className={`${styles.card} border rounded-xl p-4`}>
-                    <p className={`${styles.textMuted} text-xs`}>Total Clients</p>
-                    <p className={`text-2xl font-bold ${styles.text}`}>{users.length}</p>
-                </div>
-                <div className={`${styles.card} border rounded-xl p-4`}>
-                    <p className={`${styles.textMuted} text-xs`}>Active</p>
-                    <p className="text-2xl font-bold text-emerald-500">{stats.activeUsers}</p>
-                </div>
-                <div className={`${styles.card} border rounded-xl p-4`}>
-                    <p className={`${styles.textMuted} text-xs`}>Suspended</p>
-                    <p className="text-2xl font-bold text-red-500">{stats.suspendedUsers}</p>
-                </div>
-                <div className={`${styles.card} border rounded-xl p-4`}>
-                    <p className={`${styles.textMuted} text-xs`}>Consultants</p>
-                    <p className="text-2xl font-bold text-purple-500">{consultants.length}</p>
-                </div>
-                <div className={`${styles.card} border rounded-xl p-4`}>
-                    <p className={`${styles.textMuted} text-xs`}>Projects</p>
-                    <p className="text-2xl font-bold text-blue-500">{projects.length}</p>
-                </div>
-                <div className={`${styles.card} border rounded-xl p-4`}>
-                    <p className={`${styles.textMuted} text-xs`}>Total Hours</p>
-                    <p className="text-2xl font-bold text-amber-500">{stats.totalHours.toFixed(1)}</p>
-                </div>
-            </div>
+    return (
+        <div className={`${n.bg} min-h-screen ${n.text}`}>
+            {/* Toasts */}
+            <div className="fixed top-4 right-4 z-[10000] space-y-2">{toasts.map(t => (<div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm animate-fadeIn`}>{t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === "error" ? <XCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}<span>{t.message}</span><button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} className={n.tertiary}><X className="w-3.5 h-3.5" /></button></div>))}</div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className={`${styles.card} border rounded-xl p-5`}>
-                    <h3 className={`text-sm font-semibold mb-4 flex items-center gap-2 ${styles.text}`}>
-                        <PieChart className="w-4 h-4" /> User Status
-                    </h3>
-                    <div className="flex items-center justify-center">
-                        <div className="relative w-32 h-32">
-                            <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                                {users.length > 0 ? (
-                                    <>
-                                        <circle cx="18" cy="18" r="15.9" fill="transparent" stroke="#10b981" strokeWidth="3" strokeDasharray={`${(stats.activeUsers / users.length) * 100} 100`} />
-                                        <circle cx="18" cy="18" r="15.9" fill="transparent" stroke="#6b7280" strokeWidth="3" strokeDasharray={`${(stats.inactiveUsers / users.length) * 100} 100`} strokeDashoffset={`-${(stats.activeUsers / users.length) * 100}`} />
-                                        <circle cx="18" cy="18" r="15.9" fill="transparent" stroke="#ef4444" strokeWidth="3" strokeDasharray={`${(stats.suspendedUsers / users.length) * 100} 100`} strokeDashoffset={`-${((stats.activeUsers + stats.inactiveUsers) / users.length) * 100}`} />
-                                    </>
-                                ) : (
-                                    <circle cx="18" cy="18" r="15.9" fill="transparent" stroke={isDark ? "#374151" : "#e5e7eb"} strokeWidth="3" />
-                                )}
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <span className={`text-lg font-bold ${styles.text}`}>{users.length}</span>
-                            </div>
+            <div className="max-w-7xl mx-auto px-6 py-8">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6">
+                    <div><h1 className={`text-2xl font-semibold tracking-tight ${n.strong} mb-1`}>Admin</h1><p className={`text-sm ${n.secondary}`}>{adminEmail}</p></div>
+                    <button onClick={refreshAll} disabled={isLoading} className={`w-9 h-9 ${n.flat} flex items-center justify-center ${isLoading ? "animate-spin" : ""}`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button>
+                </div>
+
+                {/* Tabs */}
+                <div className={`${n.card} p-0.5 flex rounded-xl mb-8 overflow-x-auto`}>
+                    {tabs.map(t => (<button key={t.id} onClick={() => setCurrentView(t.id)} className={`px-4 py-2.5 text-sm rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${currentView === t.id ? n.btnPrimary : n.secondary}`}><t.icon className="w-3.5 h-3.5" />{t.label}{t.badge ? <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{t.badge}</span> : null}</button>))}
+                </div>
+
+                {/* ═══ DASHBOARD ═══ */}
+                {currentView === "dashboard" && (<div className="space-y-8">
+                    {/* Quick actions */}
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setShowAnnounceModal(true)} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-purple-400 transition-all`}><Megaphone className="w-3.5 h-3.5" />Announce</button>
+                        <button onClick={() => onNavigate?.("EmailGenerator")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.label} transition-all`}><Plus className="w-3.5 h-3.5" />Add Client</button>
+                        <button onClick={() => onNavigate?.("projects")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-emerald-400 transition-all`}><FolderOpen className="w-3.5 h-3.5" />Projects</button>
+                        <button onClick={() => onNavigate?.("hours")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-amber-400 transition-all`}><Clock className="w-3.5 h-3.5" />Hours</button>
+                        <button onClick={() => setCurrentView("documents")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-pink-400 transition-all`}><FileText className="w-3.5 h-3.5" />Documents</button>
+                        <button onClick={() => setCurrentView("messages")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-indigo-400 transition-all`}><MessageCircle className="w-3.5 h-3.5" />Messages{unreadMessages > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadMessages}</span>}</button>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        {[{ l: "Clients", v: users.length, c: "" }, { l: "Active", v: stats.activeUsers, c: "text-emerald-400" }, { l: "Suspended", v: stats.suspendedUsers, c: "text-red-400" }, { l: "Consultants", v: consultants.length, c: "text-purple-400" }, { l: "Projects", v: projects.length, c: n.label }, { l: "Hours", v: stats.totalHours.toFixed(1), c: "text-amber-400" }].map((s, i) => (
+                            <div key={i} className={`${n.card} ${n.edgeHover} p-4 transition-all duration-200`}><span className={`${n.label} text-[11px] uppercase tracking-wider`}>{s.l}</span><p className={`text-2xl font-semibold ${s.c || n.strong} mt-1`}>{s.v}</p></div>
+                        ))}
+                    </div>
+
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Donut */}
+                        <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                            <h3 className={`text-sm font-semibold mb-4 flex items-center gap-2 ${n.text}`}><PieChart className={`w-4 h-4 ${n.label}`} />User Status</h3>
+                            <div className="flex items-center justify-center"><div className="relative w-28 h-28"><svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">{users.length > 0 ? (<><circle cx="18" cy="18" r="15.9" fill="transparent" stroke="#10b981" strokeWidth="3" strokeDasharray={`${(stats.activeUsers / users.length) * 100} 100`} /><circle cx="18" cy="18" r="15.9" fill="transparent" stroke="#6b7280" strokeWidth="3" strokeDasharray={`${(stats.inactiveUsers / users.length) * 100} 100`} strokeDashoffset={`-${(stats.activeUsers / users.length) * 100}`} /><circle cx="18" cy="18" r="15.9" fill="transparent" stroke="#ef4444" strokeWidth="3" strokeDasharray={`${(stats.suspendedUsers / users.length) * 100} 100`} strokeDashoffset={`-${((stats.activeUsers + stats.inactiveUsers) / users.length) * 100}`} /></>) : <circle cx="18" cy="18" r="15.9" fill="transparent" stroke={isDark ? "#1f2937" : "#e5e7eb"} strokeWidth="3" />}</svg><div className="absolute inset-0 flex items-center justify-center"><span className={`text-lg font-bold ${n.strong}`}>{users.length}</span></div></div></div>
+                            <div className="flex justify-center gap-4 mt-4 text-xs">{[{ c: "bg-emerald-500", l: "Active" }, { c: "bg-gray-500", l: "Inactive" }, { c: "bg-red-500", l: "Suspended" }].map((x, i) => <div key={i} className="flex items-center gap-1"><div className={`w-2.5 h-2.5 rounded-full ${x.c}`} /><span className={n.tertiary}>{x.l}</span></div>)}</div>
+                        </div>
+                        {/* Log Status */}
+                        <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                            <h3 className={`text-sm font-semibold mb-4 flex items-center gap-2 ${n.text}`}><BarChart3 className={`w-4 h-4 ${n.label}`} />Time Log Status</h3>
+                            <div className="space-y-3">{[{ l: "Pending", v: stats.pendingLogs, c: "bg-amber-500", t: "text-amber-400" }, { l: "Approved", v: stats.approvedLogs, c: "bg-emerald-500", t: "text-emerald-400" }, { l: "Denied", v: stats.deniedLogs, c: "bg-red-500", t: "text-red-400" }].map((x, i) => (<div key={i}><div className={`flex justify-between text-xs mb-1 ${n.tertiary}`}><span>{x.l}</span><span className={x.t}>{x.v}</span></div><div className={`h-2 ${n.barBg} rounded-full overflow-hidden`}><div className={`h-full ${x.c} rounded-full`} style={{ width: `${hoursLogs.length ? (x.v / hoursLogs.length) * 100 : 0}%` }} /></div></div>))}</div>
+                        </div>
+                        {/* Hours by consultant */}
+                        <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                            <h3 className={`text-sm font-semibold mb-4 flex items-center gap-2 ${n.text}`}><Clock className={`w-4 h-4 ${n.label}`} />Hours by Consultant</h3>
+                            <div className="space-y-2 max-h-44 overflow-y-auto">{consultants.length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>No consultants</p> : consultants.slice(0, 6).map(c => { const h = getConHours(c.consultantId); const mx = Math.max(...consultants.map(x => getConHours(x.consultantId)), 1); return (<div key={c.consultantId}><div className={`flex justify-between text-xs mb-1 ${n.tertiary}`}><span className="truncate">{c.firstName} {c.lastName}</span><span className={n.label}>{h}h</span></div><div className={`h-1.5 ${n.barBg} rounded-full overflow-hidden`}><div className="h-full bg-blue-500 rounded-full" style={{ width: `${(h / mx) * 100}%` }} /></div></div>); })}</div>
                         </div>
                     </div>
-                    <div className="flex justify-center gap-4 mt-4 text-xs">
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span className={styles.textMuted}>Active</span></div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-gray-500" /><span className={styles.textMuted}>Inactive</span></div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-red-500" /><span className={styles.textMuted}>Suspended</span></div>
-                    </div>
-                </div>
 
-                <div className={`${styles.card} border rounded-xl p-5`}>
-                    <h3 className={`text-sm font-semibold mb-4 flex items-center gap-2 ${styles.text}`}>
-                        <BarChart3 className="w-4 h-4" /> Time Log Status
-                    </h3>
-                    <div className="space-y-3">
-                        <div>
-                            <div className={`flex justify-between text-xs mb-1 ${styles.textMuted}`}>
-                                <span>Pending</span>
-                                <span className="text-amber-500">{stats.pendingLogs}</span>
-                            </div>
-                            <div className={`h-3 ${isDark ? "bg-slate-700" : "bg-gray-200"} rounded-full overflow-hidden`}>
-                                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${hoursLogs.length ? (stats.pendingLogs / hoursLogs.length) * 100 : 0}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className={`flex justify-between text-xs mb-1 ${styles.textMuted}`}>
-                                <span>Approved</span>
-                                <span className="text-emerald-500">{stats.approvedLogs}</span>
-                            </div>
-                            <div className={`h-3 ${isDark ? "bg-slate-700" : "bg-gray-200"} rounded-full overflow-hidden`}>
-                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${hoursLogs.length ? (stats.approvedLogs / hoursLogs.length) * 100 : 0}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className={`flex justify-between text-xs mb-1 ${styles.textMuted}`}>
-                                <span>Denied</span>
-                                <span className="text-red-500">{stats.deniedLogs}</span>
-                            </div>
-                            <div className={`h-3 ${isDark ? "bg-slate-700" : "bg-gray-200"} rounded-full overflow-hidden`}>
-                                <div className="h-full bg-red-500 rounded-full" style={{ width: `${hoursLogs.length ? (stats.deniedLogs / hoursLogs.length) * 100 : 0}%` }} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    {alerts.length > 0 && <div className={`${n.card} p-5`}><h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${n.text}`}><AlertTriangle className="w-4 h-4 text-amber-400" />Alerts</h3><div className="space-y-1.5">{alerts.slice(0, 3).map(a => (<div key={a.id} className={`${n.flat} p-2.5 flex items-center gap-2 text-xs`}><AlertTriangle className={`w-3 h-3 ${a.type === "error" ? "text-red-400" : a.type === "warning" ? "text-amber-400" : "text-blue-400"}`} /><span className={n.text}>{a.message}</span></div>))}</div></div>}
+                </div>)}
 
-                <div className={`${styles.card} border rounded-xl p-5`}>
-                    <h3 className={`text-sm font-semibold mb-4 flex items-center gap-2 ${styles.text}`}>
-                        <Clock className="w-4 h-4" /> Hours by Consultant
-                    </h3>
-                    <div className="space-y-2 max-h-44 overflow-y-auto">
-                        {consultants.length === 0 ? (
-                            <p className={`${styles.textMuted} text-sm text-center py-4`}>No consultants</p>
-                        ) : (
-                            consultants.slice(0, 6).map(c => {
-                                const hours = getConsultantHours(c.consultantId);
-                                const maxHours = Math.max(...consultants.map(con => getConsultantHours(con.consultantId)), 1);
-                                return (
-                                    <div key={c.consultantId}>
-                                        <div className={`flex justify-between text-xs mb-1 ${styles.textMuted}`}>
-                                            <span className="truncate">{c.firstName} {c.lastName}</span>
-                                            <span className="text-blue-500">{hours}h</span>
-                                        </div>
-                                        <div className={`h-2 ${isDark ? "bg-slate-700" : "bg-gray-200"} rounded-full overflow-hidden`}>
-                                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(hours / maxHours) * 100}%` }} />
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
+                {/* ═══ CLIENTS ═══ */}
+                {currentView === "users" && (<div className="space-y-6">
+                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Client Management</h2><div className="flex gap-2"><button onClick={() => exportCSV(users, "clients", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={fetchUsers} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button></div></div>
+                    <div className="flex gap-3"><div className={`flex-1 ${n.flat} flex items-center gap-2 px-4 py-2.5`}><Search className={`w-4 h-4 ${n.tertiary}`} /><input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full bg-transparent ${n.text} text-sm focus:outline-none`} /></div><select value={userStatusFilter} onChange={e => setUserStatusFilter(e.target.value as any)} className={`px-3 py-2 ${n.input} border rounded-xl text-sm`}><option value="all">All</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className={`lg:col-span-2 ${n.card} p-1.5 space-y-1.5`}>
+                            <div className={`${n.flat} grid grid-cols-12 gap-4 px-4 py-3`}><div className={`col-span-4 text-xs ${n.label}`}>Client</div><div className={`col-span-4 text-xs ${n.label}`}>Email</div><div className={`col-span-2 text-xs ${n.label}`}>Status</div><div className={`col-span-2 text-xs ${n.label} text-right`}>Actions</div></div>
+                            {filteredUsers.length === 0 ? <div className={`${n.flat} text-center py-12`}><Users className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} /><p className={`text-sm ${n.secondary}`}>No clients</p></div> : filteredUsers.map(u => (
+                                <div key={u.customerId} onClick={() => setSelectedUser(u)} className={`${n.flat} ${n.edgeHoverFlat} grid grid-cols-12 gap-4 px-4 py-3 cursor-pointer transition-all duration-200 ${selectedUser?.customerId === u.customerId ? "ring-1 ring-blue-500/30" : ""}`}>
+                                    <div className="col-span-4 flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{u.firstName[0]}{u.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{u.firstName} {u.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{u.clientCode}</p></div></div>
+                                    <div className="col-span-4 flex items-center"><span className={`${n.secondary} text-sm truncate`}>{u.email}</span></div>
+                                    <div className="col-span-2 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${statusBadge(u.status || "active")}`}>{fmtStatus(u.status || "active")}</span></div>
+                                    <div className="col-span-2 flex items-center justify-end gap-1"><button onClick={e => { e.stopPropagation(); setSelectedUser(u); setShowResetPwModal(true); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Key className={`w-3.5 h-3.5 ${n.tertiary}`} /></button><button onClick={e => { e.stopPropagation(); toggleUserSusp(u); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Ban className={`w-3.5 h-3.5 ${u.status === "suspended" ? "text-red-400" : n.tertiary}`} /></button></div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className={`${n.card} p-5`}>{selectedUser ? (<div className="space-y-4"><div className="flex items-center gap-3"><div className={`w-12 h-12 ${n.inset} rounded-full flex items-center justify-center text-sm font-semibold ${n.secondary}`}>{selectedUser.firstName[0]}{selectedUser.lastName[0]}</div><div><h3 className={`font-semibold ${n.text}`}>{selectedUser.firstName} {selectedUser.lastName}</h3><p className={`${n.tertiary} text-xs`}>{selectedUser.clientCode}</p></div></div><div className={`space-y-2.5 pt-3 border-t ${n.divider}`}><div className="flex items-center gap-3"><Mail className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{selectedUser.email}</span></div><div className="flex items-center gap-3"><Shield className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm capitalize ${n.text}`}>{selectedUser.role}</span></div><div className="flex items-center gap-3"><UserCheck className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm capitalize ${selectedUser.status === "active" ? "text-emerald-400" : selectedUser.status === "suspended" ? "text-red-400" : n.secondary}`}>{selectedUser.status}</span></div><div className="flex items-center gap-3"><Key className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm font-mono ${n.text}`}>{selectedUser.tempPassword}</span></div></div><div className={`flex gap-2 pt-3 border-t ${n.divider}`}><button onClick={() => { setNewRole(selectedUser.role || "client"); setShowRoleModal(true); }} className={`flex-1 px-3 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Role</button><button onClick={() => setShowResetPwModal(true)} className={`flex-1 px-3 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>Reset PW</button></div></div>) : (<div className={`flex flex-col items-center justify-center h-64 ${n.tertiary}`}><Users className="w-10 h-10 mb-2 opacity-30" /><p className="text-sm">Select a client</p></div>)}</div>
                     </div>
-                </div>
-            </div>
+                </div>)}
 
-            {alerts.length > 0 && (
-                <div className={`${styles.card} border rounded-xl p-5`}>
-                    <h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${styles.text}`}>
-                        <AlertTriangle className="w-4 h-4 text-amber-500" /> Recent Alerts
-                    </h3>
-                    <div className="space-y-2">
-                        {alerts.slice(0, 3).map(alert => (
-                            <div key={alert.id} className={`flex items-center gap-2 p-2 rounded-lg text-xs ${alert.type === "error" ? "bg-red-500/10" : alert.type === "warning" ? "bg-amber-500/10" : "bg-blue-500/10"}`}>
-                                <AlertTriangle className={`w-3 h-3 ${alert.type === "error" ? "text-red-500" : alert.type === "warning" ? "text-amber-500" : "text-blue-500"}`} />
-                                <span className={styles.text}>{alert.message}</span>
+                {/* ═══ CONSULTANTS ═══ */}
+                {currentView === "consultants" && (<div className="space-y-6">
+                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Consultant Management</h2><div className="flex gap-2"><button onClick={() => exportCSV(consultants, "consultants", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={fetchConsultants} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button></div></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className={`lg:col-span-2 ${n.card} p-1.5 space-y-1.5`}>
+                            <div className={`${n.flat} grid grid-cols-12 gap-4 px-4 py-3`}><div className={`col-span-4 text-xs ${n.label}`}>Consultant</div><div className={`col-span-2 text-xs ${n.label}`}>Role</div><div className={`col-span-2 text-xs ${n.label}`}>Hours</div><div className={`col-span-2 text-xs ${n.label}`}>Status</div><div className={`col-span-2 text-xs ${n.label} text-right`}>→</div></div>
+                            {consultants.length === 0 ? <div className={`${n.flat} text-center py-12`}><Briefcase className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} /><p className={`text-sm ${n.secondary}`}>No consultants</p></div> : consultants.map(c => (
+                                <div key={c.consultantId} onClick={() => setSelectedConsultant(c)} className={`${n.flat} ${n.edgeHoverFlat} grid grid-cols-12 gap-4 px-4 py-3 cursor-pointer transition-all duration-200 ${selectedConsultant?.consultantId === c.consultantId ? "ring-1 ring-blue-500/30" : ""}`}>
+                                    <div className="col-span-4 flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.consultantCode}</p></div></div>
+                                    <div className="col-span-2 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-400`}>{c.role || "Consultant"}</span></div>
+                                    <div className="col-span-2 flex items-center"><span className={`${n.secondary} text-sm`}>{getConHours(c.consultantId)}h</span></div>
+                                    <div className="col-span-2 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${statusBadge(c.status || "active")}`}>{fmtStatus(c.status || "active")}</span></div>
+                                    <div className="col-span-2 flex items-center justify-end"><button onClick={e => { e.stopPropagation(); toggleConSusp(c); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Ban className={`w-3.5 h-3.5 ${c.status === "suspended" ? "text-red-400" : n.tertiary}`} /></button></div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className={`${n.card} p-5`}>{selectedConsultant ? (<div className="space-y-4"><div className="flex items-center gap-3"><div className={`w-12 h-12 ${n.inset} rounded-full flex items-center justify-center text-sm font-semibold ${n.secondary}`}>{selectedConsultant.firstName[0]}{selectedConsultant.lastName[0]}</div><div><h3 className={`font-semibold ${n.text}`}>{selectedConsultant.firstName} {selectedConsultant.lastName}</h3><p className={`${n.tertiary} text-xs`}>{selectedConsultant.consultantCode}</p></div></div><div className={`space-y-2.5 pt-3 border-t ${n.divider}`}><div className="flex items-center gap-3"><Mail className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{selectedConsultant.email}</span></div><div className="flex items-center gap-3"><Briefcase className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{selectedConsultant.role || "Consultant"}</span></div><div className="flex items-center gap-3"><Clock className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{getConHours(selectedConsultant.consultantId)}h logged</span></div></div></div>) : (<div className={`flex flex-col items-center justify-center h-64 ${n.tertiary}`}><Briefcase className="w-10 h-10 mb-2 opacity-30" /><p className="text-sm">Select a consultant</p></div>)}</div>
+                    </div>
+                </div>)}
+
+                {/* ═══ PROJECTS ═══ */}
+                {currentView === "projects" && (<div className="space-y-6">
+                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Project Management</h2><div className="flex gap-2"><button onClick={() => exportCSV(projects, "projects", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={fetchProjects} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button></div></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className={`lg:col-span-2 ${n.card} p-1.5 space-y-1.5`}>
+                            <div className={`${n.flat} grid grid-cols-12 gap-4 px-4 py-3`}><div className={`col-span-4 text-xs ${n.label}`}>Project</div><div className={`col-span-3 text-xs ${n.label}`}>Client</div><div className={`col-span-3 text-xs ${n.label}`}>Status</div><div className={`col-span-2 text-xs ${n.label}`}>Hours</div></div>
+                            {projects.length === 0 ? <div className={`${n.flat} text-center py-12`}><FolderOpen className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} /><p className={`text-sm ${n.secondary}`}>No projects</p></div> : projects.map(p => (
+                                <div key={p.projectId} onClick={() => setSelectedProject(p)} className={`${n.flat} ${n.edgeHoverFlat} grid grid-cols-12 gap-4 px-4 py-3 cursor-pointer transition-all duration-200 ${selectedProject?.projectId === p.projectId ? "ring-1 ring-blue-500/30" : ""}`}>
+                                    <div className="col-span-4"><p className={`${n.text} text-sm font-medium`}>{p.projectName}</p><p className={`${n.tertiary} text-[11px]`}>{p.projectCode}</p></div>
+                                    <div className="col-span-3 flex items-center"><span className={`${n.secondary} text-sm`}>{p.clientName || "—"}</span></div>
+                                    <div className="col-span-3 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${n.badge}`}>{fmtStatus(p.status || "pending")}</span></div>
+                                    <div className="col-span-2 flex items-center"><span className={`${n.secondary} text-sm`}>{getProjHours(p.projectId)}h</span></div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className={`${n.card} p-5`}>{selectedProject ? (<div className="space-y-4"><h3 className={`font-semibold ${n.text}`}>{selectedProject.projectName}</h3><p className={`${n.tertiary} text-xs`}>{selectedProject.projectCode}</p><div className={`space-y-2.5 pt-3 border-t ${n.divider}`}><div className="flex items-center gap-3"><Users className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{selectedProject.clientName || "Unassigned"}</span></div><div className="flex items-center gap-3"><FolderOpen className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{fmtStatus(selectedProject.status || "pending")}</span></div><div className="flex items-center gap-3"><Clock className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{getProjHours(selectedProject.projectId)}h logged</span></div></div></div>) : (<div className={`flex flex-col items-center justify-center h-64 ${n.tertiary}`}><FolderOpen className="w-10 h-10 mb-2 opacity-30" /><p className="text-sm">Select a project</p></div>)}</div>
+                    </div>
+                </div>)}
+
+                {/* ═══ TIME LOGS ═══ */}
+                {currentView === "timelogs" && (<div className="space-y-6">
+                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Time Log Approvals</h2><div className="flex gap-2"><button onClick={() => exportCSV(hoursLogs.map(l => ({ ...l, consultant: getConName(l.consultantId), project: getProjName(l.projectId) })), "timelogs", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={fetchHours} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button></div></div>
+                    <select value={timelogStatusFilter} onChange={e => setTimelogStatusFilter(e.target.value as any)} className={`px-3 py-2 ${n.input} border rounded-xl text-sm`}><option value="all">All ({hoursLogs.length})</option><option value="pending">Pending ({stats.pendingLogs})</option><option value="approved">Approved ({stats.approvedLogs})</option><option value="denied">Denied ({stats.deniedLogs})</option></select>
+                    <div className={`${n.card} p-1.5 space-y-1.5`}>
+                        <div className={`${n.flat} grid grid-cols-12 gap-4 px-4 py-3`}><div className={`col-span-2 text-xs ${n.label}`}>Date</div><div className={`col-span-3 text-xs ${n.label}`}>Consultant</div><div className={`col-span-3 text-xs ${n.label}`}>Project</div><div className={`col-span-1 text-xs ${n.label}`}>Hours</div><div className={`col-span-1 text-xs ${n.label}`}>Status</div><div className={`col-span-2 text-xs ${n.label} text-right`}>Actions</div></div>
+                        {filteredLogs.length === 0 ? <div className={`${n.flat} text-center py-12`}><Clock className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} /><p className={`text-sm ${n.secondary}`}>No logs</p></div> : filteredLogs.map(l => (
+                            <div key={l.logId} className={`${n.flat} ${n.edgeHoverFlat} grid grid-cols-12 gap-4 px-4 py-3 transition-all duration-200`}>
+                                <div className="col-span-2"><span className={`${n.secondary} text-sm`}>{l.date}</span></div>
+                                <div className="col-span-3"><span className={`${n.text} text-sm`}>{getConName(l.consultantId)}</span></div>
+                                <div className="col-span-3"><span className={`${n.text} text-sm truncate`}>{getProjName(l.projectId)}</span></div>
+                                <div className="col-span-1"><span className={`${n.label} text-sm font-semibold`}>{l.hours}h</span></div>
+                                <div className="col-span-1"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${approvalBadge(l.approvalStatus || "pending")}`}>{fmtStatus(l.approvalStatus || "pending")}</span></div>
+                                <div className="col-span-2 flex items-center justify-end gap-1">
+                                    <button onClick={() => approveLog(l.logId)} className={`p-1.5 rounded-lg ${l.approvalStatus === "approved" ? "bg-emerald-500/20" : isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><CheckCircle className={`w-3.5 h-3.5 ${l.approvalStatus === "approved" ? "text-emerald-400" : n.tertiary}`} /></button>
+                                    <button onClick={() => denyLog(l.logId)} className={`p-1.5 rounded-lg ${l.approvalStatus === "denied" ? "bg-red-500/20" : isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><XCircle className={`w-3.5 h-3.5 ${l.approvalStatus === "denied" ? "text-red-400" : n.tertiary}`} /></button>
+                                </div>
                             </div>
                         ))}
                     </div>
-                </div>
-            )}
-        </div>
-    );
+                </div>)}
 
-    // users/clients management view
-    const renderUsers = () => (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className={`text-xl font-semibold ${styles.text}`}>Client Management</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => exportToCSV(users, "clients", showToast, (msg) => showToast(msg, "error"))} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <Download className="w-4 h-4" /> Export
-                    </button>
-                    <button onClick={fetchUsers} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                    <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${styles.textMuted}`} />
-                    <input type="text" placeholder="Search clients..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2 ${styles.input} border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`} />
-                </div>
-                <select value={userStatusFilter} onChange={e => setUserStatusFilter(e.target.value as any)} className={`${styles.input} border rounded-lg px-3 py-2 text-sm focus:outline-none`}>
-                    <option value="all">All</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="suspended">Suspended</option>
-                </select>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className={`lg:col-span-2 ${styles.card} border rounded-xl overflow-hidden`}>
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className={styles.cardInner}>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Client</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Email</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Status</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${styles.divider}`}>
-                            {filteredUsers.length === 0 ? (
-                                <tr><td colSpan={4} className={`px-4 py-8 text-center ${styles.textMuted}`}>No clients found</td></tr>
-                            ) : (
-                                filteredUsers.map(user => (
-                                    <tr key={user.customerId} onClick={() => setSelectedUser(user)} className={`cursor-pointer ${styles.hover} ${selectedUser?.customerId === user.customerId ? styles.selected : ""}`}>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full ${isDark ? "bg-slate-700" : "bg-gray-200"} flex items-center justify-center text-sm font-medium`}>
-                                                    {user.firstName[0]}{user.lastName[0]}
-                                                </div>
-                                                <div>
-                                                    <p className={`font-medium ${styles.text}`}>{user.firstName} {user.lastName}</p>
-                                                    <p className={`${styles.textMuted} text-xs`}>{user.clientCode}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className={`px-4 py-3 ${styles.textMuted}`}>{user.email}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs ${user.status === "active" ? "bg-emerald-500/20 text-emerald-500" : user.status === "suspended" ? "bg-red-500/20 text-red-500" : "bg-gray-500/20 text-gray-500"}`}>
-                                                {user.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-1">
-                                                <button onClick={e => { e.stopPropagation(); setSelectedUser(user); setShowResetPasswordModal(true); }} className={`p-2 rounded-lg ${styles.hover}`}>
-                                                    <Key className={`w-4 h-4 ${styles.textMuted}`} />
-                                                </button>
-                                                <button onClick={e => { e.stopPropagation(); handleToggleUserSuspension(user); }} className={`p-2 rounded-lg ${styles.hover}`}>
-                                                    <Ban className={`w-4 h-4 ${user.status === "suspended" ? "text-red-500" : styles.textMuted}`} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className={`${styles.card} border rounded-xl p-5`}>
-                    {selectedUser ? (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white">
-                                    {selectedUser.firstName[0]}{selectedUser.lastName[0]}
+                {/* ═══ EMAILS ═══ */}
+                {currentView === "emails" && (<div className="space-y-6">
+                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Email System</h2><div className="flex gap-2"><button onClick={() => exportCSV(emails, "emails", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={() => setShowComposeModal(true)} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl text-sm flex items-center gap-2`}><Send className="w-3.5 h-3.5" />Compose</button></div></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className={`lg:col-span-1 ${n.card} p-1.5 space-y-1.5 max-h-[500px] overflow-y-auto`}>
+                            {emails.length === 0 ? <div className={`${n.flat} text-center py-8`}><Mail className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} /><p className={`text-sm ${n.secondary}`}>No emails</p></div> : emails.map(e => (
+                                <div key={e.emailId} onClick={() => setSelectedEmail(e)} className={`${n.flat} ${n.edgeHoverFlat} p-3 cursor-pointer transition-all duration-200 ${selectedEmail?.emailId === e.emailId ? "ring-1 ring-blue-500/30" : ""}`}>
+                                    <p className={`${n.text} text-sm font-medium truncate`}>{e.to}</p>
+                                    <p className={`${n.secondary} text-xs truncate`}>{e.subject}</p>
+                                    <p className={`${n.tertiary} text-[10px] mt-1`}>{fmtDate(e.createdAt)}</p>
                                 </div>
-                                <div>
-                                    <h3 className={`text-lg font-semibold ${styles.text}`}>{selectedUser.firstName} {selectedUser.lastName}</h3>
-                                    <p className={styles.textMuted}>{selectedUser.clientCode}</p>
-                                </div>
-                            </div>
-                            <div className={`space-y-3 pt-3 border-t ${styles.border}`}>
-                                <div className="flex items-center gap-3"><Mail className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm ${styles.text}`}>{selectedUser.email}</span></div>
-                                <div className="flex items-center gap-3"><Shield className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm capitalize ${styles.text}`}>{selectedUser.role}</span></div>
-                                <div className="flex items-center gap-3"><UserCheck className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm capitalize ${selectedUser.status === "active" ? "text-emerald-500" : selectedUser.status === "suspended" ? "text-red-500" : styles.textMuted}`}>{selectedUser.status}</span></div>
-                                <div className="flex items-center gap-3"><Key className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm font-mono ${styles.text}`}>{selectedUser.tempPassword}</span></div>
-                            </div>
-                            <div className={`flex gap-2 pt-3 border-t ${styles.border}`}>
-                                <button onClick={() => { setNewRole(selectedUser.role || "client"); setShowChangeRoleModal(true); }} className={`flex-1 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                                    Change Role
-                                </button>
-                                <button onClick={() => setShowResetPasswordModal(true)} className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">
-                                    Reset Password
-                                </button>
-                            </div>
+                            ))}
                         </div>
-                    ) : (
-                        <div className={`flex flex-col items-center justify-center h-64 ${styles.textMuted}`}>
-                            <Users className="w-12 h-12 mb-2 opacity-50" />
-                            <p className="text-sm">Select a client to view details</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-
-    // consultants management view
-    const renderConsultants = () => (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className={`text-xl font-semibold ${styles.text}`}>Consultant Management</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => exportToCSV(consultants, "consultants", showToast, (msg) => showToast(msg, "error"))} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <Download className="w-4 h-4" /> Export
-                    </button>
-                    <button onClick={fetchConsultants} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className={`lg:col-span-2 ${styles.card} border rounded-xl overflow-hidden`}>
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className={styles.cardInner}>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Consultant</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Role</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Hours</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Status</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${styles.divider}`}>
-                            {consultants.length === 0 ? (
-                                <tr><td colSpan={5} className={`px-4 py-8 text-center ${styles.textMuted}`}>No consultants</td></tr>
-                            ) : (
-                                consultants.map(consultant => (
-                                    <tr key={consultant.consultantId} onClick={() => setSelectedConsultant(consultant)} className={`cursor-pointer ${styles.hover} ${selectedConsultant?.consultantId === consultant.consultantId ? styles.selected : ""}`}>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-sm font-medium text-purple-500">
-                                                    {consultant.firstName[0]}{consultant.lastName[0]}
-                                                </div>
-                                                <div>
-                                                    <p className={`font-medium ${styles.text}`}>{consultant.firstName} {consultant.lastName}</p>
-                                                    <p className={`${styles.textMuted} text-xs`}>{consultant.consultantCode}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className="px-2 py-1 bg-purple-500/20 text-purple-500 rounded text-xs">{consultant.role || "Consultant"}</span>
-                                        </td>
-                                        <td className={`px-4 py-3 ${styles.textMuted}`}>{getConsultantHours(consultant.consultantId)}h</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs ${consultant.status === "active" ? "bg-emerald-500/20 text-emerald-500" : "bg-red-500/20 text-red-500"}`}>
-                                                {consultant.status || "active"}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <button onClick={e => { e.stopPropagation(); handleToggleConsultantSuspension(consultant); }} className={`p-2 rounded-lg ${styles.hover}`}>
-                                                <Ban className={`w-4 h-4 ${consultant.status === "suspended" ? "text-red-500" : styles.textMuted}`} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className={`${styles.card} border rounded-xl p-5`}>
-                    {selectedConsultant ? (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-2xl font-bold text-white">
-                                    {selectedConsultant.firstName[0]}{selectedConsultant.lastName[0]}
-                                </div>
-                                <div>
-                                    <h3 className={`text-lg font-semibold ${styles.text}`}>{selectedConsultant.firstName} {selectedConsultant.lastName}</h3>
-                                    <p className={styles.textMuted}>{selectedConsultant.consultantCode}</p>
-                                </div>
-                            </div>
-                            <div className={`space-y-3 pt-3 border-t ${styles.border}`}>
-                                <div className="flex items-center gap-3"><Mail className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm ${styles.text}`}>{selectedConsultant.email}</span></div>
-                                <div className="flex items-center gap-3"><Briefcase className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm ${styles.text}`}>{selectedConsultant.role || "Consultant"}</span></div>
-                                <div className="flex items-center gap-3"><Clock className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm ${styles.text}`}>{getConsultantHours(selectedConsultant.consultantId)}h logged</span></div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className={`flex flex-col items-center justify-center h-64 ${styles.textMuted}`}>
-                            <Briefcase className="w-12 h-12 mb-2 opacity-50" />
-                            <p className="text-sm">Select a consultant</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-
-    // projects management view
-    const renderProjects = () => (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className={`text-xl font-semibold ${styles.text}`}>Project Management</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => exportToCSV(projects, "projects", showToast, (msg) => showToast(msg, "error"))} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <Download className="w-4 h-4" /> Export
-                    </button>
-                    <button onClick={fetchProjects} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className={`lg:col-span-2 ${styles.card} border rounded-xl overflow-hidden`}>
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className={styles.cardInner}>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Project</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Client</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Status</th>
-                                <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Hours</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${styles.divider}`}>
-                            {projects.length === 0 ? (
-                                <tr><td colSpan={4} className={`px-4 py-8 text-center ${styles.textMuted}`}>No projects</td></tr>
-                            ) : (
-                                projects.map(project => (
-                                    <tr key={project.projectId} onClick={() => setSelectedProject(project)} className={`cursor-pointer ${styles.hover} ${selectedProject?.projectId === project.projectId ? styles.selected : ""}`}>
-                                        <td className="px-4 py-3">
-                                            <p className={`font-medium ${styles.text}`}>{project.projectName}</p>
-                                            <p className={`${styles.textMuted} text-xs`}>{project.projectCode}</p>
-                                        </td>
-                                        <td className={`px-4 py-3 ${styles.textMuted}`}>{project.clientName || "-"}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs ${(project.status || "").toLowerCase() === "complete" ? "bg-emerald-500/20 text-emerald-500" : (project.status || "").toLowerCase() === "in progress" ? "bg-blue-500/20 text-blue-500" : "bg-gray-500/20 text-gray-500"}`}>
-                                                {project.status || "Pending"}
-                                            </span>
-                                        </td>
-                                        <td className={`px-4 py-3 ${styles.textMuted}`}>{getProjectHours(project.projectId)}h</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className={`${styles.card} border rounded-xl p-5`}>
-                    {selectedProject ? (
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className={`text-lg font-semibold ${styles.text}`}>{selectedProject.projectName}</h3>
-                                <p className={styles.textMuted}>{selectedProject.projectCode}</p>
-                            </div>
-                            <div className={`space-y-3 pt-3 border-t ${styles.border}`}>
-                                <div className="flex items-center gap-3"><Users className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm ${styles.text}`}>Client: {selectedProject.clientName || "Unassigned"}</span></div>
-                                <div className="flex items-center gap-3"><FolderOpen className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm ${styles.text}`}>Status: {selectedProject.status || "Pending"}</span></div>
-                                <div className="flex items-center gap-3"><Clock className={`w-4 h-4 ${styles.textMuted}`} /><span className={`text-sm ${styles.text}`}>{getProjectHours(selectedProject.projectId)}h logged</span></div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className={`flex flex-col items-center justify-center h-64 ${styles.textMuted}`}>
-                            <FolderOpen className="w-12 h-12 mb-2 opacity-50" />
-                            <p className="text-sm">Select a project</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-
-    // time logs approval view
-    const renderTimeLogs = () => (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className={`text-xl font-semibold ${styles.text}`}>Time Log Approvals</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => exportToCSV(hoursLogs.map(l => ({ ...l, consultant: getConsultantName(l.consultantId), project: getProjectName(l.projectId) })), "timelogs", showToast, (msg) => showToast(msg, "error"))} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <Download className="w-4 h-4" /> Export
-                    </button>
-                    <button onClick={fetchHoursLogs} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <select value={timelogStatusFilter} onChange={e => setTimelogStatusFilter(e.target.value as any)} className={`${styles.input} border rounded-lg px-3 py-2 text-sm focus:outline-none`}>
-                <option value="all">All ({hoursLogs.length})</option>
-                <option value="pending">Pending ({stats.pendingLogs})</option>
-                <option value="approved">Approved ({stats.approvedLogs})</option>
-                <option value="denied">Denied ({stats.deniedLogs})</option>
-            </select>
-
-            <div className={`${styles.card} border rounded-xl overflow-hidden`}>
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className={styles.cardInner}>
-                            <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Date</th>
-                            <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Consultant</th>
-                            <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Project</th>
-                            <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Hours</th>
-                            <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Status</th>
-                            <th className={`text-left px-4 py-3 font-medium ${styles.textMuted}`}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className={`divide-y ${styles.divider}`}>
-                        {filteredTimeLogs.length === 0 ? (
-                            <tr><td colSpan={6} className={`px-4 py-8 text-center ${styles.textMuted}`}>No time logs</td></tr>
-                        ) : (
-                            filteredTimeLogs.map(log => (
-                                <tr key={log.logId} className={styles.hover}>
-                                    <td className={`px-4 py-3 ${styles.textMuted}`}>{log.date}</td>
-                                    <td className={`px-4 py-3 ${styles.text}`}>{getConsultantName(log.consultantId)}</td>
-                                    <td className={`px-4 py-3 ${styles.text}`}>{getProjectName(log.projectId)}</td>
-                                    <td className={`px-4 py-3 font-medium ${styles.text}`}>{log.hours}h</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`px-2 py-1 rounded text-xs ${log.approvalStatus === "approved" ? "bg-emerald-500/20 text-emerald-500" : log.approvalStatus === "denied" ? "bg-red-500/20 text-red-500" : "bg-amber-500/20 text-amber-500"}`}>
-                                            {log.approvalStatus || "pending"}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-1">
-                                            <button onClick={() => handleApproveTimeLog(log.logId)} className={`p-2 rounded-lg ${log.approvalStatus === "approved" ? "bg-emerald-500/20" : styles.hover}`}>
-                                                <CheckCircle className={`w-4 h-4 ${log.approvalStatus === "approved" ? "text-emerald-500" : styles.textMuted}`} />
-                                            </button>
-                                            <button onClick={() => handleDenyTimeLog(log.logId)} className={`p-2 rounded-lg ${log.approvalStatus === "denied" ? "bg-red-500/20" : styles.hover}`}>
-                                                <XCircle className={`w-4 h-4 ${log.approvalStatus === "denied" ? "text-red-500" : styles.textMuted}`} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-
-    // emails view
-    const renderEmails = () => (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className={`text-xl font-semibold ${styles.text}`}>Email System</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => exportToCSV(emails, "emails", showToast, (msg) => showToast(msg, "error"))} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <Download className="w-4 h-4" /> Export
-                    </button>
-                    <button onClick={() => setShowComposeEmailModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
-                        <Send className="w-4 h-4" /> Compose
-                    </button>
-                    <button onClick={fetchEmails} className={`flex items-center gap-2 px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className={`lg:col-span-1 ${styles.card} border rounded-xl overflow-hidden`}>
-                    <div className={`p-3 border-b ${styles.border}`}>
-                        <p className={`text-sm font-medium ${styles.text}`}>Sent ({emails.length})</p>
+                        <div className={`lg:col-span-2 ${n.card} p-5`}>{selectedEmail ? (<div><div className={`mb-4 pb-4 border-b ${n.divider}`}><h3 className={`font-semibold mb-2 ${n.text}`}>{selectedEmail.subject}</h3><div className="grid grid-cols-2 gap-2 text-sm"><div><span className={n.tertiary}>To:</span><span className={`ml-2 ${n.text}`}>{selectedEmail.to}</span></div><div><span className={n.tertiary}>From:</span><span className={`ml-2 ${n.text}`}>{selectedEmail.from}</span></div><div><span className={n.tertiary}>Date:</span><span className={`ml-2 ${n.text}`}>{fmtDate(selectedEmail.createdAt)}</span></div><div><span className={n.tertiary}>Status:</span><span className="text-emerald-400 ml-2">{selectedEmail.status}</span></div></div></div><div className={`${n.inset} rounded-xl p-4`}><pre className={`text-sm whitespace-pre-wrap font-sans ${n.text}`}>{selectedEmail.body}</pre></div></div>) : (<div className={`flex flex-col items-center justify-center h-64 ${n.tertiary}`}><Mail className="w-10 h-10 mb-2 opacity-30" /><p className="text-sm">Select an email</p></div>)}</div>
                     </div>
-                    <div className={`divide-y ${styles.divider} max-h-[500px] overflow-y-auto`}>
-                        {emails.length === 0 ? (
-                            <div className={`p-4 text-center ${styles.textMuted} text-sm`}>No emails yet</div>
-                        ) : (
-                            emails.map(email => (
-                                <div key={email.emailId} onClick={() => setSelectedEmail(email)} className={`p-3 cursor-pointer ${styles.hover} ${selectedEmail?.emailId === email.emailId ? styles.selected : ""}`}>
-                                    <p className={`text-sm font-medium truncate ${styles.text}`}>{email.to}</p>
-                                    <p className={`text-sm truncate ${styles.textMuted}`}>{email.subject}</p>
-                                    <p className={`text-xs ${styles.textMuted} mt-1`}>{formatDate(email.createdAt)}</p>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
+                </div>)}
 
-                <div className={`lg:col-span-2 ${styles.card} border rounded-xl`}>
-                    {selectedEmail ? (
-                        <div className="p-5">
-                            <div className={`mb-4 pb-4 border-b ${styles.border}`}>
-                                <h3 className={`text-lg font-semibold mb-2 ${styles.text}`}>{selectedEmail.subject}</h3>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div><span className={styles.textMuted}>To:</span><span className={`ml-2 ${styles.text}`}>{selectedEmail.to}</span></div>
-                                    <div><span className={styles.textMuted}>From:</span><span className={`ml-2 ${styles.text}`}>{selectedEmail.from}</span></div>
-                                    <div><span className={styles.textMuted}>Date:</span><span className={`ml-2 ${styles.text}`}>{formatDate(selectedEmail.createdAt)}</span></div>
-                                    <div><span className={styles.textMuted}>Status:</span><span className="text-emerald-500 ml-2">{selectedEmail.status}</span></div>
-                                </div>
-                            </div>
-                            <div className={`${styles.cardInner} rounded-lg p-4`}>
-                                <pre className={`text-sm whitespace-pre-wrap font-sans ${styles.text}`}>{selectedEmail.body}</pre>
-                            </div>
+                {/* ═══ ALERTS ═══ */}
+                {currentView === "alerts" && (<div className="space-y-6">
+                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Alerts</h2><button onClick={() => { setEditingAlert(null); setAlertMsg(""); setAlertType("info"); setAlertExpiry(""); setShowAlertModal(true); }} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl text-sm flex items-center gap-2`}><Plus className="w-3.5 h-3.5" />Create</button></div>
+                    {alerts.length === 0 ? <div className={`${n.card} p-8 text-center`}><Check className="w-10 h-10 text-emerald-400 mx-auto mb-3" /><p className={n.text}>No alerts</p></div> : <div className="space-y-1.5">{alerts.map(a => (
+                        <div key={a.id} className={`${n.card} ${n.edgeHover} p-4 flex items-start gap-3 transition-all duration-200`}>
+                            <AlertTriangle className={`w-4 h-4 mt-0.5 ${a.type === "error" ? "text-red-400" : a.type === "warning" ? "text-amber-400" : "text-blue-400"}`} />
+                            <div className="flex-1"><p className={`${n.text} text-sm`}>{a.message}</p><div className={`flex items-center gap-4 mt-1`}><p className={`text-[10px] ${n.tertiary}`}>{fmtDate(a.timestamp)}</p>{a.expiresAt && <p className={`text-[10px] ${n.tertiary} flex items-center gap-1`}><Timer className="w-3 h-3" />Expires: {fmtDate(a.expiresAt)}</p>}{a.isCustom && <span className={`text-[10px] px-1.5 py-0.5 rounded ${n.badge}`}>Custom</span>}</div></div>
+                            {a.isCustom && <div className="flex items-center gap-1"><button onClick={() => { setEditingAlert(a); setAlertMsg(a.message); setAlertType(a.type); setAlertExpiry(a.expiresAt || ""); setShowAlertModal(true); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Edit2 className={`w-3.5 h-3.5 ${n.tertiary}`} /></button><button onClick={() => deleteAlert(a.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button></div>}
                         </div>
-                    ) : (
-                        <div className={`flex flex-col items-center justify-center h-64 ${styles.textMuted}`}>
-                            <Mail className="w-12 h-12 mb-2 opacity-50" />
-                            <p className="text-sm">Select an email to view</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
+                    ))}</div>}
+                </div>)}
 
-    // alerts management view
-    const renderAlerts = () => (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className={`text-xl font-semibold ${styles.text}`}>Alerts Management</h2>
-                <button onClick={() => { setEditingAlert(null); setNewAlertMessage(""); setNewAlertType("info"); setNewAlertExpiry(""); setShowAlertModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
-                    <Plus className="w-4 h-4" /> Create Alert
-                </button>
+                {/* ═══ DELEGATED VIEWS ═══ */}
+                {currentView === "documents" && <AdminDocumentRequests adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
+                {currentView === "messages" && <AdminMessages adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
             </div>
 
-            {alerts.length === 0 ? (
-                <div className={`${styles.card} border rounded-xl p-8 text-center`}>
-                    <Check className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-                    <p className={styles.text}>No alerts</p>
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {alerts.map(alert => (
-                        <div key={alert.id} className={`flex items-start gap-4 p-4 rounded-xl border ${alert.type === "error" ? "bg-red-500/10 border-red-500/30" : alert.type === "warning" ? "bg-amber-500/10 border-amber-500/30" : "bg-blue-500/10 border-blue-500/30"}`}>
-                            <AlertTriangle className={`w-5 h-5 mt-0.5 ${alert.type === "error" ? "text-red-500" : alert.type === "warning" ? "text-amber-500" : "text-blue-500"}`} />
-                            <div className="flex-1">
-                                <p className={styles.text}>{alert.message}</p>
-                                <div className={`flex items-center gap-4 mt-1 ${styles.textMuted}`}>
-                                    <p className="text-xs">{formatDate(alert.timestamp)}</p>
-                                    {alert.expiresAt && <p className="text-xs flex items-center gap-1"><Timer className="w-3 h-3" /> Expires: {formatDate(alert.expiresAt)}</p>}
-                                    {alert.isCustom && <span className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>Custom</span>}
-                                </div>
-                            </div>
-                            {alert.isCustom && (
-                                <div className="flex items-center gap-1">
-                                    <button onClick={() => { setEditingAlert(alert); setNewAlertMessage(alert.message); setNewAlertType(alert.type); setNewAlertExpiry(alert.expiresAt || ""); setShowAlertModal(true); }} className={`p-2 rounded-lg ${styles.hover}`}>
-                                        <Edit2 className={`w-4 h-4 ${styles.textMuted}`} />
-                                    </button>
-                                    <button onClick={() => handleDeleteAlert(alert.id)} className={`p-2 rounded-lg ${styles.hover}`}>
-                                        <Trash2 className="w-4 h-4 text-red-500" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
+            {/* ═══ MODALS ═══ */}
+            <Modal show={showResetPwModal && !!selectedUser} onClose={() => { setShowResetPwModal(false); setNewPassword(""); }} title="Reset Password" icon={<Key className={`w-5 h-5 ${n.label}`} />}>
+                <p className={`text-sm ${n.secondary}`}>For {selectedUser?.email}</p>
+                <div className="flex gap-2"><input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New password" className={`flex-1 px-3 py-2.5 ${n.input} border rounded-xl text-sm font-mono`} /><button onClick={() => setNewPassword(genPassword())} className={`px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Generate</button></div>
+                <div className="flex gap-3"><button onClick={() => { setShowResetPwModal(false); setNewPassword(""); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={handleResetPw} disabled={!newPassword} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm disabled:opacity-50`}>Reset</button></div>
+            </Modal>
 
-    return (
-        <div className="space-y-6">
-            {toast && (
-                <div className={`fixed top-20 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"} text-white`}>
-                    {toast.type === "success" ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                    <span className="text-sm">{toast.message}</span>
-                </div>
-            )}
+            <Modal show={showRoleModal && !!selectedUser} onClose={() => { setShowRoleModal(false); setSelectedUser(null); }} title="Change Role">
+                <select value={newRole} onChange={e => setNewRole(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="client">Client</option><option value="consultant">Consultant</option><option value="admin">Admin</option></select>
+                <div className="flex gap-3"><button onClick={() => { setShowRoleModal(false); setSelectedUser(null); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={handleChangeRole} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>Save</button></div>
+            </Modal>
 
-            <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                    <h1 className={`text-2xl font-bold ${styles.text}`}>Admin Dashboard</h1>
-                    <p className={styles.textMuted}>{adminEmail}</p>
-                </div>
-                <button onClick={refreshAllData} disabled={isLoading} className={`flex items-center gap-2 px-4 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover} disabled:opacity-50`}>
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh All
-                </button>
-            </div>
+            <Modal show={showComposeModal} onClose={() => { setShowComposeModal(false); setComposeTo(""); setComposeSubject(""); setComposeBody(""); }} title="Compose Email" icon={<Send className={`w-5 h-5 ${n.label}`} />}>
+                <div className="relative"><label className={`${n.label} text-[11px] block mb-1`}>To</label><input type="text" value={composeTo} onChange={e => handleEmailInput(e.target.value)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} placeholder="Name or email..." className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} />{showSuggestions && emailSuggestions.length > 0 && (<div className={`absolute z-10 w-full mt-1 ${n.modal} border rounded-xl overflow-hidden`}>{emailSuggestions.map((s, i) => (<div key={i} onMouseDown={() => { setComposeTo(s.email); setShowSuggestions(false); }} className={`px-3 py-2 cursor-pointer ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><p className={`text-sm ${n.text}`}>{s.name}</p><p className={`text-[11px] ${n.tertiary}`}>{s.email}</p></div>))}</div>)}</div>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Subject</label><input type="text" value={composeSubject} onChange={e => setComposeSubject(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Body</label><textarea value={composeBody} onChange={e => setComposeBody(e.target.value)} rows={6} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none`} /></div>
+                <div className="flex gap-3"><button onClick={() => { setShowComposeModal(false); setComposeTo(""); setComposeSubject(""); setComposeBody(""); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={sendEmail} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}><Send className="w-3.5 h-3.5" />Send</button></div>
+            </Modal>
 
-            <div className="flex gap-1 overflow-x-auto pb-2">
-                {navigationTabs.map(tab => (
-                    <button key={tab.id} onClick={() => setCurrentView(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${currentView === tab.id ? "bg-blue-600 text-white" : `${styles.textMuted} ${styles.hover}`}`}>
-                        <tab.icon className="w-4 h-4" />
-                        {tab.label}
-                        {tab.badge ? <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">{tab.badge}</span> : null}
-                    </button>
-                ))}
-            </div>
+            <Modal show={showAnnounceModal} onClose={() => { setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); }} title="Announcement" icon={<Megaphone className="w-5 h-5 text-purple-400" />}>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Send To</label><select value={announceTarget} onChange={e => setAnnounceTarget(e.target.value as any)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="all">All ({users.length + consultants.length})</option><option value="clients">Clients ({users.length})</option><option value="consultants">Consultants ({consultants.length})</option></select></div>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Subject</label><input type="text" value={announceSubject} onChange={e => setAnnounceSubject(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Message</label><textarea value={announceBody} onChange={e => setAnnounceBody(e.target.value)} rows={6} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none`} /></div>
+                <div className="flex gap-3"><button onClick={() => { setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={sendAnnounce} className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm flex items-center justify-center gap-2"><Megaphone className="w-3.5 h-3.5" />Send</button></div>
+            </Modal>
 
-            {currentView === "dashboard" && renderDashboard()}
-            {currentView === "users" && renderUsers()}
-            {currentView === "consultants" && renderConsultants()}
-            {currentView === "projects" && renderProjects()}
-            {currentView === "timelogs" && renderTimeLogs()}
-            {currentView === "documents" && <AdminDocumentRequests adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
-            {currentView === "messages" && <AdminMessages adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
-            {currentView === "emails" && renderEmails()}
-            {currentView === "alerts" && renderAlerts()}
-
-            {showResetPasswordModal && selectedUser && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className={`${styles.card} border rounded-xl p-6 w-full max-w-md`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${styles.text}`}>Reset Password</h3>
-                        <p className={`text-sm ${styles.textMuted} mb-4`}>For {selectedUser.email}</p>
-                        <div className="flex gap-2 mb-4">
-                            <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New password" className={`flex-1 px-3 py-2 ${styles.input} border rounded-lg text-sm`} />
-                            <button onClick={() => setNewPassword(generateRandomPassword())} className={`px-3 py-2 ${styles.card} border rounded-lg text-sm ${styles.hover}`}>Generate</button>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => { setShowResetPasswordModal(false); setSelectedUser(null); setNewPassword(""); }} className={`px-4 py-2 ${styles.textMuted} text-sm`}>Cancel</button>
-                            <button onClick={handleResetPassword} disabled={!newPassword} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50">Reset</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showChangeRoleModal && selectedUser && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className={`${styles.card} border rounded-xl p-6 w-full max-w-md`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${styles.text}`}>Change Role</h3>
-                        <select value={newRole} onChange={e => setNewRole(e.target.value)} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm mb-4`}>
-                            <option value="client">Client</option>
-                            <option value="consultant">Consultant</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => { setShowChangeRoleModal(false); setSelectedUser(null); }} className={`px-4 py-2 ${styles.textMuted} text-sm`}>Cancel</button>
-                            <button onClick={handleChangeRole} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">Save</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showComposeEmailModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className={`${styles.card} border rounded-xl p-6 w-full max-w-lg`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${styles.text}`}>Compose Email</h3>
-                        <div className="space-y-3">
-                            <div className="relative">
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>To</label>
-                                <input type="text" value={composeTo} onChange={e => handleEmailInput(e.target.value)} onBlur={() => setTimeout(() => setShowEmailSuggestions(false), 200)} placeholder="Type name or email..." className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm`} />
-                                {showEmailSuggestions && emailSuggestions.length > 0 && (
-                                    <div className={`absolute z-10 w-full mt-1 ${styles.card} border rounded-lg overflow-hidden shadow-lg`}>
-                                        {emailSuggestions.map((suggestion, i) => (
-                                            <div key={i} onMouseDown={() => { setComposeTo(suggestion.email); setShowEmailSuggestions(false); }} className={`px-3 py-2 cursor-pointer ${styles.hover}`}>
-                                                <p className={`text-sm ${styles.text}`}>{suggestion.name}</p>
-                                                <p className={`text-xs ${styles.textMuted}`}>{suggestion.email}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Subject</label>
-                                <input type="text" value={composeSubject} onChange={e => setComposeSubject(e.target.value)} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm`} />
-                            </div>
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Body</label>
-                                <textarea value={composeBody} onChange={e => setComposeBody(e.target.value)} rows={6} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm resize-none`} />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 mt-4">
-                            <button onClick={() => { setShowComposeEmailModal(false); setComposeTo(""); setComposeSubject(""); setComposeBody(""); }} className={`px-4 py-2 ${styles.textMuted} text-sm`}>Cancel</button>
-                            <button onClick={handleSendEmail} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"><Send className="w-4 h-4" /> Send</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showAnnouncementModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className={`${styles.card} border rounded-xl p-6 w-full max-w-lg`}>
-                        <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${styles.text}`}><Megaphone className="w-5 h-5" /> Send Announcement</h3>
-                        <div className="space-y-3">
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Send To</label>
-                                <select value={announcementTarget} onChange={e => setAnnouncementTarget(e.target.value as any)} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm`}>
-                                    <option value="all">All ({users.length + consultants.length})</option>
-                                    <option value="clients">Clients ({users.length})</option>
-                                    <option value="consultants">Consultants ({consultants.length})</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Subject</label>
-                                <input type="text" value={announcementSubject} onChange={e => setAnnouncementSubject(e.target.value)} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm`} />
-                            </div>
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Message</label>
-                                <textarea value={announcementBody} onChange={e => setAnnouncementBody(e.target.value)} rows={6} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm resize-none`} />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 mt-4">
-                            <button onClick={() => { setShowAnnouncementModal(false); setAnnouncementSubject(""); setAnnouncementBody(""); }} className={`px-4 py-2 ${styles.textMuted} text-sm`}>Cancel</button>
-                            <button onClick={handleSendAnnouncement} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm"><Megaphone className="w-4 h-4" /> Send</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showAlertModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className={`${styles.card} border rounded-xl p-6 w-full max-w-md`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${styles.text}`}>{editingAlert ? "Edit Alert" : "Create Alert"}</h3>
-                        <div className="space-y-3">
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Type</label>
-                                <select value={newAlertType} onChange={e => setNewAlertType(e.target.value as AlertType)} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm`}>
-                                    <option value="info">Info</option>
-                                    <option value="warning">Warning</option>
-                                    <option value="error">Error</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Message</label>
-                                <input type="text" value={newAlertMessage} onChange={e => setNewAlertMessage(e.target.value)} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm`} />
-                            </div>
-                            <div>
-                                <label className={`text-sm ${styles.textMuted} block mb-1`}>Expires (optional)</label>
-                                <input type="datetime-local" value={newAlertExpiry} onChange={e => setNewAlertExpiry(e.target.value)} className={`w-full px-3 py-2 ${styles.input} border rounded-lg text-sm`} />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 mt-4">
-                            <button onClick={() => { setShowAlertModal(false); setEditingAlert(null); setNewAlertMessage(""); setNewAlertExpiry(""); }} className={`px-4 py-2 ${styles.textMuted} text-sm`}>Cancel</button>
-                            <button onClick={editingAlert ? handleUpdateAlert : handleCreateAlert} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">{editingAlert ? "Update" : "Create"}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <Modal show={showAlertModal} onClose={() => { setShowAlertModal(false); setEditingAlert(null); setAlertMsg(""); setAlertExpiry(""); }} title={editingAlert ? "Edit Alert" : "Create Alert"} icon={<AlertTriangle className="w-5 h-5 text-amber-400" />}>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Type</label><select value={alertType} onChange={e => setAlertType(e.target.value as AlertType)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="info">Info</option><option value="warning">Warning</option><option value="error">Error</option></select></div>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Message</label><input type="text" value={alertMsg} onChange={e => setAlertMsg(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
+                <div><label className={`${n.label} text-[11px] block mb-1`}>Expires (optional)</label><input type="datetime-local" value={alertExpiry} onChange={e => setAlertExpiry(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
+                <div className="flex gap-3"><button onClick={() => { setShowAlertModal(false); setEditingAlert(null); setAlertMsg(""); setAlertExpiry(""); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={editingAlert ? updateAlert : createAlert} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>{editingAlert ? "Update" : "Create"}</button></div>
+            </Modal>
         </div>
     );
 };
