@@ -29,10 +29,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div className="min-h-screen text-white relative overflow-hidden">
-            {/* Background Image — full screen, no overlay */}
-            <div className="absolute inset-0 z-0">
-                <img src={loginBg} alt="" className="w-full h-full object-cover" />
+        <div className="min-h-screen text-white relative overflow-hidden bg-black">
+            {/* Background Image — full screen */}
+            <div className="fixed inset-0 z-0">
+                <img src={loginBg} alt="" className="w-full h-full object-cover" style={{ minWidth: '100vw', minHeight: '100vh' }} />
             </div>
 
             <div className="relative z-10 mx-auto flex min-h-screen max-w-[1600px]">
