@@ -7,7 +7,7 @@ import {
     FolderOpen, Users, UserCircle, Clock, Bell,
     ChevronLeft, ChevronRight, History, TrendingUp,
     Calendar, AlertTriangle, CheckCircle, ArrowRight,
-    Plus, BarChart3, Circle,
+    Plus, BarChart3,
 } from "lucide-react";
 
 const API_BASE = "/api";
@@ -23,16 +23,12 @@ interface DashboardProps {
 }
 
 const safeFetch = async (url: string) => {
-    try {
-        const r = await fetch(url);
-        if (!r.ok) return null;
-        return await r.json();
-    } catch { return null; }
+    try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); }
+    catch { return null; }
 };
 
 const fmtH = (h: number): string => {
-    const w = Math.floor(h);
-    const m = Math.round((h - w) * 60);
+    const w = Math.floor(h), m = Math.round((h - w) * 60);
     return m === 0 ? `${w}h` : `${w}h ${m}m`;
 };
 
@@ -73,24 +69,24 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const { isDark } = useTheme();
 
-    // High contrast monochrome — works in both light and dark
-    const s = {
-        bg: isDark ? "bg-slate-950" : "bg-gray-50",
-        text: isDark ? "text-gray-100" : "text-gray-900",
-        secondary: isDark ? "text-gray-400" : "text-gray-600",
-        tertiary: isDark ? "text-gray-500" : "text-gray-400",
-        card: isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200",
-        cardHover: isDark ? "hover:bg-slate-800 hover:border-slate-700" : "hover:bg-gray-50 hover:border-gray-300",
-        inner: isDark ? "bg-slate-800" : "bg-gray-100",
-        border: isDark ? "border-slate-800" : "border-gray-200",
-        row: isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-white hover:bg-gray-50",
-        rowActive: isDark ? "bg-slate-800" : "bg-gray-100",
-        link: isDark ? "text-gray-400 hover:text-gray-100" : "text-gray-500 hover:text-gray-900",
-        actionHover: isDark ? "hover:text-white hover:bg-slate-800" : "hover:text-gray-900 hover:bg-gray-100",
-        badge: isDark ? "bg-slate-800 text-gray-300" : "bg-gray-100 text-gray-600",
-        avatar: isDark ? "bg-slate-800 text-gray-300" : "bg-gray-200 text-gray-600",
-        progress: isDark ? "bg-gray-300" : "bg-gray-800",
-        todayBg: isDark ? "bg-white text-gray-900" : "bg-gray-900 text-white",
+    const n = {
+        bg: isDark ? "neu-bg-dark" : "neu-bg-light",
+        card: isDark ? "neu-dark" : "neu-light",
+        cardSm: isDark ? "neu-dark-sm" : "neu-light-sm",
+        flat: isDark ? "neu-dark-flat" : "neu-light-flat",
+        inset: isDark ? "neu-dark-inset" : "neu-light-inset",
+        pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
+        text: isDark ? "text-gray-200" : "text-gray-800",
+        secondary: isDark ? "text-gray-400" : "text-gray-500",
+        tertiary: isDark ? "text-gray-600" : "text-gray-400",
+        strong: isDark ? "text-white" : "text-gray-900",
+        link: isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900",
+        progress: isDark ? "bg-gray-400" : "bg-gray-700",
+        progressTrack: isDark ? "bg-gray-800" : "bg-gray-300",
+        avatar: isDark ? "bg-gray-700 text-gray-300" : "bg-gray-300 text-gray-600",
+        badge: isDark ? "bg-gray-800 text-gray-400" : "bg-gray-300 text-gray-600",
+        todayBg: isDark ? "bg-white text-black" : "bg-gray-900 text-white",
+        dot: isDark ? "bg-gray-500" : "bg-gray-400",
     };
 
     const isAdmin = userRole === "admin";
@@ -109,38 +105,31 @@ const Dashboard: React.FC<DashboardProps> = ({
         (async () => {
             setIsLoading(true);
             const [pR, cR, coR, hR, aR] = await Promise.all([
-                safeFetch(`${API_BASE}/projects`),
-                safeFetch(`${API_BASE}/users-report`),
-                safeFetch(`${API_BASE}/consultants`),
-                safeFetch(`${API_BASE}/hours-logs`),
+                safeFetch(`${API_BASE}/projects`), safeFetch(`${API_BASE}/users-report`),
+                safeFetch(`${API_BASE}/consultants`), safeFetch(`${API_BASE}/hours-logs`),
                 safeFetch(`${API_BASE}/audit-logs/latest?limit=10`),
             ]);
-            setProjects(pR?.data || []);
-            setClients(cR?.data || []);
-            setConsultants(coR?.data || []);
-            setHoursLogs(hR?.data || []);
+            setProjects(pR?.data || []); setClients(cR?.data || []);
+            setConsultants(coR?.data || []); setHoursLogs(hR?.data || []);
             if (aR?.data) {
                 setActivities(aR.data.map((l: any, i: number) => ({
                     id: i, user: l.performedBy || "System",
                     action: l.actionType?.toLowerCase().replace(/_/g, " ") || "action",
-                    target: l.details || l.entityId,
-                    time: fmtRel(l.timestamp),
+                    target: l.details || l.entityId, time: fmtRel(l.timestamp),
                     isDelete: l.actionType?.includes("DELETE"),
                 })));
             }
-            const newAlerts: any[] = [];
-            if (isAdmin && (cR?.data || []).length === 0)
-                newAlerts.push({ msg: "No clients yet", page: "admin" });
-            if (isAdmin && (coR?.data || []).length === 0)
-                newAlerts.push({ msg: "No consultants registered", page: "EmailGenerator" });
+            const al: any[] = [];
+            if (isAdmin && (cR?.data || []).length === 0) al.push({ msg: "No clients yet", page: "admin" });
+            if (isAdmin && (coR?.data || []).length === 0) al.push({ msg: "No consultants registered", page: "EmailGenerator" });
             (pR?.data || []).forEach((p: any) => {
                 if (p.dateDue && p.status !== "completed") {
                     const d = Math.ceil((new Date(p.dateDue).getTime() - Date.now()) / 86400000);
-                    if (d < 0) newAlerts.push({ msg: `${p.projectName} — overdue by ${Math.abs(d)}d`, page: "projects" });
-                    else if (d <= 7) newAlerts.push({ msg: `${p.projectName} — due in ${d}d`, page: "projects" });
+                    if (d < 0) al.push({ msg: `${p.projectName} — overdue ${Math.abs(d)}d`, page: "projects" });
+                    else if (d <= 7) al.push({ msg: `${p.projectName} — due in ${d}d`, page: "projects" });
                 }
             });
-            setAlerts(newAlerts.slice(0, 4));
+            setAlerts(al.slice(0, 4));
             setIsLoading(false);
         })();
     }, []);
@@ -151,8 +140,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         const total = projects.length;
         const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
         const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0, 0, 0, 0);
-        const weekH = hoursLogs.filter(l => new Date(l.date) >= ws).reduce((sm, l) => sm + l.hours, 0);
-        const totalH = hoursLogs.reduce((sm, l) => sm + l.hours, 0);
+        const weekH = hoursLogs.filter(l => new Date(l.date) >= ws).reduce((s, l) => s + l.hours, 0);
+        const totalH = hoursLogs.reduce((s, l) => s + l.hours, 0);
         return { active, completed, total, progress, weekH, totalH, clients: clients.length, consultants: consultants.length };
     }, [projects, clients, consultants, hoursLogs]);
 
@@ -182,56 +171,51 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     if (isLoading) {
         return (
-            <div className={`${s.bg} px-6 pb-10 max-w-6xl mx-auto`}>
-                <div className="mb-10 pt-4">
-                    <div className={`h-4 w-32 rounded ${s.inner} animate-pulse mb-3`} />
-                    <div className={`h-7 w-56 rounded ${s.inner} animate-pulse`} />
+            <div className={`${n.bg} min-h-screen px-6 pb-10 max-w-6xl mx-auto`}>
+                <div className="mb-10 pt-6">
+                    <div className={`h-4 w-32 rounded-lg ${n.pressed} animate-pulse mb-3`} />
+                    <div className={`h-7 w-56 rounded-lg ${n.pressed} animate-pulse`} />
                 </div>
-                <div className="grid grid-cols-4 gap-px mb-10">
-                    <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
-                </div>
-                <div className="grid lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2"><div className={`rounded-xl border p-6 ${s.card}`}><SkeletonList rows={4} /></div></div>
-                    <div><div className={`rounded-xl border p-6 ${s.card}`}><div className={`h-52 rounded ${s.inner} animate-pulse`} /></div></div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                    {[1,2,3,4].map(i => <div key={i} className={`h-28 ${n.card}`} />)}
                 </div>
             </div>
         );
     }
 
     return (
-        <div className={`${s.bg} ${s.text} min-h-screen`}>
+        <div className={`${n.bg} ${n.text} min-h-screen`}>
             <div className="px-6 pb-12 max-w-6xl mx-auto">
 
                 {/* Header */}
                 <FadeIn>
                     <div className="mb-10">
-                        <p className={`text-[11px] tracking-[0.15em] uppercase ${s.tertiary} mb-1`}>
+                        <p className={`text-[11px] tracking-[0.15em] uppercase ${n.tertiary} mb-1`}>
                             {today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                         </p>
-                        <h1 className={`text-2xl font-semibold tracking-tight ${s.text}`}>
+                        <h1 className={`text-2xl font-semibold tracking-tight ${n.strong}`}>
                             {greeting}, {firstName}
                         </h1>
                     </div>
                 </FadeIn>
 
-                {/* Stats Row */}
+                {/* Stats */}
                 <FadeIn delay={50}>
-                    <div className={`grid grid-cols-2 lg:grid-cols-4 border rounded-xl overflow-hidden mb-10 ${s.border}`}>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
                         {[
                             { label: "Projects", value: stats.total, detail: `${stats.active} active`, page: "projects" },
                             { label: "Clients", value: stats.clients, detail: "accounts", page: "client" },
                             { label: "Consultants", value: stats.consultants, detail: "team", page: "consultants" },
                             { label: "Hours", value: fmtH(stats.weekH), detail: "this week", page: "hours" },
-                        ].map((st, i, arr) => (
+                        ].map((st, i) => (
                             <div
                                 key={i}
                                 onClick={() => nav(st.page)}
-                                className={`p-5 cursor-pointer transition-all duration-150 ${s.row}
-                                    ${i < arr.length - 1 ? `border-r ${s.border}` : ""}`}
+                                className={`${n.card} p-5 cursor-pointer transition-all duration-200 hover:scale-[1.02]`}
                             >
-                                <p className={`text-[11px] uppercase tracking-wider ${s.tertiary} mb-2`}>{st.label}</p>
-                                <p className={`text-2xl font-semibold tracking-tight ${s.text}`}>{st.value}</p>
-                                <p className={`text-xs ${s.secondary} mt-1`}>{st.detail}</p>
+                                <p className={`text-[11px] uppercase tracking-wider ${n.tertiary} mb-3`}>{st.label}</p>
+                                <p className={`text-3xl font-semibold tracking-tight ${n.strong}`}>{st.value}</p>
+                                <p className={`text-xs ${n.secondary} mt-1`}>{st.detail}</p>
                             </div>
                         ))}
                     </div>
@@ -239,7 +223,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* Quick Actions */}
                 <FadeIn delay={80}>
-                    <div className={`flex items-center gap-2 mb-10 pb-6 border-b ${s.border} overflow-x-auto`}>
+                    <div className={`${n.card} p-2 mb-10 flex items-center gap-1 overflow-x-auto`}>
                         {(isAdmin ? [
                             { label: "New project", page: "projects", icon: Plus },
                             { label: "Add client", page: "admin", icon: Users },
@@ -258,7 +242,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <button
                                 key={i}
                                 onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] px-3 py-1.5 rounded-lg whitespace-nowrap transition-all duration-150 ${s.link} ${s.actionHover}`}
+                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.secondary} hover:${n.strong} active:scale-95`}
+                                style={{
+                                    background: "transparent",
+                                }}
+                                onMouseDown={(e) => e.currentTarget.classList.add(n.pressed)}
+                                onMouseUp={(e) => e.currentTarget.classList.remove(n.pressed)}
+                                onMouseLeave={(e) => e.currentTarget.classList.remove(n.pressed)}
                             >
                                 <a.icon className="w-3.5 h-3.5" />
                                 {a.label}
@@ -275,18 +265,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {alerts.length > 0 && (
                             <FadeIn delay={100}>
                                 <div>
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary} mb-3`}>Alerts</h2>
-                                    <div className={`border rounded-xl overflow-hidden ${s.border}`}>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary} mb-4`}>Alerts</h2>
+                                    <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {alerts.map((a, i) => (
                                             <div
                                                 key={i}
                                                 onClick={() => a.page && nav(a.page)}
-                                                className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-150 ${s.row}
-                                                    ${i < alerts.length - 1 ? `border-b ${s.border}` : ""}`}
+                                                className={`${n.flat} flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200`}
                                             >
                                                 <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                                                <p className={`text-sm ${s.text} flex-1`}>{a.msg}</p>
-                                                <ArrowRight className={`w-3.5 h-3.5 ${s.tertiary}`} />
+                                                <p className={`text-sm ${n.text} flex-1`}>{a.msg}</p>
+                                                <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary}`} />
                                             </div>
                                         ))}
                                     </div>
@@ -296,18 +285,20 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                         {/* Progress */}
                         <FadeIn delay={130}>
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Completion</h2>
-                                    <span className={`text-sm font-medium ${s.text}`}>{stats.progress}%</span>
+                            <div className={`${n.card} p-6`}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Completion</h2>
+                                    <span className={`text-lg font-semibold ${n.strong}`}>{stats.progress}%</span>
                                 </div>
-                                <div className={`w-full h-1.5 ${s.inner} rounded-full overflow-hidden`}>
-                                    <div
-                                        className={`h-full ${s.progress} rounded-full transition-all duration-700`}
-                                        style={{ width: `${stats.progress}%` }}
-                                    />
+                                <div className={`${n.inset} p-1`}>
+                                    <div className="h-2 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full ${n.progress} rounded-full transition-all duration-700`}
+                                            style={{ width: `${stats.progress}%` }}
+                                        />
+                                    </div>
                                 </div>
-                                <div className={`flex gap-4 mt-3 text-xs ${s.secondary}`}>
+                                <div className={`flex gap-6 mt-4 text-xs ${n.secondary}`}>
                                     <span>{stats.completed} completed</span>
                                     <span>{stats.active} in progress</span>
                                     <span>{stats.total} total</span>
@@ -318,41 +309,34 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {/* Projects */}
                         <FadeIn delay={160}>
                             <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Projects</h2>
-                                    <button onClick={() => nav("projects")} className={`text-xs transition-colors ${s.link}`}>
-                                        View all
-                                    </button>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Projects</h2>
+                                    <button onClick={() => nav("projects")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {projects.length === 0 ? (
-                                    <div className={`border rounded-xl p-10 text-center ${s.card}`}>
-                                        <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${s.tertiary}`} />
-                                        <p className={`text-sm ${s.secondary}`}>No projects yet</p>
+                                    <div className={`${n.card} p-10 text-center`}>
+                                        <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${n.tertiary}`} />
+                                        <p className={`text-sm ${n.secondary}`}>No projects yet</p>
                                         {isAdmin && (
-                                            <button onClick={() => nav("projects")} className={`mt-2 text-xs underline ${s.link}`}>
-                                                Create your first project
-                                            </button>
+                                            <button onClick={() => nav("projects")} className={`mt-2 text-xs underline ${n.link}`}>Create first project</button>
                                         )}
                                     </div>
                                 ) : (
-                                    <div className={`border rounded-xl overflow-hidden ${s.border}`}>
-                                        {projects.slice(0, 6).map((p, i, arr) => (
+                                    <div className={`${n.card} p-1.5 space-y-1.5`}>
+                                        {projects.slice(0, 6).map(p => (
                                             <div
                                                 key={p.projectId}
                                                 onClick={() => nav("projects")}
-                                                className={`flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-150 ${s.row}
-                                                    ${i < Math.min(arr.length, 6) - 1 ? `border-b ${s.border}` : ""}`}
+                                                className={`${n.flat} flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200`}
                                             >
-                                                <div className={`w-8 h-8 rounded-lg ${s.inner} flex items-center justify-center flex-shrink-0`}>
-                                                    <FolderOpen className={`w-3.5 h-3.5 ${s.secondary}`} />
+                                                <div className={`w-9 h-9 rounded-xl ${n.inset} flex items-center justify-center flex-shrink-0`}>
+                                                    <FolderOpen className={`w-4 h-4 ${n.secondary}`} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${s.text} truncate`}>{p.projectName}</p>
-                                                    <p className={`text-[11px] ${s.tertiary}`}>
-                                                        {p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}
-                                                    </p>
+                                                    <p className={`text-sm font-medium ${n.text} truncate`}>{p.projectName}</p>
+                                                    <p className={`text-[11px] ${n.tertiary}`}>{p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}</p>
                                                 </div>
-                                                <span className={`text-[11px] px-2.5 py-1 rounded-md font-medium ${s.badge}`}>
+                                                <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${n.badge}`}>
                                                     {p.status || "Planning"}
                                                 </span>
                                             </div>
@@ -362,38 +346,38 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Activity Timeline */}
+                        {/* Activity */}
                         <FadeIn delay={190}>
                             <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Activity</h2>
-                                    <button onClick={() => nav("reports")} className={`text-xs transition-colors ${s.link}`}>
-                                        View all
-                                    </button>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Activity</h2>
+                                    <button onClick={() => nav("reports")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {activities.length === 0 ? (
-                                    <p className={`text-sm ${s.secondary} py-4`}>No recent activity</p>
+                                    <p className={`text-sm ${n.secondary} py-4`}>No recent activity</p>
                                 ) : (
-                                    <div className="relative pl-6">
-                                        <div className={`absolute left-[7px] top-2 bottom-2 w-px ${isDark ? "bg-slate-800" : "bg-gray-200"}`} />
+                                    <div className={`${n.card} p-5`}>
+                                        <div className="relative pl-6">
+                                            <div className={`absolute left-[7px] top-1 bottom-1 w-px ${isDark ? "bg-gray-800" : "bg-gray-300"}`} />
 
-                                        {activities.slice(0, 6).map(a => (
-                                            <div key={a.id} className="relative flex items-start gap-3 py-3 group">
-                                                <div className={`absolute -left-6 top-4 w-[9px] h-[9px] rounded-full border-2 transition-colors
-                                                    ${a.isDelete
-                                                        ? (isDark ? "border-red-400 bg-red-400/20" : "border-red-400 bg-red-50")
-                                                        : (isDark ? "border-slate-600 bg-slate-900 group-hover:border-gray-400" : "border-gray-300 bg-white group-hover:border-gray-500")}`}
-                                                />
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm ${s.text}`}>
-                                                        <span className="font-medium">{a.user}</span>
-                                                        <span className={`${s.secondary}`}> {a.action}</span>
-                                                    </p>
-                                                    <p className={`text-[11px] ${s.tertiary} truncate mt-0.5`}>{a.target}</p>
+                                            {activities.slice(0, 6).map(a => (
+                                                <div key={a.id} className="relative flex items-start gap-3 py-3 group">
+                                                    <div className={`absolute -left-6 top-4 w-[9px] h-[9px] rounded-full border-2 transition-all
+                                                        ${a.isDelete
+                                                            ? (isDark ? "border-red-400 bg-red-400/20" : "border-red-400 bg-red-50")
+                                                            : (isDark ? "border-gray-600 bg-gray-800 group-hover:border-gray-400" : "border-gray-300 bg-white group-hover:border-gray-500")}`}
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`text-sm ${n.text}`}>
+                                                            <span className="font-medium">{a.user}</span>
+                                                            <span className={`${n.secondary}`}> {a.action}</span>
+                                                        </p>
+                                                        <p className={`text-[11px] ${n.tertiary} truncate mt-0.5`}>{a.target}</p>
+                                                    </div>
+                                                    <span className={`text-[11px] ${n.tertiary} flex-shrink-0 pt-0.5`}>{a.time}</span>
                                                 </div>
-                                                <span className={`text-[11px] ${s.tertiary} flex-shrink-0 pt-0.5`}>{a.time}</span>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -406,47 +390,43 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {/* Calendar */}
                         <FadeIn delay={100}>
                             <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>
                                         {calDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                                     </h2>
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-2">
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))}
-                                            className={`p-1.5 rounded-lg transition-colors ${s.actionHover}`}>
+                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer`}>
                                             <ChevronLeft className="w-3.5 h-3.5" />
                                         </button>
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))}
-                                            className={`p-1.5 rounded-lg transition-colors ${s.actionHover}`}>
+                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer`}>
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 </div>
-                                <div className={`border rounded-xl p-4 ${s.card}`}>
-                                    <div className="grid grid-cols-7 gap-0.5 mb-1">
+                                <div className={`${n.card} p-5`}>
+                                    <div className="grid grid-cols-7 gap-1 mb-2">
                                         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                                            <div key={i} className={`text-center text-[10px] font-medium ${s.tertiary} py-1`}>{d}</div>
+                                            <div key={i} className={`text-center text-[10px] font-medium ${n.tertiary} py-1`}>{d}</div>
                                         ))}
                                     </div>
-                                    <div className="grid grid-cols-7 gap-0.5">
+                                    <div className="grid grid-cols-7 gap-1">
                                         {calDays.map((day, i) => (
                                             <div key={i} className={`aspect-square flex items-center justify-center text-[11px] rounded-lg relative transition-all duration-150
                                                 ${!day ? "" :
                                                 isToday(day)
-                                                    ? `${s.todayBg} font-semibold`
-                                                    : `cursor-pointer ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"} ${s.secondary}`}`}>
+                                                    ? `${n.todayBg} font-bold`
+                                                    : `cursor-pointer ${n.secondary} hover:${n.strong}`}`}>
                                                 {day}
                                                 {day && (hasDue(day) || isHol(day)) && (
                                                     <div className="absolute bottom-0.5 flex gap-0.5">
-                                                        {isHol(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-gray-500" : "bg-gray-400"}`} />}
-                                                        {hasDue(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-gray-300" : "bg-gray-600"}`} />}
+                                                        {isHol(day) && <div className={`w-1 h-1 rounded-full ${n.dot}`} />}
+                                                        {hasDue(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-gray-300" : "bg-gray-700"}`} />}
                                                     </div>
                                                 )}
                                             </div>
                                         ))}
-                                    </div>
-                                    <div className={`mt-3 pt-3 border-t ${s.border} flex justify-center gap-5 text-[10px] ${s.tertiary}`}>
-                                        <span className="flex items-center gap-1.5"><div className={`w-1.5 h-1.5 rounded-full ${isDark ? "bg-gray-500" : "bg-gray-400"}`} />Holiday</span>
-                                        <span className="flex items-center gap-1.5"><div className={`w-1.5 h-1.5 rounded-full ${isDark ? "bg-gray-300" : "bg-gray-600"}`} />Deadline</span>
                                     </div>
                                 </div>
                             </div>
@@ -455,29 +435,28 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {/* Clients */}
                         <FadeIn delay={150}>
                             <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Clients</h2>
-                                    <button onClick={() => nav("client")} className={`text-xs transition-colors ${s.link}`}>
-                                        View all
-                                    </button>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Clients</h2>
+                                    <button onClick={() => nav("client")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {clients.length === 0 ? (
-                                    <p className={`text-sm ${s.secondary}`}>No clients yet</p>
+                                    <div className={`${n.card} p-8 text-center`}>
+                                        <p className={`text-sm ${n.secondary}`}>No clients yet</p>
+                                    </div>
                                 ) : (
-                                    <div className={`border rounded-xl overflow-hidden ${s.border}`}>
-                                        {clients.slice(0, 5).map((c, i, arr) => (
+                                    <div className={`${n.card} p-1.5 space-y-1.5`}>
+                                        {clients.slice(0, 5).map(c => (
                                             <div
                                                 key={c.customerId}
                                                 onClick={() => nav("client")}
-                                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 ${s.row}
-                                                    ${i < Math.min(arr.length, 5) - 1 ? `border-b ${s.border}` : ""}`}
+                                                className={`${n.flat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
                                             >
-                                                <div className={`w-7 h-7 rounded-full ${s.avatar} flex items-center justify-center text-[10px] font-semibold flex-shrink-0`}>
+                                                <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${s.text} truncate`}>{c.firstName} {c.lastName}</p>
-                                                    <p className={`text-[11px] ${s.tertiary} truncate`}>{c.email}</p>
+                                                    <p className={`text-sm font-medium ${n.text} truncate`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -489,31 +468,30 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {/* Team */}
                         <FadeIn delay={200}>
                             <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${s.tertiary}`}>Team</h2>
-                                    <button onClick={() => nav("consultants")} className={`text-xs transition-colors ${s.link}`}>
-                                        View all
-                                    </button>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Team</h2>
+                                    <button onClick={() => nav("consultants")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {consultants.length === 0 ? (
-                                    <p className={`text-sm ${s.secondary}`}>No consultants yet</p>
+                                    <div className={`${n.card} p-8 text-center`}>
+                                        <p className={`text-sm ${n.secondary}`}>No consultants yet</p>
+                                    </div>
                                 ) : (
-                                    <div className={`border rounded-xl overflow-hidden ${s.border}`}>
-                                        {consultants.slice(0, 5).map((c, i, arr) => (
+                                    <div className={`${n.card} p-1.5 space-y-1.5`}>
+                                        {consultants.slice(0, 5).map(c => (
                                             <div
                                                 key={c.consultantId}
                                                 onClick={() => nav("consultants")}
-                                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 ${s.row}
-                                                    ${i < Math.min(arr.length, 5) - 1 ? `border-b ${s.border}` : ""}`}
+                                                className={`${n.flat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
                                             >
-                                                <div className={`w-7 h-7 rounded-full ${s.avatar} flex items-center justify-center text-[10px] font-semibold flex-shrink-0`}>
+                                                <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${s.text} truncate`}>{c.firstName} {c.lastName}</p>
-                                                    <p className={`text-[11px] ${s.tertiary} truncate`}>{c.email}</p>
+                                                    <p className={`text-sm font-medium ${n.text} truncate`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
                                                 </div>
-                                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isDark ? "bg-emerald-500" : "bg-emerald-500"}`} />
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
                                             </div>
                                         ))}
                                     </div>
@@ -525,8 +503,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* Team Feed */}
                 <FadeIn delay={250}>
-                    <div className={`mt-10 pt-8 border-t ${s.border}`}>
-                        <TeamFeed userName={userName || "User"} userEmail={userEmail || ""} userRole={userRole || "admin"} maxPosts={10} />
+                    <div className="mt-10">
+                        <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary} mb-4`}>Team Feed</h2>
+                        <div className={`${n.card} p-5`}>
+                            <TeamFeed userName={userName || "User"} userEmail={userEmail || ""} userRole={userRole || "admin"} maxPosts={10} />
+                        </div>
                     </div>
                 </FadeIn>
             </div>
