@@ -41,9 +41,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <div className={`w-full max-w-[420px] bg-black/80 backdrop-blur-2xl rounded-3xl p-10 border border-white/10 ${shake ? "animate-shake" : ""}`}>
 
                         {/* Logo */}
-                        <div className="flex justify-center mb-10">
-                            <img src={timelyLogo} alt="Timely" className="w-20 h-20 object-contain" />
-                        </div>
+                       <div className="flex justify-center mb-10">
+    <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
+        <img src={timelyLogo} alt="Timely" className="w-16 h-16 object-contain" />
+    </div>
+</div>
 
                         {/* Error */}
                         {error && (

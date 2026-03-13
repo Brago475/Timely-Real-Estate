@@ -69,8 +69,15 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                     <div className="flex items-center gap-3">
                         {onBack && activePage !== "dashboard" ? (
                             <button onClick={onBack} className={`w-9 h-9 ${n.inset} rounded-xl flex items-center justify-center ${n.tertiary} transition-colors`}><ArrowLeft className="w-4 h-4" /></button>
-                        ) : <img src={timelyLogo} alt="Timely" className="w-9 h-9 rounded-lg" />}
-                        <div><h1 className={`text-lg font-semibold tracking-tight ${n.text}`}>Timely</h1><p className={`text-[10px] tracking-[0.2em] uppercase ${n.tertiary}`}>Real Estate</p></div>
+                        ) : (
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? "bg-white/10" : "bg-black/5"}`}>
+                                <img src={timelyLogo} alt="Timely" className="w-7 h-7 object-contain" />
+                            </div>
+                        )}
+                        <div>
+                            <h1 className={`text-lg font-semibold tracking-tight ${n.text}`}>Timely</h1>
+                            <p className={`text-[10px] tracking-[0.2em] uppercase ${n.tertiary}`}>Real Estate</p>
+                        </div>
                     </div>
                 </div>
 

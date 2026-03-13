@@ -17,23 +17,12 @@ import ConsultantsPage from "./Tabs/consultants";
 import HoursPage from "./Tabs/hours";
 import SettingsPage from "./Tabs/settings";
 import ConsultantMessages from "./Tabs/ConsultantMessages";
+import timelyLogo from "./assets/Timely_logo.png";
 
 type UserRole = "admin" | "consultant" | "client";
+type UserInfo = { customerId: string; consultantId?: string; email: string; name: string; role?: UserRole; };
 
-type UserInfo = {
-    customerId: string;
-    consultantId?: string;
-    email: string;
-    name: string;
-    role?: UserRole;
-};
-
-const normalizeRole = (role?: string): UserRole => {
-    const r = (role || "").toLowerCase();
-    if (r === "admin") return "admin";
-    if (r === "consultant") return "consultant";
-    return "client";
-};
+const normalizeRole = (role?: string): UserRole => { const r = (role || "").toLowerCase(); if (r === "admin") return "admin"; if (r === "consultant") return "consultant"; return "client"; };
 
 function AppContent() {
     const { isDark } = useTheme();
@@ -53,252 +42,97 @@ function AppContent() {
     const isClient = currentRole === "client";
     const isStaff = isAdmin || isConsultant;
 
-    // Restore auth from AuthContext or localStorage on mount
     useEffect(() => {
         if (isLoggedIn && authUser) {
-            const normalizedUser: UserInfo = {
-                customerId: authUser.customerId,
-                email: authUser.email,
-                name: authUser.name,
-                role: normalizeRole(authUser.role),
-            };
-            setUserData(normalizedUser);
+            setUserData({ customerId: authUser.customerId, email: authUser.email, name: authUser.name, role: normalizeRole(authUser.role) });
             setIsAuthed(true);
         } else {
-            // Fallback to localStorage for backward compatibility
             const storedUser = localStorage.getItem("timely_user");
             const authenticated = localStorage.getItem("timely_authenticated");
-
             if (storedUser && authenticated === "true") {
-                try {
-                    const parsed = JSON.parse(storedUser);
-                    const normalizedUser: UserInfo = {
-                        customerId: parsed.customerId,
-                        consultantId: parsed.consultantId,
-                        email: parsed.email,
-                        name: parsed.name,
-                        role: normalizeRole(parsed.role),
-                    };
-                    setUserData(normalizedUser);
-                    setIsAuthed(true);
-                } catch (err) {
-                    console.error("Error parsing stored user:", err);
-                }
+                try { const p = JSON.parse(storedUser); setUserData({ customerId: p.customerId, consultantId: p.consultantId, email: p.email, name: p.name, role: normalizeRole(p.role) }); setIsAuthed(true); } catch {}
             }
         }
         setIsLoading(false);
     }, [isLoggedIn, authUser]);
 
-    // Fetch consultant ID when user is a consultant (uses token via apiGet)
     useEffect(() => {
         const fetchConsultantId = async () => {
             if (userData?.role === "consultant" && userData?.email) {
-                if (userData.consultantId) {
-                    setConsultantId(userData.consultantId);
-                    return;
-                }
-
-                try {
-                    const data = await apiGet("/consultants");
-                    const consultant = (data.data || []).find(
-                        (c: any) => c.email === userData.email
-                    );
-                    if (consultant) {
-                        setConsultantId(consultant.consultantId);
-                    }
-                } catch (e) {
-                    console.error("Error fetching consultant ID:", e);
-                }
+                if (userData.consultantId) { setConsultantId(userData.consultantId); return; }
+                try { const data = await apiGet("/consultants"); const c = (data.data || []).find((c: any) => c.email === userData.email); if (c) setConsultantId(c.consultantId); } catch {}
             }
         };
-
         fetchConsultantId();
     }, [userData]);
 
-    const handleLoginSuccess = (user: {
-        customerId: string;
-        consultantId?: string;
-        email: string;
-        name: string;
-        role?: string;
-    }) => {
-        const normalizedUser: UserInfo = {
-            customerId: user.customerId,
-            consultantId: user.consultantId,
-            email: user.email,
-            name: user.name,
-            role: normalizeRole(user.role),
-        };
-
-        setUserData(normalizedUser);
-        setIsAuthed(true);
-        localStorage.setItem("timely_user", JSON.stringify(normalizedUser));
-        localStorage.setItem("timely_authenticated", "true");
-
-        if (normalizedUser.role === "client") {
-            setActivePage("client_home");
-            setPageHistory(["client_home"]);
-        } else {
-            setActivePage("dashboard");
-            setPageHistory(["dashboard"]);
-        }
+    const handleLoginSuccess = (user: { customerId: string; consultantId?: string; email: string; name: string; role?: string }) => {
+        const u: UserInfo = { customerId: user.customerId, consultantId: user.consultantId, email: user.email, name: user.name, role: normalizeRole(user.role) };
+        setUserData(u); setIsAuthed(true);
+        localStorage.setItem("timely_user", JSON.stringify(u)); localStorage.setItem("timely_authenticated", "true");
+        if (u.role === "client") { setActivePage("client_home"); setPageHistory(["client_home"]); } else { setActivePage("dashboard"); setPageHistory(["dashboard"]); }
     };
 
-    const handleLogout = () => {
-        setIsAuthed(false);
-        setUserData(null);
-        setConsultantId("");
-        setActivePage("dashboard");
-        setPageHistory(["dashboard"]);
-        localStorage.removeItem("timely_user");
-        localStorage.removeItem("timely_authenticated");
-        authLogout();
-    };
+    const handleLogout = () => { setIsAuthed(false); setUserData(null); setConsultantId(""); setActivePage("dashboard"); setPageHistory(["dashboard"]); localStorage.removeItem("timely_user"); localStorage.removeItem("timely_authenticated"); authLogout(); };
 
     const handleNavigation = (page: string) => {
-        if (page === "logout") {
-            handleLogout();
-            return;
-        }
-
-        const adminOnlyPages = new Set(["admin", "EmailGenerator"]);
-        if (adminOnlyPages.has(page) && !isAdmin) return;
-
-        const staffOnlyPages = new Set([
-            "dashboard", "projects", "client", "consultants",
-            "reports", "hours", "settings", "profile", "messages",
-        ]);
-        if (staffOnlyPages.has(page) && !isStaff) return;
-
+        if (page === "logout") { handleLogout(); return; }
+        if (new Set(["admin", "EmailGenerator"]).has(page) && !isAdmin) return;
+        if (new Set(["dashboard", "projects", "client", "consultants", "reports", "hours", "settings", "profile", "messages"]).has(page) && !isStaff) return;
         if (page === "client_home" && !isClient) return;
-
-        setActivePage(page);
-        setPageHistory((prev) => [...prev, page]);
+        setActivePage(page); setPageHistory(p => [...p, page]);
     };
 
-    const handleBack = () => {
-        setPageHistory((prev) => {
-            if (prev.length <= 1) return prev;
-            const newHistory = [...prev];
-            newHistory.pop();
-            const previousPage = newHistory[newHistory.length - 1] || "dashboard";
-            setActivePage(previousPage);
-            return newHistory;
-        });
-    };
+    const handleBack = () => { setPageHistory(p => { if (p.length <= 1) return p; const h = [...p]; h.pop(); setActivePage(h[h.length - 1] || "dashboard"); return h; }); };
 
-    if (!isAuthed) {
+    // Loading screen — black with new logo
+    if (isLoading) {
         return (
-            <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-slate-950" : "bg-slate-100"}`}>
-                <Login onLoginSuccess={handleLoginSuccess} />
+            <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+                <div className="bg-white/10 rounded-3xl p-6 backdrop-blur-sm">
+                    <img src={timelyLogo} alt="Timely" className="w-16 h-16 animate-pulse" />
+                </div>
+                <p className="text-white/40 text-sm mt-4 tracking-wide">Loading...</p>
             </div>
         );
     }
 
+    // Login — no wrapper, Login handles its own background
+    if (!isAuthed) {
+        return <Login onLoginSuccess={handleLoginSuccess} />;
+    }
+
     if (isClient) {
-        return (
-            <ClientPortal
-                userName={userData?.name || "Client"}
-                userEmail={userData?.email || ""}
-                customerId={userData?.customerId || ""}
-                onLogout={handleLogout}
-            />
-        );
+        return <ClientPortal userName={userData?.name || "Client"} userEmail={userData?.email || ""} customerId={userData?.customerId || ""} onLogout={handleLogout} />;
     }
 
     const renderActivePage = () => {
         switch (activePage) {
-            case "dashboard":
-                return (
-                    <Dashboard
-                        sidebarToggle={sidebarToggle}
-                        setSidebarToggle={setSidebarToggle}
-                        userName={userData?.name}
-                        userEmail={userData?.email}
-                        userRole={currentRole}
-                        onNavigate={handleNavigation}
-                    />
-                );
-            case "projects":
-                return <RealEstateProjects />;
-            case "client":
-                return <ClientsPage />;
-            case "consultants":
-                return <ConsultantsPage userRole={currentRole} />;
-            case "reports":
-                return <ReportsTab />;
-            case "hours":
-                return <HoursPage />;
-            case "messages":
-                return (
-                    <ConsultantMessages
-                        consultantId={consultantId}
-                        consultantEmail={userData?.email || ""}
-                        consultantName={userData?.name || "Consultant"}
-                    />
-                );
-            case "admin":
-                return <AdminTab onNavigate={handleNavigation} />;
-            case "EmailGenerator":
-                return <EmailGenerator />;
-            case "settings":
-                return <SettingsPage />;
-            case "profile":
-                return <ProfilePage />;
-            default:
-                return (
-                    <Dashboard
-                        sidebarToggle={sidebarToggle}
-                        setSidebarToggle={setSidebarToggle}
-                        userName={userData?.name}
-                        userEmail={userData?.email}
-                        userRole={currentRole}
-                        onNavigate={handleNavigation}
-                    />
-                );
+            case "dashboard": return <Dashboard sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} onNavigate={handleNavigation} />;
+            case "projects": return <RealEstateProjects />;
+            case "client": return <ClientsPage />;
+            case "consultants": return <ConsultantsPage userRole={currentRole} />;
+            case "reports": return <ReportsTab />;
+            case "hours": return <HoursPage />;
+            case "messages": return <ConsultantMessages consultantId={consultantId} consultantEmail={userData?.email || ""} consultantName={userData?.name || "Consultant"} />;
+            case "admin": return <AdminTab onNavigate={handleNavigation} />;
+            case "EmailGenerator": return <EmailGenerator />;
+            case "settings": return <SettingsPage />;
+            case "profile": return <ProfilePage />;
+            default: return <Dashboard sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} onNavigate={handleNavigation} />;
         }
     };
 
-    const sidebarVisible = !sidebarToggle;
-
     return (
-        <div className={`min-h-screen ${isDark ? "bg-slate-950 text-white" : "bg-slate-100 text-gray-900"}`}>
-            <SidebarLayout
-                sidebarToggle={sidebarToggle}
-                setSidebarToggle={setSidebarToggle}
-                onNavigate={handleNavigation}
-                onBack={pageHistory.length > 1 ? handleBack : undefined}
-                isAdmin={isAdmin}
-                activePage={activePage}
-                userName={userData?.name}
-                userEmail={userData?.email}
-                userRole={currentRole}
-            />
-
-            <div className={`min-h-screen transition-all duration-300 ${sidebarVisible ? "ml-72" : "ml-0"}`}>
-                <Navbar
-                    sidebarToggle={sidebarToggle}
-                    setSidebarToggle={setSidebarToggle}
-                    onNavigate={handleNavigation}
-                    activePage={activePage}
-                    onLogout={handleLogout}
-                    userRole={currentRole}
-                    userName={userData?.name}
-                    userEmail={userData?.email}
-                />
-
-                <main className="pt-16 px-4 md:px-6 pb-6">
-                    {renderActivePage()}
-                </main>
+        <div className={`min-h-screen ${isDark ? "neu-bg-dark text-white" : "neu-bg-light text-gray-900"}`}>
+            <SidebarLayout sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} onBack={pageHistory.length > 1 ? handleBack : undefined} isAdmin={isAdmin} activePage={activePage} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} />
+            <div className={`min-h-screen transition-all duration-300 ${!sidebarToggle ? "ml-72" : "ml-0"}`}>
+                <Navbar sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} activePage={activePage} onLogout={handleLogout} userRole={currentRole} userName={userData?.name} userEmail={userData?.email} />
+                <main className="pt-16 px-4 md:px-6 pb-6">{renderActivePage()}</main>
             </div>
         </div>
     );
 }
 
-const App: React.FC = () => (
-    <ThemeProvider>
-        <AppContent />
-    </ThemeProvider>
-);
-
+const App: React.FC = () => (<ThemeProvider><AppContent /></ThemeProvider>);
 export default App;
