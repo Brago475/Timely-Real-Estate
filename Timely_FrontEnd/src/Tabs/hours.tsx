@@ -1,39 +1,16 @@
+// src/Tabs/hours.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../Views_Layouts/ThemeContext';
-import { Clock, Play, Pause, Square, Plus, Calendar, User, FolderOpen, Search, Filter, ChevronRight, X, Edit2, Trash2, Timer, TrendingUp, ChevronLeft, RefreshCw, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Clock, Play, Pause, Square, Plus, Calendar, User, FolderOpen, Search, Filter, X, Trash2, Timer, TrendingUp, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, CheckCircle, Info, Download, Save } from 'lucide-react';
 
 const API_BASE = '/api';
-
 type UserRole = 'admin' | 'consultant' | 'client';
 
-type CurrentUser = {
-    customerId: string;
-    email: string;
-    name: string;
-    role?: UserRole | string;
-    consultantId?: string;
+const getCurrentUserRole = (): { role: UserRole; email: string; name: string; consultantId: string } => {
+    try { const raw = localStorage.getItem('timely_user'); if (!raw) return { role: 'admin', email: '', name: '', consultantId: '' }; const p = JSON.parse(raw); const r = (p.role || '').toLowerCase(); return { role: (r === 'admin' || r === 'consultant' || r === 'client') ? r : 'admin', email: p.email || '', name: p.name || '', consultantId: p.consultantId || '' }; } catch { return { role: 'admin', email: '', name: '', consultantId: '' }; }
 };
 
-const getCurrentUserRole = (): { role: UserRole; email: string; customerId: string; name: string; consultantId: string } => {
-    try {
-        const raw = localStorage.getItem('timely_user');
-        if (!raw) return { role: 'admin', email: '', customerId: '', name: '', consultantId: '' };
-        const parsed: CurrentUser = JSON.parse(raw);
-        const r = parsed.role;
-        const role: UserRole = (r === 'admin' || r === 'consultant' || r === 'client') ? r : 'admin';
-        return {
-            role,
-            email: parsed.email || '',
-            customerId: parsed.customerId || '',
-            name: parsed.name || '',
-            consultantId: (parsed as any).consultantId || '',
-        };
-    } catch {
-        return { role: 'admin', email: '', customerId: '', name: '', consultantId: '' };
-    }
-};
-
-const safeFetch = async (url: string) => { try { const r = await fetch(url); if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) return null; return await r.json(); } catch (e) { return null; } };
+const safeFetch = async (url: string) => { try { const r = await fetch(url); if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) return null; return await r.json(); } catch { return null; } };
 
 interface HoursLog { logId: string; projectId: string; consultantId: string; consultantEmail?: string; date: string; hours: number; description: string; createdAt: string; }
 interface Project { projectId: string; projectCode: string; projectName: string; status: string; }
@@ -42,50 +19,31 @@ interface Toast { id: string; message: string; type: 'success' | 'error' | 'info
 
 const HoursPage: React.FC = () => {
     const { isDark } = useTheme();
-    const styles = {
-        bg: isDark ? 'bg-slate-950' : 'bg-gray-50',
-        text: isDark ? 'text-white' : 'text-gray-900',
-        textMuted: isDark ? 'text-slate-400' : 'text-gray-600',
-        textSubtle: isDark ? 'text-slate-500' : 'text-gray-400',
-        card: isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200',
-        cardHover: isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50',
-        cardInner: isDark ? 'bg-slate-800' : 'bg-gray-50',
-        input: isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-300 text-gray-900',
-        inputFocus: isDark ? 'focus:border-blue-500' : 'focus:border-blue-500',
-        button: isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800',
-        buttonPrimary: 'bg-blue-600 hover:bg-blue-700 text-white',
-        divider: isDark ? 'border-slate-700' : 'border-gray-200',
-        modal: isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200',
-        tableHeader: isDark ? 'bg-slate-800' : 'bg-gray-100',
-        tableRow: isDark ? 'border-slate-700 hover:bg-slate-800/50' : 'border-gray-200 hover:bg-gray-50',
-        accent: isDark ? 'text-blue-400' : 'text-blue-600',
-        warning: isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800',
+
+    const n = {
+        bg: isDark ? 'neu-bg-dark' : 'neu-bg-light', card: isDark ? 'neu-dark' : 'neu-light',
+        flat: isDark ? 'neu-dark-flat' : 'neu-light-flat', inset: isDark ? 'neu-dark-inset' : 'neu-light-inset',
+        pressed: isDark ? 'neu-dark-pressed' : 'neu-light-pressed',
+        text: isDark ? 'text-white' : 'text-gray-900', secondary: isDark ? 'text-gray-300' : 'text-gray-600',
+        tertiary: isDark ? 'text-gray-500' : 'text-gray-400', strong: isDark ? 'text-white' : 'text-black',
+        label: isDark ? 'text-blue-400' : 'text-blue-600', link: isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500',
+        badge: isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700',
+        input: isDark ? 'bg-transparent border-gray-700 text-white' : 'bg-transparent border-gray-300 text-gray-900',
+        modal: isDark ? 'bg-[#111111] border-gray-800' : 'bg-[#f0f0f0] border-gray-300',
+        modalHead: isDark ? 'bg-[#111111]' : 'bg-[#f0f0f0]',
+        btnPrimary: 'bg-blue-600 hover:bg-blue-500 text-white', btnSecondary: isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800',
+        btnDanger: 'bg-red-600 hover:bg-red-500 text-white', divider: isDark ? 'border-gray-800' : 'border-gray-200',
+        edgeHover: isDark ? 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]' : 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]',
+        edgeHoverFlat: isDark ? 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]' : 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),4px_4px_10px_rgba(0,0,0,0.08),-4px_-4px_10px_rgba(255,255,255,0.9)]',
+        barBg: isDark ? 'bg-gray-800' : 'bg-gray-200',
     };
 
-    // Get current user role
     const { role: userRole, email: currentEmail, consultantId: userConsultantId } = useMemo(() => getCurrentUserRole(), []);
-    const isAdmin = userRole === 'admin';
-    const isConsultant = userRole === 'consultant';
-    const isClient = userRole === 'client';
+    const isAdmin = userRole === 'admin'; const isConsultant = userRole === 'consultant'; const isClient = userRole === 'client';
+    const canLog = isAdmin || isConsultant; const canDelete = isAdmin;
 
-    // Permission checks
-    const canLogHours = isAdmin || isConsultant;
-    const canViewAllLogs = isAdmin;
-    const canDeleteLogs = isAdmin;
-    const canUseTimer = isAdmin || isConsultant;
-
-    // Toast system
     const [toasts, setToasts] = useState<Toast[]>([]);
-    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-        const id = `toast_${Date.now()}`;
-        setToasts(prev => [...prev, { id, message, type }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
-    };
-    const ToastIcon = ({ type }: { type: string }) => {
-        if (type === 'success') return <CheckCircle className="w-5 h-5 text-emerald-400" />;
-        if (type === 'error') return <AlertCircle className="w-5 h-5 text-red-400" />;
-        return <Info className="w-5 h-5 text-blue-400" />;
-    };
+    const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => { const id = `t_${Date.now()}`; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000); };
 
     const [hoursLogs, setHoursLogs] = useState<HoursLog[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -93,441 +51,312 @@ const HoursPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [showLogModal, setShowLogModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-    const [selectedLog, setSelectedLog] = useState<HoursLog | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterProject, setFilterProject] = useState('all');
     const [filterConsultant, setFilterConsultant] = useState('all');
     const [showFilters, setShowFilters] = useState(false);
-    const [viewMode, setViewMode] = useState<'list' | 'weekly'>('list');
-    const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-        const now = new Date(); const day = now.getDay(); const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(now.setDate(diff)).toISOString().split('T')[0];
-    });
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-    // Timer state
-    const [isTimerRunning, setIsTimerRunning] = useState(false);
-    const [timerSeconds, setTimerSeconds] = useState(0);
+    // Week navigation
+    const [weekStart, setWeekStart] = useState(() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1)); return d.toISOString().split('T')[0]; });
+
+    // Timer
+    const [timerRunning, setTimerRunning] = useState(false);
+    const [timerSecs, setTimerSecs] = useState(0);
     const [timerProject, setTimerProject] = useState('');
-    const [timerDescription, setTimerDescription] = useState('');
+    const [timerDesc, setTimerDesc] = useState('');
 
+    // Log form
     const [logForm, setLogForm] = useState({ projectId: '', consultantId: '', date: new Date().toISOString().split('T')[0], hours: '', minutes: '', description: '' });
 
     useEffect(() => { loadAllData(); }, []);
-    useEffect(() => { let interval: NodeJS.Timeout; if (isTimerRunning) { interval = setInterval(() => setTimerSeconds(prev => prev + 1), 1000); } return () => clearInterval(interval); }, [isTimerRunning]);
+    useEffect(() => { let iv: NodeJS.Timeout; if (timerRunning) iv = setInterval(() => setTimerSecs(s => s + 1), 1000); return () => clearInterval(iv); }, [timerRunning]);
+    useEffect(() => { if (isConsultant && userConsultantId) setLogForm(f => ({ ...f, consultantId: userConsultantId })); }, [isConsultant, userConsultantId]);
 
-    // Auto-set consultant for consultants logging their own hours
-    useEffect(() => {
-        if (isConsultant && userConsultantId && !logForm.consultantId) {
-            setLogForm(prev => ({ ...prev, consultantId: userConsultantId }));
-        }
-    }, [isConsultant, userConsultantId, logForm.consultantId]);
-
-    const loadAllData = async () => { setRefreshing(true); await Promise.all([loadHoursLogs(), loadProjects(), loadConsultants()]); loadLocalHoursLogs(); setRefreshing(false); };
-    const loadHoursLogs = async () => { const d = await safeFetch(`${API_BASE}/hours-logs`); if (d?.data) setHoursLogs(d.data); };
-    const loadLocalHoursLogs = () => { try { const s = localStorage.getItem('timely_hours_logs'); if (s) { const local = JSON.parse(s); setHoursLogs(prev => { const apiIds = prev.map(l => l.logId); return [...prev, ...local.filter((l: HoursLog) => !apiIds.includes(l.logId))]; }); } } catch (e) { console.error(e); } };
-    const loadProjects = async () => { const d = await safeFetch(`${API_BASE}/projects`); const local = JSON.parse(localStorage.getItem('timely_projects') || '[]'); if (d?.data) { setProjects([...d.data, ...local.filter((l: Project) => !d.data.find((a: Project) => a.projectId === l.projectId))]); } else { setProjects(local); } };
+    const loadAllData = async () => { setRefreshing(true); await Promise.all([loadHours(), loadProjects(), loadConsultants()]); loadLocalHours(); setRefreshing(false); };
+    const loadHours = async () => { const d = await safeFetch(`${API_BASE}/hours-logs`); if (d?.data) setHoursLogs(d.data); };
+    const loadLocalHours = () => { try { const s = localStorage.getItem('timely_hours_logs'); if (s) { const local = JSON.parse(s); setHoursLogs(prev => { const ids = prev.map(l => l.logId); return [...prev, ...local.filter((l: HoursLog) => !ids.includes(l.logId))]; }); } } catch {} };
+    const loadProjects = async () => { const d = await safeFetch(`${API_BASE}/projects`); const local = JSON.parse(localStorage.getItem('timely_projects') || '[]'); if (d?.data) setProjects([...d.data, ...local.filter((l: Project) => !d.data.find((a: Project) => a.projectId === l.projectId))]); else setProjects(local); };
     const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
 
-    // Get current consultant from email if consultantId not set
-    const getCurrentConsultantId = () => {
-        if (userConsultantId) return userConsultantId;
-        if (currentEmail) {
-            const consultant = consultants.find(c => c.email.toLowerCase() === currentEmail.toLowerCase());
-            if (consultant) return consultant.consultantId;
-        }
-        return '';
-    };
+    const getMyConsultantId = () => userConsultantId || consultants.find(c => c.email.toLowerCase() === currentEmail.toLowerCase())?.consultantId || '';
+    const getProjectName = (pid: string) => projects.find(p => p.projectId === pid)?.projectName || 'Unknown';
+    const getConsultantName = (log: HoursLog) => { if (log.consultantId) { const c = consultants.find(c => c.consultantId === log.consultantId); if (c) return `${c.firstName} ${c.lastName}`; } if (log.consultantEmail) { const c = consultants.find(c => c.email.toLowerCase() === (log.consultantEmail || '').toLowerCase()); if (c) return `${c.firstName} ${c.lastName}`; return log.consultantEmail; } return 'Unknown'; };
+    const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const fmtHours = (h: number) => { const hrs = Math.floor(h); const mins = Math.round((h - hrs) * 60); return mins === 0 ? `${hrs}h` : `${hrs}h ${mins}m`; };
+    const fmtTimer = (s: number) => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    const getWeekDates = (start: string) => { const dates = []; const s = new Date(start); for (let i = 0; i < 7; i++) { const d = new Date(s); d.setDate(s.getDate() + i); dates.push(d.toISOString().split('T')[0]); } return dates; };
+    const navWeek = (dir: 'prev' | 'next') => { const d = new Date(weekStart); d.setDate(d.getDate() + (dir === 'next' ? 7 : -7)); setWeekStart(d.toISOString().split('T')[0]); setSelectedDate(null); };
+    const today = new Date().toISOString().split('T')[0];
 
-    // Timer functions
-    const startTimer = () => {
-        if (!canUseTimer) { showToast('You do not have permission to use the timer', 'error'); return; }
-        if (!timerProject) { showToast('Please select a project first', 'error'); return; }
-        setIsTimerRunning(true); showToast('Timer started', 'info');
-    };
-    const pauseTimer = () => { setIsTimerRunning(false); showToast('Timer paused', 'info'); };
-    const stopTimer = () => {
-        if (timerSeconds > 0) {
-            const hours = Math.floor(timerSeconds / 3600);
-            const minutes = Math.floor((timerSeconds % 3600) / 60);
-            const consultantId = isConsultant ? getCurrentConsultantId() : '';
-            setLogForm({ ...logForm, projectId: timerProject, consultantId, hours: hours.toString(), minutes: minutes.toString(), description: timerDescription, date: new Date().toISOString().split('T')[0] });
-            setShowLogModal(true);
-        }
-        setIsTimerRunning(false); setTimerSeconds(0); setTimerDescription('');
-    };
-    const resetTimer = () => { setIsTimerRunning(false); setTimerSeconds(0); setTimerProject(''); setTimerDescription(''); };
-    const formatTime = (seconds: number) => { const hrs = Math.floor(seconds / 3600); const mins = Math.floor((seconds % 3600) / 60); const secs = seconds % 60; return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`; };
+    // Timer
+    const startTimer = () => { if (!canLog) return; if (!timerProject) { showToast('Select a project', 'error'); return; } setTimerRunning(true); showToast('Timer started', 'info'); };
+    const pauseTimer = () => { setTimerRunning(false); showToast('Paused', 'info'); };
+    const stopTimer = () => { if (timerSecs > 0) { const h = Math.floor(timerSecs / 3600); const m = Math.floor((timerSecs % 3600) / 60); setLogForm({ ...logForm, projectId: timerProject, consultantId: isConsultant ? getMyConsultantId() : '', hours: String(h), minutes: String(m), description: timerDesc, date: today }); setShowLogModal(true); } setTimerRunning(false); setTimerSecs(0); setTimerDesc(''); };
+    const resetTimer = () => { setTimerRunning(false); setTimerSecs(0); setTimerProject(''); setTimerDesc(''); };
 
     // CRUD
-    const createHoursLog = async () => {
-        if (!canLogHours) { showToast('You do not have permission to log hours', 'error'); return; }
-        if (!logForm.projectId || !logForm.consultantId || !logForm.date) { showToast('Please fill required fields', 'error'); return; }
-        const hours = parseFloat(logForm.hours || '0'); const minutes = parseFloat(logForm.minutes || '0'); const totalHours = hours + (minutes / 60);
-        if (totalHours <= 0) { showToast('Please enter valid hours', 'error'); return; }
+    const createLog = async () => {
+        if (!canLog) return;
+        if (!logForm.projectId || !logForm.consultantId || !logForm.date) { showToast('Fill required fields', 'error'); return; }
+        const totalH = parseFloat(logForm.hours || '0') + parseFloat(logForm.minutes || '0') / 60;
+        if (totalH <= 0) { showToast('Enter valid hours', 'error'); return; }
         setLoading(true);
+        const consultant = consultants.find(c => c.consultantId === logForm.consultantId);
         try {
-            const consultant = consultants.find(c => c.consultantId === logForm.consultantId);
-            const r = await fetch(`${API_BASE}/hours-logs`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: logForm.projectId, consultantId: logForm.consultantId, consultantEmail: consultant?.email || currentEmail, date: logForm.date, hours: totalHours.toFixed(2), description: logForm.description, performedBy: isAdmin ? 'admin' : 'consultant' })
-            });
-            if (!r.ok) throw new Error('Failed');
-            showToast('Hours logged successfully', 'success'); setShowLogModal(false); resetLogForm(); loadHoursLogs();
-        } catch (e) {
-            // Save to localStorage if API fails (for local projects)
-            const consultant = consultants.find(c => c.consultantId === logForm.consultantId);
-            const newLog: HoursLog = { logId: `log_${Date.now()}`, projectId: logForm.projectId, consultantId: logForm.consultantId, consultantEmail: consultant?.email || currentEmail, date: logForm.date, hours: totalHours, description: logForm.description, createdAt: new Date().toISOString() };
+            const r = await fetch(`${API_BASE}/hours-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: logForm.projectId, consultantId: logForm.consultantId, consultantEmail: consultant?.email || currentEmail, date: logForm.date, hours: totalH.toFixed(2), description: logForm.description, performedBy: isAdmin ? 'admin' : 'consultant' }) });
+            if (!r.ok) throw new Error();
+            showToast('Hours logged', 'success');
+        } catch {
             const existing = JSON.parse(localStorage.getItem('timely_hours_logs') || '[]');
-            localStorage.setItem('timely_hours_logs', JSON.stringify([...existing, newLog]));
-            showToast('Hours logged successfully', 'success'); setShowLogModal(false); resetLogForm(); loadAllData();
-        } finally { setLoading(false); }
-    };
-
-    const deleteHoursLog = async (logId: string) => {
-        if (!canDeleteLogs) { showToast('You do not have permission to delete hours logs', 'error'); return; }
-        try {
-            const r = await fetch(`${API_BASE}/hours-logs-delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ logId, performedBy: 'admin' }) });
-            if (!r.ok) throw new Error('Failed');
-            setShowDeleteConfirm(null); setShowEditModal(false); loadHoursLogs(); showToast('Hours log deleted', 'success');
-        } catch (e) {
-            // Try deleting from local storage
-            const existing = JSON.parse(localStorage.getItem('timely_hours_logs') || '[]');
-            const filtered = existing.filter((l: HoursLog) => l.logId !== logId);
-            localStorage.setItem('timely_hours_logs', JSON.stringify(filtered));
-            setShowDeleteConfirm(null); setShowEditModal(false); loadAllData(); showToast('Hours log deleted', 'success');
+            existing.push({ logId: `log_${Date.now()}`, projectId: logForm.projectId, consultantId: logForm.consultantId, consultantEmail: consultant?.email || currentEmail, date: logForm.date, hours: totalH, description: logForm.description, createdAt: new Date().toISOString() });
+            localStorage.setItem('timely_hours_logs', JSON.stringify(existing));
+            showToast('Hours logged locally', 'success');
         }
+        setShowLogModal(false); resetLogForm(); loadAllData(); setLoading(false);
     };
 
-    const resetLogForm = () => {
-        const consultantId = isConsultant ? getCurrentConsultantId() : '';
-        setLogForm({ projectId: '', consultantId, date: new Date().toISOString().split('T')[0], hours: '', minutes: '', description: '' });
-    };
-    const openEditModal = (log: HoursLog) => {
-        const hours = Math.floor(log.hours); const minutes = Math.round((log.hours - hours) * 60);
-        setSelectedLog(log); setLogForm({ projectId: log.projectId, consultantId: log.consultantId, date: log.date, hours: hours.toString(), minutes: minutes.toString(), description: log.description }); setShowEditModal(true);
+    const deleteLog = async (logId: string) => {
+        if (!canDelete) return;
+        try { const r = await fetch(`${API_BASE}/hours-logs-delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ logId, performedBy: 'admin' }) }); if (!r.ok) throw new Error(); } catch { const existing = JSON.parse(localStorage.getItem('timely_hours_logs') || '[]'); localStorage.setItem('timely_hours_logs', JSON.stringify(existing.filter((l: HoursLog) => l.logId !== logId))); }
+        setShowDeleteConfirm(null); loadAllData(); showToast('Deleted', 'success');
     };
 
-    // Helpers
-    const getProjectName = (pid: string) => projects.find(p => p.projectId === pid)?.projectName || 'Unknown';
-    const getConsultantName = (cid: string) => { const c = consultants.find(c => c.consultantId === cid); return c ? `${c.firstName} ${c.lastName}` : 'Unknown'; };
-    const getConsultantNameFromLog = (log: HoursLog) => {
-        if (log.consultantId) {
-            const c = consultants.find(c => c.consultantId === log.consultantId);
-            if (c) return `${c.firstName} ${c.lastName}`;
-        }
-        if (log.consultantEmail) {
-            const c = consultants.find(c => c.email.toLowerCase() === (log.consultantEmail || '').toLowerCase());
-            if (c) return `${c.firstName} ${c.lastName}`;
-            return log.consultantEmail;
-        }
-        return 'Unknown';
-    };
-    const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const formatHours = (h: number) => { const hrs = Math.floor(h); const mins = Math.round((h - hrs) * 60); return mins === 0 ? `${hrs}h` : `${hrs}h ${mins}m`; };
-    const getWeekDates = (startDate: string) => { const dates = []; const start = new Date(startDate); for (let i = 0; i < 7; i++) { const date = new Date(start); date.setDate(start.getDate() + i); dates.push(date.toISOString().split('T')[0]); } return dates; };
-    const navigateWeek = (dir: 'prev' | 'next') => { const c = new Date(currentWeekStart); c.setDate(c.getDate() + (dir === 'prev' ? -7 : 7)); setCurrentWeekStart(c.toISOString().split('T')[0]); };
+    const resetLogForm = () => setLogForm({ projectId: '', consultantId: isConsultant ? getMyConsultantId() : '', date: today, hours: '', minutes: '', description: '' });
 
-    // Filter logs based on role
+    const exportCSV = (data: HoursLog[], filename: string) => {
+        if (!data.length) { showToast('No data', 'error'); return; }
+        const rows = data.map(l => `"${fmtDate(l.date)}","${getProjectName(l.projectId)}","${getConsultantName(l)}","${l.hours.toFixed(2)}","${l.description || ''}"`);
+        const csv = ['Date,Project,Consultant,Hours,Description', ...rows].join('\n');
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `${filename}.csv`; a.click();
+        showToast('Exported', 'success');
+    };
+
+    // Filtered logs
     const filteredLogs = useMemo(() => {
         let logs = hoursLogs;
-
-        // Consultants only see their own logs
-        if (isConsultant) {
-            const myConsultantId = getCurrentConsultantId();
-            logs = hoursLogs.filter(log => {
-                if (log.consultantId === myConsultantId) return true;
-                if (log.consultantEmail && currentEmail && log.consultantEmail.toLowerCase() === currentEmail.toLowerCase()) return true;
-                return false;
-            });
-        }
-
-        // Apply filters
-        return logs.filter(log => {
-            const matchSearch = log.description.toLowerCase().includes(searchTerm.toLowerCase()) || getProjectName(log.projectId).toLowerCase().includes(searchTerm.toLowerCase()) || getConsultantNameFromLog(log).toLowerCase().includes(searchTerm.toLowerCase());
-            const matchProject = filterProject === 'all' || log.projectId === filterProject;
-            const matchConsultant = filterConsultant === 'all' || log.consultantId === filterConsultant;
-            return matchSearch && matchProject && matchConsultant;
+        if (isConsultant) { const myId = getMyConsultantId(); logs = logs.filter(l => l.consultantId === myId || (l.consultantEmail && currentEmail && l.consultantEmail.toLowerCase() === currentEmail.toLowerCase())); }
+        return logs.filter(l => {
+            const matchSearch = l.description.toLowerCase().includes(searchTerm.toLowerCase()) || getProjectName(l.projectId).toLowerCase().includes(searchTerm.toLowerCase());
+            const matchProject = filterProject === 'all' || l.projectId === filterProject;
+            const matchConsultant = filterConsultant === 'all' || l.consultantId === filterConsultant;
+            const matchDate = !selectedDate || l.date === selectedDate;
+            return matchSearch && matchProject && matchConsultant && matchDate;
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [hoursLogs, searchTerm, filterProject, filterConsultant, projects, consultants, isConsultant, currentEmail, userConsultantId]);
+    }, [hoursLogs, searchTerm, filterProject, filterConsultant, selectedDate, isConsultant, currentEmail, userConsultantId]);
 
-    // Stats based on role
+    // Stats
     const stats = useMemo(() => {
-        const today = new Date().toISOString().split('T')[0];
-        const weekDates = getWeekDates(currentWeekStart);
+        const relevant = isConsultant ? filteredLogs : hoursLogs;
+        const weekDates = getWeekDates(weekStart);
+        return {
+            today: relevant.filter(l => l.date === today).reduce((s, l) => s + l.hours, 0),
+            week: relevant.filter(l => weekDates.includes(l.date)).reduce((s, l) => s + l.hours, 0),
+            total: relevant.reduce((s, l) => s + l.hours, 0),
+            projects: new Set(relevant.map(l => l.projectId)).size,
+        };
+    }, [hoursLogs, filteredLogs, weekStart, isConsultant]);
 
-        // Use filtered logs for consultants (their own), all logs for admin
-        const relevantLogs = isConsultant ? filteredLogs : hoursLogs;
+    // Week bar data
+    const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
+    const weekBarData = useMemo(() => {
+        const relevant = isConsultant ? hoursLogs.filter(l => { const myId = getMyConsultantId(); return l.consultantId === myId || (l.consultantEmail?.toLowerCase() === currentEmail.toLowerCase()); }) : hoursLogs;
+        return weekDates.map(date => ({ date, hours: relevant.filter(l => l.date === date).reduce((s, l) => s + l.hours, 0), isToday: date === today }));
+    }, [weekDates, hoursLogs, isConsultant, currentEmail, userConsultantId]);
+    const maxWeekHours = Math.max(...weekBarData.map(d => d.hours), 1);
 
-        const todayHours = relevantLogs.filter(l => l.date === today).reduce((sum, l) => sum + l.hours, 0);
-        const weekHours = relevantLogs.filter(l => weekDates.includes(l.date)).reduce((sum, l) => sum + l.hours, 0);
-        const totalHours = relevantLogs.reduce((sum, l) => sum + l.hours, 0);
-        const uniqueProjects = new Set(relevantLogs.map(l => l.projectId)).size;
-        return { todayHours, weekHours, totalHours, uniqueProjects };
-    }, [hoursLogs, filteredLogs, currentWeekStart, isConsultant]);
+    // Project breakdown
+    const projectBreakdown = useMemo(() => {
+        const map = new Map<string, number>();
+        filteredLogs.forEach(l => { map.set(l.projectId, (map.get(l.projectId) || 0) + l.hours); });
+        return Array.from(map.entries()).map(([pid, hours]) => ({ name: getProjectName(pid), hours })).sort((a, b) => b.hours - a.hours).slice(0, 5);
+    }, [filteredLogs]);
+    const totalBreakdownHours = projectBreakdown.reduce((s, p) => s + p.hours, 0);
 
-    const weeklyData = useMemo(() => {
-        const weekDates = getWeekDates(currentWeekStart);
-        const data: { [key: string]: HoursLog[] } = {};
-        weekDates.forEach(date => { data[date] = filteredLogs.filter(l => l.date === date); });
-        return { dates: weekDates, data };
-    }, [filteredLogs, currentWeekStart]);
-
-    // Client view - show friendly message
     if (isClient) {
-        return (
-            <div className={`min-h-screen ${styles.bg}`}>
-                <div className="max-w-3xl mx-auto px-6 py-12">
-                    <div className={`${styles.card} border rounded-2xl p-6`}>
-                        <div className="flex items-center gap-3 mb-3">
-                            <AlertCircle className="w-5 h-5 text-amber-500" />
-                            <h1 className={`text-lg font-semibold ${styles.text}`}>Hours Tracking for Staff Only</h1>
-                        </div>
-                        <p className={styles.textMuted}>
-                            As a client, you don't log hours in Timely. Your consultant and admin track work time for your projects.
-                            You can view project updates and documents from your dashboard.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
+        return (<div className={`${n.bg} min-h-screen ${n.text}`}><div className="max-w-3xl mx-auto px-6 py-12"><div className={`${n.card} p-6`}><div className="flex items-center gap-3 mb-3"><AlertCircle className="w-5 h-5 text-amber-500" /><h1 className={`text-lg font-semibold ${n.text}`}>Hours Tracking for Staff</h1></div><p className={n.secondary}>As a client, your team tracks work time for your projects.</p></div></div></div>);
     }
 
     return (
-        <div className={`min-h-screen ${styles.bg}`}>
-            {/* Toast Notifications */}
-            <div className="fixed top-4 right-4 z-[10000] space-y-2">
-                {toasts.map(toast => (
-                    <div key={toast.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-                        <ToastIcon type={toast.type} /><span className={styles.text}>{toast.message}</span>
-                        <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className={styles.textMuted}><X className="w-4 h-4" /></button>
-                    </div>
-                ))}
-            </div>
+        <div className={`min-h-screen ${n.bg} ${n.text}`}>
+            {/* Toasts */}
+            <div className="fixed top-4 right-4 z-[10000] space-y-2">{toasts.map(t => (<div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm animate-fadeIn`}>{t.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === 'error' ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}<span>{t.message}</span><button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} className={n.tertiary}><X className="w-3.5 h-3.5" /></button></div>))}</div>
 
-            {/* Delete Confirmation */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
-                    <div className={`${styles.modal} border rounded-lg max-w-md w-full p-6`}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center"><AlertCircle className="w-5 h-5 text-red-500" /></div>
-                            <h3 className={`text-lg font-semibold ${styles.text}`}>Delete Hours Log?</h3>
-                        </div>
-                        <p className={`${styles.textMuted} mb-6`}>This will permanently delete this time entry. This action cannot be undone.</p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteConfirm(null)} className={`flex-1 px-4 py-2.5 ${styles.button} rounded-lg`}>Cancel</button>
-                            <button onClick={() => deleteHoursLog(showDeleteConfirm)} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Delete Confirm */}
+            {showDeleteConfirm && (<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4"><div className={`${n.modal} border rounded-2xl max-w-md w-full p-6`}><div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center"><AlertCircle className="w-5 h-5 text-red-500" /></div><h3 className={`text-lg font-semibold ${n.text}`}>Delete Entry?</h3></div><p className={`${n.secondary} text-sm mb-6`}>This permanently removes this time entry.</p><div className="flex gap-3"><button onClick={() => setShowDeleteConfirm(null)} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={() => deleteLog(showDeleteConfirm)} className={`flex-1 px-4 py-2.5 ${n.btnDanger} rounded-xl text-sm`}>Delete</button></div></div></div>)}
 
             <div className="max-w-7xl mx-auto px-6 py-8">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-start justify-between mb-6">
-                        <div>
-                            <h1 className={`text-4xl font-bold ${styles.text} mb-2`}>Hours Tracker</h1>
-                            <p className={styles.textMuted}>
-                                {isAdmin ? 'View all logged hours across consultants and projects' : 'Log your work time and track your hours'}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className={`text-xs px-3 py-1.5 rounded-full ${styles.cardInner} ${styles.textMuted}`}>
-                                Role: <span className="font-semibold capitalize">{userRole}</span>
-                            </div>
-                            <button onClick={loadAllData} disabled={refreshing} className={`p-2.5 rounded-lg border ${styles.divider} ${styles.cardHover} ${refreshing ? 'animate-spin' : ''}`}><RefreshCw className={`w-5 h-5 ${styles.textMuted}`} /></button>
-                            {canLogHours && (
-                                <button onClick={() => { resetLogForm(); setShowLogModal(true); }} className={`${styles.buttonPrimary} px-5 py-2.5 rounded-lg flex items-center gap-2`}><Plus className="w-5 h-5" />Log Hours</button>
-                            )}
-                        </div>
+                <div className="flex items-start justify-between mb-8">
+                    <div>
+                        <h1 className={`text-2xl font-semibold tracking-tight ${n.strong} mb-1`}>Hours</h1>
+                        <p className={`text-sm ${n.secondary}`}>{isAdmin ? 'All logged hours across the team' : 'Track and log your work time'}</p>
                     </div>
-
-                    {/* Role-based info banner */}
-                    {isConsultant && (
-                        <div className={`mb-4 p-3 rounded-lg border flex items-center gap-2 ${styles.warning}`}>
-                            <AlertCircle className="w-4 h-4" />
-                            <p className="text-sm">You can log and track your own hours. Only admins can view and manage all consultant hours.</p>
-                        </div>
-                    )}
-
-                    {/* Timer Card - only for users who can log hours */}
-                    {canUseTimer && (
-                        <div className={`${styles.card} border rounded-lg p-6 mb-6`}>
-                            <div className="flex items-center justify-between flex-wrap gap-4">
-                                <div className="flex items-center gap-6">
-                                    <div className="text-center">
-                                        <div className={`text-4xl font-mono font-bold ${isTimerRunning ? styles.accent : styles.text}`}>{formatTime(timerSeconds)}</div>
-                                        <p className={`${styles.textSubtle} text-sm mt-1`}>Live Timer</p>
-                                    </div>
-                                    <div className={`h-12 w-px ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`} />
-                                    <div className="flex-1 max-w-md space-y-2">
-                                        <select value={timerProject} onChange={(e) => setTimerProject(e.target.value)} disabled={isTimerRunning} className={`w-full px-4 py-2 ${styles.input} border rounded-lg text-sm disabled:opacity-50`}>
-                                            <option value="">Select Project</option>
-                                            {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}
-                                        </select>
-                                        <input type="text" value={timerDescription} onChange={(e) => setTimerDescription(e.target.value)} placeholder="What are you working on?" className={`w-full px-4 py-2 ${styles.input} border rounded-lg text-sm`} />
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {!isTimerRunning ? (
-                                        <button onClick={startTimer} className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg" title="Start"><Play className="w-5 h-5" /></button>
-                                    ) : (
-                                        <button onClick={pauseTimer} className="p-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg" title="Pause"><Pause className="w-5 h-5" /></button>
-                                    )}
-                                    <button onClick={stopTimer} disabled={timerSeconds === 0} className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50" title="Stop & Log"><Square className="w-5 h-5" /></button>
-                                    <button onClick={resetTimer} className={`p-3 ${styles.button} rounded-lg`} title="Reset"><X className="w-5 h-5" /></button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-4 gap-4 mb-6">
-                        {[{ label: isConsultant ? 'Your Today' : 'Today', value: formatHours(stats.todayHours), icon: Clock }, { label: isConsultant ? 'Your Week' : 'This Week', value: formatHours(stats.weekHours), icon: Calendar }, { label: isConsultant ? 'Your Total' : 'Total Hours', value: formatHours(stats.totalHours), icon: TrendingUp }, { label: 'Projects', value: stats.uniqueProjects.toString(), icon: FolderOpen }].map((s, i) => (
-                            <div key={i} className={`${styles.card} border rounded-lg p-4`}><div className="flex items-center justify-between mb-1"><span className={`${styles.textMuted} text-sm`}>{s.label}</span><s.icon className={`w-5 h-5 ${styles.accent}`} /></div><div className={`text-2xl font-bold ${styles.text}`}>{s.value}</div></div>
-                        ))}
+                    <div className="flex items-center gap-2">
+                        <button onClick={loadAllData} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center ${refreshing ? 'animate-spin' : ''}`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button>
+                        {canLog && <button onClick={() => { resetLogForm(); setShowLogModal(true); }} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm`}><Plus className="w-4 h-4" />Log Hours</button>}
                     </div>
-
-                    {/* View Toggle & Search */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setViewMode('list')} className={`px-4 py-2 rounded-lg text-sm font-medium ${viewMode === 'list' ? styles.buttonPrimary : styles.button}`}>List View</button>
-                            <button onClick={() => setViewMode('weekly')} className={`px-4 py-2 rounded-lg text-sm font-medium ${viewMode === 'weekly' ? styles.buttonPrimary : styles.button}`}>Weekly View</button>
-                        </div>
-                        <div className="flex items-center gap-3 flex-1 justify-end">
-                            <div className="relative flex-1 max-w-md"><Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${styles.textMuted} w-5 h-5`} /><input type="text" placeholder="Search logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2.5 ${styles.input} border rounded-lg focus:outline-none ${styles.inputFocus}`} /></div>
-                            <button onClick={() => setShowFilters(!showFilters)} className={`px-4 py-2.5 rounded-lg flex items-center gap-2 ${showFilters ? styles.buttonPrimary : styles.button}`}><Filter className="w-5 h-5" />Filters</button>
-                        </div>
-                    </div>
-
-                    {showFilters && (
-                        <div className={`mt-4 p-4 ${styles.card} border rounded-lg grid grid-cols-2 gap-4`}>
-                            <div><label className={`${styles.textMuted} text-sm block mb-1`}>Project</label><select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className={`w-full px-4 py-2 ${styles.input} border rounded-lg`}><option value="all">All Projects</option>{projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}</select></div>
-                            {isAdmin && (
-                                <div><label className={`${styles.textMuted} text-sm block mb-1`}>Consultant</label><select value={filterConsultant} onChange={(e) => setFilterConsultant(e.target.value)} className={`w-full px-4 py-2 ${styles.input} border rounded-lg`}><option value="all">All Consultants</option>{consultants.map(c => <option key={c.consultantId} value={c.consultantId}>{c.firstName} {c.lastName}</option>)}</select></div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
-                {/* Content */}
-                {viewMode === 'list' ? (
-                    <div className={`${styles.card} border rounded-lg overflow-hidden`}>
-                        <div className={`grid grid-cols-12 gap-4 p-4 border-b ${styles.divider} ${styles.tableHeader}`}>
-                            <div className={`col-span-2 ${styles.textMuted} text-sm`}>Date</div>
-                            <div className={`col-span-3 ${styles.textMuted} text-sm`}>Project</div>
-                            {isAdmin && <div className={`col-span-2 ${styles.textMuted} text-sm`}>Consultant</div>}
-                            <div className={`${isAdmin ? 'col-span-1' : 'col-span-2'} ${styles.textMuted} text-sm`}>Hours</div>
-                            <div className={`${isAdmin ? 'col-span-3' : 'col-span-4'} ${styles.textMuted} text-sm`}>Description</div>
-                            <div className={`col-span-1 ${styles.textMuted} text-sm text-right`}>Actions</div>
-                        </div>
-                        {filteredLogs.length === 0 ? (
-                            <div className="text-center py-16"><Clock className={`w-12 h-12 ${styles.textSubtle} mx-auto mb-3`} /><p className={styles.textMuted}>{isConsultant ? 'No hours logged yet. Start tracking your time!' : 'No hours logged yet'}</p></div>
-                        ) : filteredLogs.map(log => (
-                            <div key={log.logId} className={`grid grid-cols-12 gap-4 p-4 border-b ${styles.tableRow}`}>
-                                <div className="col-span-2"><p className={`${styles.text} font-medium`}>{formatDate(log.date)}</p><p className={`${styles.textSubtle} text-xs`}>{log.date}</p></div>
-                                <div className="col-span-3 flex items-center gap-2"><FolderOpen className={`w-4 h-4 ${styles.accent}`} /><span className={styles.text}>{getProjectName(log.projectId)}</span></div>
-                                {isAdmin && <div className="col-span-2 flex items-center gap-2"><User className={`w-4 h-4 ${styles.textSubtle}`} /><span className={styles.textMuted}>{getConsultantNameFromLog(log)}</span></div>}
-                                <div className={`${isAdmin ? 'col-span-1' : 'col-span-2'}`}><span className={`${styles.accent} font-semibold`}>{formatHours(log.hours)}</span></div>
-                                <div className={`${isAdmin ? 'col-span-3' : 'col-span-4'}`}><p className={`${styles.textMuted} text-sm truncate`}>{log.description || '-'}</p></div>
-                                <div className="col-span-1 flex items-center justify-end gap-1">
-                                    <button onClick={() => openEditModal(log)} className={`p-2 ${styles.cardHover} rounded-lg`}><Edit2 className={`w-4 h-4 ${styles.textMuted}`} /></button>
-                                    {canDeleteLogs && <button onClick={() => setShowDeleteConfirm(log.logId)} className="p-2 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-4 h-4 text-red-500" /></button>}
+                {/* Timer */}
+                {canLog && (
+                    <div className={`${n.card} ${n.edgeHover} p-5 mb-8 transition-all duration-200`}>
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="flex items-center gap-5">
+                                <div className="text-center">
+                                    <div className={`text-3xl font-mono font-bold ${timerRunning ? n.label : n.text}`}>{fmtTimer(timerSecs)}</div>
+                                    <p className={`text-[11px] ${n.tertiary} mt-1`}>Timer</p>
+                                </div>
+                                <div className={`h-10 w-px ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                                <div className="space-y-2 flex-1 max-w-sm">
+                                    <select value={timerProject} onChange={e => setTimerProject(e.target.value)} disabled={timerRunning} className={`w-full px-3 py-2 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50`}>
+                                        <option value="">Select Project</option>
+                                        {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}
+                                    </select>
+                                    <input type="text" value={timerDesc} onChange={e => setTimerDesc(e.target.value)} placeholder="What are you working on?" className={`w-full px-3 py-2 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} />
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className={`${styles.card} border rounded-lg overflow-hidden`}>
-                        <div className={`flex items-center justify-between p-4 border-b ${styles.divider}`}>
-                            <button onClick={() => navigateWeek('prev')} className={`p-2 ${styles.cardHover} rounded-lg`}><ChevronLeft className={`w-5 h-5 ${styles.textMuted}`} /></button>
-                            <div className="text-center">
-                                <p className={`${styles.text} font-semibold`}>{formatDate(weeklyData.dates[0])} - {formatDate(weeklyData.dates[6])}</p>
-                                <p className={`${styles.textSubtle} text-sm`}>Total: {formatHours(weeklyData.dates.reduce((sum, date) => sum + weeklyData.data[date].reduce((s, l) => s + l.hours, 0), 0))}</p>
+                            <div className="flex items-center gap-2">
+                                {!timerRunning ? <button onClick={startTimer} className={`w-10 h-10 ${n.flat} flex items-center justify-center text-emerald-400`}><Play className="w-5 h-5" /></button> : <button onClick={pauseTimer} className={`w-10 h-10 ${n.flat} flex items-center justify-center text-amber-400`}><Pause className="w-5 h-5" /></button>}
+                                <button onClick={stopTimer} disabled={timerSecs === 0} className={`w-10 h-10 ${n.flat} flex items-center justify-center text-red-400 disabled:opacity-30`}><Square className="w-5 h-5" /></button>
+                                <button onClick={resetTimer} className={`w-10 h-10 ${n.flat} flex items-center justify-center ${n.tertiary}`}><X className="w-5 h-5" /></button>
                             </div>
-                            <button onClick={() => navigateWeek('next')} className={`p-2 ${styles.cardHover} rounded-lg`}><ChevronRight className={`w-5 h-5 ${styles.textMuted}`} /></button>
-                        </div>
-                        <div className={`grid grid-cols-7 divide-x ${styles.divider}`}>
-                            {weeklyData.dates.map((date, idx) => {
-                                const dayLogs = weeklyData.data[date];
-                                const dayTotal = dayLogs.reduce((sum, l) => sum + l.hours, 0);
-                                const isToday = date === new Date().toISOString().split('T')[0];
-                                const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                return (
-                                    <div key={date} className={`min-h-[200px] ${isToday ? (isDark ? 'bg-blue-500/5' : 'bg-blue-50') : ''}`}>
-                                        <div className={`p-3 border-b ${styles.divider} ${isToday ? (isDark ? 'bg-blue-500/10' : 'bg-blue-100') : styles.tableHeader}`}>
-                                            <p className={`text-sm font-medium ${isToday ? styles.accent : styles.textMuted}`}>{dayNames[idx]}</p>
-                                            <p className={`text-lg font-bold ${isToday ? styles.text : styles.textMuted}`}>{new Date(date).getDate()}</p>
-                                            {dayTotal > 0 && <p className={`${styles.accent} text-sm font-semibold`}>{formatHours(dayTotal)}</p>}
-                                        </div>
-                                        <div className="p-2 space-y-2">
-                                            {dayLogs.map(log => (
-                                                <div key={log.logId} className={`p-2 ${styles.cardInner} rounded-lg text-xs cursor-pointer ${styles.cardHover}`} onClick={() => openEditModal(log)}>
-                                                    <p className={`${styles.text} font-medium truncate`}>{getProjectName(log.projectId)}</p>
-                                                    <p className={styles.accent}>{formatHours(log.hours)}</p>
-                                                </div>
-                                            ))}
-                                            {dayLogs.length === 0 && <p className={`${styles.textSubtle} text-xs text-center py-4`}>No entries</p>}
-                                        </div>
-                                    </div>
-                                );
-                            })}
                         </div>
                     </div>
                 )}
-            </div>
 
-            {/* Log Hours Modal */}
-            {showLogModal && canLogHours && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
-                    <div className={`${styles.modal} border rounded-lg max-w-lg w-full max-h-[85vh] overflow-y-auto`}>
-                        <div className={`p-5 border-b ${styles.divider} flex items-center justify-between sticky top-0 ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
-                            <h2 className={`text-xl font-bold ${styles.text}`}>Log Hours</h2>
-                            <button onClick={() => setShowLogModal(false)} className={`p-2 ${styles.cardHover} rounded-lg`}><X className={`w-5 h-5 ${styles.textMuted}`} /></button>
+                {/* Stats */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    {[
+                        { label: isConsultant ? 'Your Today' : 'Today', value: fmtHours(stats.today), icon: Clock },
+                        { label: isConsultant ? 'Your Week' : 'This Week', value: fmtHours(stats.week), icon: Calendar },
+                        { label: isConsultant ? 'Your Total' : 'Total', value: fmtHours(stats.total), icon: TrendingUp },
+                        { label: 'Projects', value: stats.projects, icon: FolderOpen },
+                    ].map((st, i) => (
+                        <div key={i} className={`${n.card} ${n.edgeHover} p-4 transition-all duration-200`}>
+                            <div className="flex items-center justify-between mb-1"><span className={`${n.label} text-[11px] uppercase tracking-wider`}>{st.label}</span><st.icon className={`w-4 h-4 ${n.label}`} /></div>
+                            <div className={`text-2xl font-semibold ${n.strong}`}>{st.value}</div>
                         </div>
-                        <div className="p-5 space-y-4">
-                            <div><label className={`${styles.textMuted} text-sm block mb-1`}>Project *</label><select value={logForm.projectId} onChange={(e) => setLogForm({ ...logForm, projectId: e.target.value })} className={`w-full px-4 py-2.5 ${styles.input} border rounded-lg`}><option value="">Select Project</option>{projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}</select></div>
-                            {isAdmin ? (
-                                <div><label className={`${styles.textMuted} text-sm block mb-1`}>Consultant *</label><select value={logForm.consultantId} onChange={(e) => setLogForm({ ...logForm, consultantId: e.target.value })} className={`w-full px-4 py-2.5 ${styles.input} border rounded-lg`}><option value="">Select Consultant</option>{consultants.map(c => <option key={c.consultantId} value={c.consultantId}>{c.firstName} {c.lastName}</option>)}</select></div>
-                            ) : (
-                                <div><label className={`${styles.textMuted} text-sm block mb-1`}>Consultant</label><div className={`px-4 py-2.5 ${styles.cardInner} border ${styles.divider} rounded-lg ${styles.textMuted}`}>{consultants.find(c => c.consultantId === logForm.consultantId)?.firstName || 'You'} {consultants.find(c => c.consultantId === logForm.consultantId)?.lastName || ''}</div></div>
-                            )}
-                            <div><label className={`${styles.textMuted} text-sm block mb-1`}>Date *</label><input type="date" value={logForm.date} onChange={(e) => setLogForm({ ...logForm, date: e.target.value })} className={`w-full px-4 py-2.5 ${styles.input} border rounded-lg`} /></div>
-                            <div><label className={`${styles.textMuted} text-sm block mb-1`}>Duration *</label>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="relative"><input type="number" min="0" max="24" value={logForm.hours} onChange={(e) => setLogForm({ ...logForm, hours: e.target.value })} placeholder="0" className={`w-full px-4 py-2.5 ${styles.input} border rounded-lg`} /><span className={`absolute right-4 top-1/2 -translate-y-1/2 ${styles.textSubtle}`}>hours</span></div>
-                                    <div className="relative"><input type="number" min="0" max="59" value={logForm.minutes} onChange={(e) => setLogForm({ ...logForm, minutes: e.target.value })} placeholder="0" className={`w-full px-4 py-2.5 ${styles.input} border rounded-lg`} /><span className={`absolute right-4 top-1/2 -translate-y-1/2 ${styles.textSubtle}`}>mins</span></div>
+                    ))}
+                </div>
+
+                {/* Week Bar + Project Breakdown */}
+                <div className="grid lg:grid-cols-3 gap-6 mb-8">
+                    {/* Week Bar */}
+                    <div className={`lg:col-span-2 ${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <button onClick={() => navWeek('prev')} className={`w-8 h-8 ${n.flat} flex items-center justify-center`}><ChevronLeft className="w-4 h-4" /></button>
+                            <div className="text-center">
+                                <h3 className={`text-sm font-semibold ${n.text}`}>{fmtDate(weekDates[0])} — {fmtDate(weekDates[6])}</h3>
+                                <p className={`text-[11px] ${n.tertiary}`}>{fmtHours(weekBarData.reduce((s, d) => s + d.hours, 0))} total</p>
+                            </div>
+                            <button onClick={() => navWeek('next')} className={`w-8 h-8 ${n.flat} flex items-center justify-center`}><ChevronRight className="w-4 h-4" /></button>
+                        </div>
+                        <div className="flex items-end gap-2 h-32">
+                            {weekBarData.map((d, i) => (
+                                <div key={i} onClick={() => setSelectedDate(selectedDate === d.date ? null : d.date)} className={`flex-1 flex flex-col items-center gap-1 cursor-pointer group`}>
+                                    {d.hours > 0 && <span className={`text-[10px] ${n.text} font-medium`}>{fmtHours(d.hours)}</span>}
+                                    <div className={`w-full ${n.barBg} rounded-t flex-1 relative`} style={{ minHeight: '4px' }}>
+                                        <div className={`absolute bottom-0 w-full rounded-t transition-all duration-300 ${selectedDate === d.date ? 'bg-blue-400' : d.isToday ? 'bg-blue-500' : 'bg-blue-500/60'} group-hover:bg-blue-400`} style={{ height: `${(d.hours / maxWeekHours) * 100}%` }} />
+                                    </div>
+                                    <span className={`text-[10px] ${d.isToday ? n.label : selectedDate === d.date ? n.label : n.tertiary} font-medium`}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</span>
                                 </div>
-                            </div>
-                            <div><label className={`${styles.textMuted} text-sm block mb-1`}>Description</label><textarea rows={3} value={logForm.description} onChange={(e) => setLogForm({ ...logForm, description: e.target.value })} placeholder="What did you work on?" className={`w-full px-4 py-2.5 ${styles.input} border rounded-lg resize-none`} /></div>
-                            <div className="flex gap-3 pt-2">
-                                <button onClick={() => setShowLogModal(false)} className={`flex-1 px-5 py-2.5 ${styles.button} rounded-lg`}>Cancel</button>
-                                <button onClick={createHoursLog} disabled={loading} className={`flex-1 px-5 py-2.5 ${styles.buttonPrimary} rounded-lg disabled:opacity-50`}>{loading ? 'Saving...' : 'Log Hours'}</button>
-                            </div>
+                            ))}
                         </div>
+                        {selectedDate && <p className={`text-center mt-3 text-xs ${n.label}`}>Showing: {fmtDate(selectedDate)} <button onClick={() => setSelectedDate(null)} className="ml-1 underline">Clear</button></p>}
+                    </div>
+
+                    {/* Project Breakdown */}
+                    <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                        <h3 className={`text-sm font-semibold ${n.text} mb-4 flex items-center gap-2`}><FolderOpen className={`w-4 h-4 ${n.label}`} />Breakdown</h3>
+                        {projectBreakdown.length === 0 ? <p className={`text-sm ${n.tertiary} text-center py-6`}>No hours logged</p> : (
+                            <div className="space-y-3">
+                                {projectBreakdown.map((p, i) => (
+                                    <div key={i}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className={`text-xs ${n.secondary} truncate flex-1`}>{p.name}</span>
+                                            <span className={`text-xs ${n.label} font-medium ml-2`}>{fmtHours(p.hours)}</span>
+                                        </div>
+                                        <div className={`h-1.5 ${n.barBg} rounded-full overflow-hidden`}>
+                                            <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${(p.hours / totalBreakdownHours) * 100}%` }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
-            )}
 
-            {/* Edit/View Modal */}
-            {showEditModal && selectedLog && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
-                    <div className={`${styles.modal} border rounded-lg max-w-lg w-full`}>
-                        <div className={`p-5 border-b ${styles.divider} flex items-center justify-between`}>
-                            <h2 className={`text-xl font-bold ${styles.text}`}>Hours Log Details</h2>
-                            <button onClick={() => setShowEditModal(false)} className={`p-2 ${styles.cardHover} rounded-lg`}><X className={`w-5 h-5 ${styles.textMuted}`} /></button>
+                {/* Search + Filters */}
+                <div className="flex gap-3 items-center mb-6">
+                    <div className={`flex-1 ${n.flat} flex items-center gap-2 px-4 py-2.5`}>
+                        <Search className={`w-4 h-4 ${n.tertiary}`} />
+                        <input type="text" placeholder="Search hours..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full bg-transparent ${n.text} text-sm focus:outline-none`} />
+                    </div>
+                    <button onClick={() => setShowFilters(!showFilters)} className={`w-9 h-9 ${showFilters ? n.pressed : n.flat} flex items-center justify-center`}><Filter className={`w-4 h-4 ${n.secondary}`} /></button>
+                    <button onClick={() => exportCSV(filteredLogs, `hours_${today}`)} className={`w-9 h-9 ${n.flat} flex items-center justify-center`} title="Export CSV"><Download className={`w-4 h-4 ${n.secondary}`} /></button>
+                </div>
+
+                {showFilters && (
+                    <div className={`${n.card} p-4 mb-6 grid grid-cols-2 gap-3`}>
+                        <div><label className={`${n.label} text-[11px] block mb-1`}>Project</label><select value={filterProject} onChange={e => setFilterProject(e.target.value)} className={`w-full px-3 py-2 ${n.input} border rounded-xl text-sm`}><option value="all">All</option>{projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}</select></div>
+                        {isAdmin && <div><label className={`${n.label} text-[11px] block mb-1`}>Consultant</label><select value={filterConsultant} onChange={e => setFilterConsultant(e.target.value)} className={`w-full px-3 py-2 ${n.input} border rounded-xl text-sm`}><option value="all">All</option>{consultants.map(c => <option key={c.consultantId} value={c.consultantId}>{c.firstName} {c.lastName}</option>)}</select></div>}
+                    </div>
+                )}
+
+                {/* Hours List */}
+                <div className={`${n.card} p-1.5 space-y-1.5`}>
+                    <div className={`${n.flat} grid grid-cols-12 gap-4 px-4 py-3`}>
+                        <div className={`col-span-2 text-xs ${n.label}`}>Date</div>
+                        <div className={`col-span-3 text-xs ${n.label}`}>Project</div>
+                        {isAdmin && <div className={`col-span-2 text-xs ${n.label}`}>Consultant</div>}
+                        <div className={`${isAdmin ? 'col-span-1' : 'col-span-2'} text-xs ${n.label}`}>Hours</div>
+                        <div className={`${isAdmin ? 'col-span-3' : 'col-span-4'} text-xs ${n.label}`}>Description</div>
+                        <div className={`col-span-1 text-xs ${n.label} text-right`}>→</div>
+                    </div>
+
+                    {filteredLogs.length === 0 ? (
+                        <div className={`${n.flat} text-center py-16`}><Clock className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} /><p className={`text-sm ${n.secondary}`}>{selectedDate ? `No entries for ${fmtDate(selectedDate)}` : isConsultant ? 'No hours logged yet' : 'No hours found'}</p></div>
+                    ) : filteredLogs.map(log => (
+                        <div key={log.logId} className={`${n.flat} ${n.edgeHoverFlat} grid grid-cols-12 gap-4 px-4 py-3.5 transition-all duration-200`}>
+                            <div className="col-span-2"><p className={`${n.text} text-sm font-medium`}>{fmtDate(log.date)}</p></div>
+                            <div className="col-span-3 flex items-center gap-2"><FolderOpen className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`${n.text} text-sm truncate`}>{getProjectName(log.projectId)}</span></div>
+                            {isAdmin && <div className="col-span-2 flex items-center gap-2"><User className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`${n.secondary} text-sm truncate`}>{getConsultantName(log)}</span></div>}
+                            <div className={`${isAdmin ? 'col-span-1' : 'col-span-2'} flex items-center`}><span className={`${n.label} font-semibold text-sm`}>{fmtHours(log.hours)}</span></div>
+                            <div className={`${isAdmin ? 'col-span-3' : 'col-span-4'} flex items-center`}><p className={`${n.secondary} text-sm truncate`}>{log.description || '—'}</p></div>
+                            <div className="col-span-1 flex items-center justify-end">
+                                {canDelete && <button onClick={() => setShowDeleteConfirm(log.logId)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Log Modal */}
+            {showLogModal && canLog && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
+                    <div className={`${n.modal} border rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto`}>
+                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
+                            <h2 className={`text-lg font-semibold ${n.text}`}>Log Hours</h2>
+                            <button onClick={() => setShowLogModal(false)} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-4">
-                            <div className={`${styles.cardInner} rounded-lg p-4`}><p className={`${styles.textSubtle} text-xs mb-1`}>Project</p><p className={`${styles.text} font-medium`}>{getProjectName(selectedLog.projectId)}</p></div>
-                            <div className={`${styles.cardInner} rounded-lg p-4`}><p className={`${styles.textSubtle} text-xs mb-1`}>Consultant</p><p className={styles.text}>{getConsultantNameFromLog(selectedLog)}</p></div>
-                            <div className={`${styles.cardInner} rounded-lg p-4`}><p className={`${styles.textSubtle} text-xs mb-1`}>Date</p><p className={styles.text}>{formatDate(selectedLog.date)}</p></div>
-                            <div className={`${styles.cardInner} rounded-lg p-4`}><p className={`${styles.textSubtle} text-xs mb-1`}>Hours Logged</p><p className={`${styles.accent} text-xl font-bold`}>{formatHours(selectedLog.hours)}</p></div>
-                            <div className={`${styles.cardInner} rounded-lg p-4`}><p className={`${styles.textSubtle} text-xs mb-1`}>Description</p><p className={styles.text}>{selectedLog.description || 'No description'}</p></div>
+                            <div><label className={`${n.label} text-[11px] block mb-1`}>Project *</label><select value={logForm.projectId} onChange={e => setLogForm({ ...logForm, projectId: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`}><option value="">Select</option>{projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}</select></div>
+                            {isAdmin ? (
+                                <div><label className={`${n.label} text-[11px] block mb-1`}>Consultant *</label><select value={logForm.consultantId} onChange={e => setLogForm({ ...logForm, consultantId: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="">Select</option>{consultants.map(c => <option key={c.consultantId} value={c.consultantId}>{c.firstName} {c.lastName}</option>)}</select></div>
+                            ) : (
+                                <div><label className={`${n.label} text-[11px] block mb-1`}>Consultant</label><div className={`px-3 py-2.5 ${n.inset} rounded-xl ${n.secondary} text-sm`}>{consultants.find(c => c.consultantId === logForm.consultantId)?.firstName || 'You'} {consultants.find(c => c.consultantId === logForm.consultantId)?.lastName || ''}</div></div>
+                            )}
+                            <div><label className={`${n.label} text-[11px] block mb-1`}>Date *</label><input type="date" value={logForm.date} onChange={e => setLogForm({ ...logForm, date: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className={`${n.label} text-[11px] block mb-1`}>Hours</label><input type="number" min="0" max="24" value={logForm.hours} onChange={e => setLogForm({ ...logForm, hours: e.target.value })} placeholder="0" className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
+                                <div><label className={`${n.label} text-[11px] block mb-1`}>Minutes</label><input type="number" min="0" max="59" value={logForm.minutes} onChange={e => setLogForm({ ...logForm, minutes: e.target.value })} placeholder="0" className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
+                            </div>
+                            <div><label className={`${n.label} text-[11px] block mb-1`}>Description</label><textarea rows={3} value={logForm.description} onChange={e => setLogForm({ ...logForm, description: e.target.value })} placeholder="What did you work on?" className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none focus:outline-none focus:border-blue-500`} /></div>
                             <div className="flex gap-3 pt-2">
-                                {canDeleteLogs && <button onClick={() => { setShowDeleteConfirm(selectedLog.logId); setShowEditModal(false); }} className="flex-1 px-5 py-2.5 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30">Delete</button>}
-                                <button onClick={() => setShowEditModal(false)} className={`flex-1 px-5 py-2.5 ${styles.button} rounded-lg`}>Close</button>
+                                <button onClick={() => setShowLogModal(false)} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button>
+                                <button onClick={createLog} disabled={loading} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm disabled:opacity-50`}>{loading ? 'Saving...' : 'Log Hours'}</button>
                             </div>
                         </div>
                     </div>
