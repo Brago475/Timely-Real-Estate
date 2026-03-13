@@ -68,9 +68,18 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                 <div className="mb-8 px-2">
                     <div className="flex items-center gap-3">
                         {onBack && activePage !== "dashboard" ? (
-                            <button onClick={onBack} className={`w-9 h-9 ${n.inset} rounded-xl flex items-center justify-center ${n.tertiary} transition-colors`}><ArrowLeft className="w-4 h-4" /></button>
-                        ) : <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'bg-white/10' : 'bg-black/5'}`}><img src={timelyLogo} alt="Timely" className="w-7 h-7 object-contain" /></div>
-                        <div><h1 className={`text-lg font-semibold tracking-tight ${n.text}`}>Timely</h1><p className={`text-[10px] tracking-[0.2em] uppercase ${n.tertiary}`}>Real Estate</p></div>
+                            <button onClick={onBack} className={`w-9 h-9 ${n.inset} rounded-xl flex items-center justify-center ${n.tertiary} transition-colors`}>
+                                <ArrowLeft className="w-4 h-4" />
+                            </button>
+                        ) : (
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? "bg-white/10" : "bg-black/5"}`}>
+                                <img src={timelyLogo} alt="Timely" className="w-7 h-7 object-contain" />
+                            </div>
+                        )}
+                        <div>
+                            <h1 className={`text-lg font-semibold tracking-tight ${n.text}`}>Timely</h1>
+                            <p className={`text-[10px] tracking-[0.2em] uppercase ${n.tertiary}`}>Real Estate</p>
+                        </div>
                     </div>
                 </div>
 
@@ -101,7 +110,10 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                     <div className={`mt-3 p-3 ${n.card} rounded-xl transition-colors`}>
                         <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 ${n.inset} rounded-full flex items-center justify-center text-xs font-semibold ${n.secondary}`}>{initials}</div>
-                            <div className="flex-1 min-w-0"><p className={`text-sm font-medium ${n.text} truncate`}>{userName}</p><p className={`text-[11px] ${n.tertiary} truncate`}>{roleLabel}</p></div>
+                            <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium ${n.text} truncate`}>{userName}</p>
+                                <p className={`text-[11px] ${n.tertiary} truncate`}>{roleLabel}</p>
+                            </div>
                             <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
                         </div>
                     </div>
