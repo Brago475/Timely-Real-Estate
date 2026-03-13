@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Home, FolderOpen, Users, UserCheck, BarChart3, Clock, Settings, LogOut, ChevronLeft, ChevronRight, ArrowLeft, Shield, UserPlus, MessageCircle } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
-import timelyLogo from "../assets/Timely_logo.png";
+import timelyLogo from "../assets/Timely_logo.jpg";
 
 type Props = { sidebarToggle: boolean; setSidebarToggle?: (v: boolean) => void; onNavigate: (page: string) => void; onBack?: () => void; isAdmin: boolean; activePage?: string; userName?: string; userEmail?: string; userRole?: string; };
 
