@@ -2,11 +2,10 @@
 import React, { useState, useMemo, useEffect } from "react";
 import TeamFeed from "../Views_Layouts/TeamFeed";
 import { useTheme } from "../Views_Layouts/ThemeContext";
-import { SkeletonCard, SkeletonList, FadeIn } from "./Skeleton";
+import { FadeIn } from "./Skeleton";
 import {
-    FolderOpen, Users, UserCircle, Clock, Bell,
-    ChevronLeft, ChevronRight, History, TrendingUp,
-    Calendar, AlertTriangle, CheckCircle, ArrowRight,
+    FolderOpen, Users, UserCircle, Clock,
+    ChevronLeft, ChevronRight, ArrowRight,
     Plus, BarChart3,
 } from "lucide-react";
 
@@ -42,6 +41,11 @@ const fmtRel = (ts: string): string => {
     return `${Math.floor(hrs / 24)}d ago`;
 };
 
+const fmtStatus = (s: string): string => {
+    if (!s) return "Planning";
+    return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+};
+
 const getHolidays = (year: number): Record<string, string> => {
     const h: Record<string, string> = {
         [`${year}-01-01`]: "New Year's", [`${year}-07-04`]: "Independence Day",
@@ -63,6 +67,20 @@ const getHolidays = (year: number): Record<string, string> => {
     return h;
 };
 
+const getActivityColor = (action: string): string => {
+    const a = (action || "").toLowerCase();
+    if (a.includes("delete")) return "bg-red-500";
+    if (a.includes("create project")) return "bg-emerald-500";
+    if (a.includes("create client") || a.includes("create consultant")) return "bg-green-400";
+    if (a.includes("assign")) return "bg-cyan-400";
+    if (a.includes("update")) return "bg-amber-400";
+    if (a.includes("login")) return "bg-blue-400";
+    if (a.includes("upload")) return "bg-violet-400";
+    if (a.includes("comment") || a.includes("post")) return "bg-yellow-400";
+    if (a.includes("hours") || a.includes("log")) return "bg-orange-400";
+    return "bg-blue-400";
+};
+
 const Dashboard: React.FC<DashboardProps> = ({
     sidebarToggle, setSidebarToggle, onNavigate,
     userName = "Admin", userEmail = "", userRole = "admin",
@@ -72,22 +90,25 @@ const Dashboard: React.FC<DashboardProps> = ({
     const n = {
         bg: isDark ? "neu-bg-dark" : "neu-bg-light",
         card: isDark ? "neu-dark" : "neu-light",
-        cardSm: isDark ? "neu-dark-sm" : "neu-light-sm",
         flat: isDark ? "neu-dark-flat" : "neu-light-flat",
         inset: isDark ? "neu-dark-inset" : "neu-light-inset",
         pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
         text: isDark ? "text-white" : "text-gray-900",
-        secondary: isDark ? "text-gray-400" : "text-gray-500",
+        secondary: isDark ? "text-gray-300" : "text-gray-600",
         tertiary: isDark ? "text-gray-500" : "text-gray-400",
         strong: isDark ? "text-white" : "text-black",
         link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
         progress: isDark ? "bg-blue-500" : "bg-blue-600",
-        progressTrack: isDark ? "bg-gray-900" : "bg-gray-300",
-        avatar: isDark ? "bg-gray-800 text-white" : "bg-gray-300 text-gray-700",
-        badge: isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-50 text-blue-600",
+        badge: isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700",
         todayBg: isDark ? "bg-blue-500 text-white" : "bg-blue-600 text-white",
         dot: isDark ? "bg-blue-400" : "bg-blue-500",
-        label: isDark ? "text-blue-400/60" : "text-blue-600/60",
+        label: isDark ? "text-blue-400" : "text-blue-600",
+        edgeHover: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
+        edgeHoverFlat: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),4px_4px_10px_rgba(0,0,0,0.08),-4px_-4px_10px_rgba(255,255,255,0.9)]",
     };
 
     const isAdmin = userRole === "admin";
@@ -116,8 +137,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 setActivities(aR.data.map((l: any, i: number) => ({
                     id: i, user: l.performedBy || "System",
                     action: l.actionType?.toLowerCase().replace(/_/g, " ") || "action",
+                    actionRaw: l.actionType || "",
                     target: l.details || l.entityId, time: fmtRel(l.timestamp),
-                    isDelete: l.actionType?.includes("DELETE"),
                 })));
             }
             const al: any[] = [];
@@ -135,19 +156,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         })();
     }, []);
 
-const stats = useMemo(() => {
+    const stats = useMemo(() => {
         const active = projects.filter(p => {
             const st = (p.status || "").toLowerCase();
             return st === "in_progress" || st === "in progress" || st === "active";
         }).length;
-        const completed = projects.filter(p => {
-            const st = (p.status || "").toLowerCase();
-            return st === "completed";
-        }).length;
-        const planning = projects.filter(p => {
-            const st = (p.status || "").toLowerCase();
-            return st === "planning";
-        }).length;
+        const completed = projects.filter(p => (p.status || "").toLowerCase() === "completed").length;
+        const planning = projects.filter(p => (p.status || "").toLowerCase() === "planning").length;
         const onHold = projects.filter(p => {
             const st = (p.status || "").toLowerCase();
             return st === "on_hold" || st === "on hold";
@@ -156,8 +171,7 @@ const stats = useMemo(() => {
         const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
         const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0, 0, 0, 0);
         const weekH = hoursLogs.filter(l => new Date(l.date) >= ws).reduce((s, l) => s + l.hours, 0);
-        const totalH = hoursLogs.reduce((s, l) => s + l.hours, 0);
-        return { active, completed, planning, onHold, total, progress, weekH, totalH, clients: clients.length, consultants: consultants.length };
+        return { active, completed, planning, onHold, total, progress, weekH, clients: clients.length, consultants: consultants.length };
     }, [projects, clients, consultants, hoursLogs]);
 
     const holidays = useMemo(() => getHolidays(calDate.getFullYear()), [calDate]);
@@ -192,7 +206,7 @@ const stats = useMemo(() => {
                     <div className={`h-7 w-56 rounded-lg ${n.pressed} animate-pulse`} />
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                    {[1,2,3,4].map(i => <div key={i} className={`h-28 ${n.card}`} />)}
+                    {[1, 2, 3, 4].map(i => <div key={i} className={`h-28 ${n.card}`} />)}
                 </div>
             </div>
         );
@@ -218,16 +232,17 @@ const stats = useMemo(() => {
                 <FadeIn delay={50}>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
                         {[
-                            { label: "Projects", value: stats.total, detail: `${stats.active} active · ${stats.planning} planning`, page: "projects" },                            { label: "Clients", value: stats.clients, detail: "accounts", page: "client" },
-                            { label: "Consultants", value: stats.consultants, detail: "team", page: "consultants" },
+                            { label: "Projects", value: stats.total, detail: `${stats.active} active · ${stats.planning} planning`, page: "projects" },
+                            { label: "Clients", value: stats.clients, detail: "accounts", page: "client" },
+                            { label: "Consultants", value: stats.consultants, detail: "registered", page: "consultants" },
                             { label: "Hours", value: fmtH(stats.weekH), detail: "this week", page: "hours" },
                         ].map((st, i) => (
                             <div
                                 key={i}
                                 onClick={() => nav(st.page)}
-                                className={`${n.card} p-5 cursor-pointer transition-all duration-200 hover:scale-[1.02]`}
+                                className={`${n.card} ${n.edgeHover} p-5 cursor-pointer transition-all duration-200 hover:scale-[1.02]`}
                             >
-                                <p className={`text-[11px] uppercase tracking-wider ${n.tertiary} mb-3`}>{st.label}</p>
+                                <p className={`text-[11px] uppercase tracking-wider ${n.label} mb-3`}>{st.label}</p>
                                 <p className={`text-3xl font-semibold tracking-tight ${n.strong}`}>{st.value}</p>
                                 <p className={`text-xs ${n.secondary} mt-1`}>{st.detail}</p>
                             </div>
@@ -256,13 +271,8 @@ const stats = useMemo(() => {
                             <button
                                 key={i}
                                 onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.secondary} hover:${n.strong} active:scale-95`}
-                                style={{
-                                    background: "transparent",
-                                }}
-                                onMouseDown={(e) => e.currentTarget.classList.add(n.pressed)}
-                                onMouseUp={(e) => e.currentTarget.classList.remove(n.pressed)}
-                                onMouseLeave={(e) => e.currentTarget.classList.remove(n.pressed)}
+                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.secondary} hover:text-white active:scale-95`}
+                                style={{ background: "transparent" }}
                             >
                                 <a.icon className="w-3.5 h-3.5" />
                                 {a.label}
@@ -285,11 +295,11 @@ const stats = useMemo(() => {
                                             <div
                                                 key={i}
                                                 onClick={() => a.page && nav(a.page)}
-                                                className={`${n.flat} flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200`}
                                             >
                                                 <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                                                 <p className={`text-sm ${n.text} flex-1`}>{a.msg}</p>
-                                                <ArrowRight className={`w-3.5 h-3.5 ${n.label}}`} />
+                                                <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary}`} />
                                             </div>
                                         ))}
                                     </div>
@@ -299,7 +309,7 @@ const stats = useMemo(() => {
 
                         {/* Progress */}
                         <FadeIn delay={130}>
-                            <div className={`${n.card} p-6`}>
+                            <div className={`${n.card} ${n.edgeHover} p-6 transition-all duration-200`}>
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Completion</h2>
                                     <span className={`text-lg font-semibold ${n.strong}`}>{stats.progress}%</span>
@@ -330,7 +340,7 @@ const stats = useMemo(() => {
                                 </div>
                                 {projects.length === 0 ? (
                                     <div className={`${n.card} p-10 text-center`}>
-                                        <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${n.label}`} />
+                                        <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${n.tertiary}`} />
                                         <p className={`text-sm ${n.secondary}`}>No projects yet</p>
                                         {isAdmin && (
                                             <button onClick={() => nav("projects")} className={`mt-2 text-xs underline ${n.link}`}>Create first project</button>
@@ -342,7 +352,7 @@ const stats = useMemo(() => {
                                             <div
                                                 key={p.projectId}
                                                 onClick={() => nav("projects")}
-                                                className={`${n.flat} flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200`}
                                             >
                                                 <div className={`w-9 h-9 rounded-xl ${n.inset} flex items-center justify-center flex-shrink-0`}>
                                                     <FolderOpen className={`w-4 h-4 ${n.secondary}`} />
@@ -352,7 +362,7 @@ const stats = useMemo(() => {
                                                     <p className={`text-[11px] ${n.tertiary}`}>{p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}</p>
                                                 </div>
                                                 <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${n.badge}`}>
-                                                    {p.status || "Planning"}
+                                                    {fmtStatus(p.status)}
                                                 </span>
                                             </div>
                                         ))}
@@ -371,17 +381,13 @@ const stats = useMemo(() => {
                                 {activities.length === 0 ? (
                                     <p className={`text-sm ${n.secondary} py-4`}>No recent activity</p>
                                 ) : (
-                                    <div className={`${n.card} p-5`}>
+                                    <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
                                         <div className="relative pl-6">
                                             <div className={`absolute left-[7px] top-1 bottom-1 w-px ${isDark ? "bg-gray-800" : "bg-gray-300"}`} />
 
                                             {activities.slice(0, 6).map(a => (
                                                 <div key={a.id} className="relative flex items-start gap-3 py-3 group">
-                                                    <div className={`absolute -left-6 top-4 w-[9px] h-[9px] rounded-full border-2 transition-all
-                                                        ${a.isDelete
-                                                            ? (isDark ? "border-red-400 bg-red-400/20" : "border-red-400 bg-red-50")
-                                                            : (isDark ? "border-gray-600 bg-gray-800 group-hover:border-gray-400" : "border-gray-300 bg-white group-hover:border-gray-500")}`}
-                                                    />
+                                                    <div className={`absolute -left-6 top-4 w-[9px] h-[9px] rounded-full ${getActivityColor(a.actionRaw)}`} />
                                                     <div className="flex-1 min-w-0">
                                                         <p className={`text-sm ${n.text}`}>
                                                             <span className="font-medium">{a.user}</span>
@@ -420,7 +426,7 @@ const stats = useMemo(() => {
                                         </button>
                                     </div>
                                 </div>
-                                <div className={`${n.card} p-5`}>
+                                <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
                                     <div className="grid grid-cols-7 gap-1 mb-2">
                                         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                                             <div key={i} className={`text-center text-[10px] font-medium ${n.label} py-1`}>{d}</div>
@@ -432,12 +438,12 @@ const stats = useMemo(() => {
                                                 ${!day ? "" :
                                                 isToday(day)
                                                     ? `${n.todayBg} font-bold`
-                                                    : `cursor-pointer ${n.secondary} hover:${n.strong}`}`}>
+                                                    : `cursor-pointer ${n.secondary} hover:text-white`}`}>
                                                 {day}
                                                 {day && (hasDue(day) || isHol(day)) && (
                                                     <div className="absolute bottom-0.5 flex gap-0.5">
                                                         {isHol(day) && <div className={`w-1 h-1 rounded-full ${n.dot}`} />}
-                                                        {hasDue(day) && <div className={`w-1 h-1 rounded-full ${isDark ? "bg-gray-300" : "bg-gray-700"}`} />}
+                                                        {hasDue(day) && <div className="w-1 h-1 rounded-full bg-amber-400" />}
                                                     </div>
                                                 )}
                                             </div>
@@ -464,14 +470,14 @@ const stats = useMemo(() => {
                                             <div
                                                 key={c.customerId}
                                                 onClick={() => nav("client")}
-                                                className={`${n.flat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
                                             >
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className={`text-sm font-medium ${n.text} truncate`}>{c.firstName} {c.lastName}</p>
-                                                    <p className={`text-[11px] ${n.label} truncate`}>{c.email}</p>
+                                                    <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -497,7 +503,7 @@ const stats = useMemo(() => {
                                             <div
                                                 key={c.consultantId}
                                                 onClick={() => nav("consultants")}
-                                                className={`${n.flat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
                                             >
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
@@ -506,7 +512,6 @@ const stats = useMemo(() => {
                                                     <p className={`text-sm font-medium ${n.text} truncate`}>{c.firstName} {c.lastName}</p>
                                                     <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
                                                 </div>
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
                                             </div>
                                         ))}
                                     </div>
@@ -520,7 +525,7 @@ const stats = useMemo(() => {
                 <FadeIn delay={250}>
                     <div className="mt-10">
                         <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label} mb-4`}>Team Feed</h2>
-                        <div className={`${n.card} p-5`}>
+                        <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
                             <TeamFeed userName={userName || "User"} userEmail={userEmail || ""} userRole={userRole || "admin"} maxPosts={10} />
                         </div>
                     </div>
