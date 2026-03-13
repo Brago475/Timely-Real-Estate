@@ -30,24 +30,23 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
     return (
         <div className="min-h-screen text-white relative overflow-hidden">
-            {/* Background Image — full screen */}
+            {/* Background Image — full screen, no overlay */}
             <div className="absolute inset-0 z-0">
                 <img src={loginBg} alt="" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/70" />
             </div>
 
             <div className="relative z-10 mx-auto flex min-h-screen max-w-[1600px]">
                 {/* Left — Tagline */}
                 <section className="hidden lg:flex flex-1 flex-col items-start justify-center px-16 xl:px-24">
-                    <h1 className="text-[3.5rem] xl:text-[4.5rem] font-extrabold leading-[0.95] tracking-[-0.04em]">
+                    <h1 className="text-[3.5rem] xl:text-[4.5rem] font-extrabold leading-[0.95] tracking-[-0.04em] drop-shadow-lg">
                         Manage<br />Everything.<br />Miss Nothing.
                     </h1>
-                    <p className="text-neutral-400 text-lg mt-6 max-w-md leading-relaxed">Track projects, schedule consultants, and stay on top of every detail — all in one place.</p>
+                    <p className="text-white/70 text-lg mt-6 max-w-md leading-relaxed drop-shadow">Track projects, schedule consultants, and stay on top of every detail — all in one place.</p>
                 </section>
 
                 {/* Right — Login */}
                 <section className="w-full lg:w-[520px] flex items-center justify-center px-8 sm:px-12 lg:px-16">
-                    <div className={`w-full max-w-[400px] ${shake ? "animate-shake" : ""}`}>
+                    <div className={`w-full max-w-[400px] bg-black/60 backdrop-blur-xl rounded-3xl p-8 ${shake ? "animate-shake" : ""}`}>
 
                         {/* Logo */}
                         <div className="flex justify-center mb-10">
@@ -69,10 +68,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         {/* Form */}
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <input type="email" placeholder="Email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="h-14 w-full rounded-full border border-neutral-700 bg-transparent px-5 text-sm text-white placeholder:text-neutral-500 focus:border-neutral-400 focus:outline-none" />
+                                <input type="email" placeholder="Email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="h-14 w-full rounded-full border border-white/20 bg-white/10 px-5 text-sm text-white placeholder:text-neutral-400 focus:border-white/40 focus:outline-none backdrop-blur" />
                             </div>
                             <div className="relative">
-                                <input type={showPassword ? "text" : "password"} placeholder="Password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="h-14 w-full rounded-full border border-neutral-700 bg-transparent px-5 pr-14 text-sm text-white placeholder:text-neutral-500 focus:border-neutral-400 focus:outline-none" />
+                                <input type={showPassword ? "text" : "password"} placeholder="Password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="h-14 w-full rounded-full border border-white/20 bg-white/10 px-5 pr-14 text-sm text-white placeholder:text-neutral-400 focus:border-white/40 focus:outline-none backdrop-blur" />
                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition">
                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
@@ -85,18 +84,18 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         {/* Forgot password */}
                         <div className="mt-8">
                             <p className="mb-4 text-lg font-bold tracking-[-0.02em]">Forgot your password?</p>
-                            <button type="button" className="h-14 w-full rounded-full border border-neutral-700 bg-transparent text-white font-semibold hover:bg-white/5 transition">Contact administrator</button>
+                            <button type="button" className="h-14 w-full rounded-full border border-white/20 bg-white/5 text-white font-semibold hover:bg-white/10 transition">Contact administrator</button>
                         </div>
 
                         {/* Footer */}
-                        <p className="mt-8 text-xs leading-relaxed text-neutral-500">By signing in, you agree to the Timely Terms of Service and Privacy Policy.</p>
+                        <p className="mt-8 text-xs leading-relaxed text-neutral-400">By signing in, you agree to the Timely Terms of Service and Privacy Policy.</p>
                     </div>
                 </section>
             </div>
 
             {/* Footer */}
-            <footer className="relative z-10 border-t border-neutral-800/50 px-6 py-4">
-                <div className="mx-auto flex max-w-[1600px] flex-wrap gap-x-4 gap-y-2 text-[11px] text-neutral-500">
+            <footer className="relative z-10 border-t border-white/10 px-6 py-4">
+                <div className="mx-auto flex max-w-[1600px] flex-wrap gap-x-4 gap-y-2 text-[11px] text-white/40">
                     <span>About</span><span>Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>Contact</span><span>Timely &copy; {new Date().getFullYear()}</span>
                 </div>
             </footer>
