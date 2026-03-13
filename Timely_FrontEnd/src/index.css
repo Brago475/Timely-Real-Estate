@@ -82,52 +82,52 @@
 
 /* Light mode */
 .neu-light {
-  background: #dcdcdc;
+  background: #f0f0f0;
   box-shadow:
-    6px 6px 14px rgba(0, 0, 0, 0.15),
+    6px 6px 14px rgba(0, 0, 0, 0.12),
     -6px -6px 14px rgba(255, 255, 255, 1);
   border-radius: 16px;
 }
 
 .neu-light-sm {
-  background: #dcdcdc;
+  background: #f0f0f0;
   box-shadow:
-    3px 3px 8px rgba(0, 0, 0, 0.12),
+    3px 3px 8px rgba(0, 0, 0, 0.1),
     -3px -3px 8px rgba(255, 255, 255, 0.95);
   border-radius: 12px;
 }
 
 .neu-light-inset {
-  background: #d0d0d0;
+  background: #e6e6e6;
   box-shadow:
-    inset 3px 3px 8px rgba(0, 0, 0, 0.15),
+    inset 3px 3px 8px rgba(0, 0, 0, 0.12),
     inset -3px -3px 8px rgba(255, 255, 255, 1);
   border-radius: 12px;
 }
 
 .neu-light-flat {
-  background: #dcdcdc;
+  background: #f0f0f0;
   box-shadow:
-    2px 2px 6px rgba(0, 0, 0, 0.1),
+    2px 2px 6px rgba(0, 0, 0, 0.08),
     -2px -2px 6px rgba(255, 255, 255, 0.9);
   border-radius: 10px;
 }
 
 .neu-light-flat:hover {
-  background: #e0e0e0;
+  background: #f4f4f4;
   box-shadow:
-    4px 4px 10px rgba(0, 0, 0, 0.15),
+    4px 4px 10px rgba(0, 0, 0, 0.12),
     -4px -4px 10px rgba(255, 255, 255, 1);
 }
 
 .neu-light-pressed {
-  background: #d0d0d0;
+  background: #e6e6e6;
   box-shadow:
-    inset 2px 2px 6px rgba(0, 0, 0, 0.12),
+    inset 2px 2px 6px rgba(0, 0, 0, 0.1),
     inset -2px -2px 6px rgba(255, 255, 255, 0.95);
   border-radius: 10px;
 }
 
 /* Page backgrounds */
-.neu-bg-dark { background: #0a0a0a; }
-.neu-bg-light { background: #d4d4d4; }
+.neu-bg-light { background: #eaeaea; }
+
