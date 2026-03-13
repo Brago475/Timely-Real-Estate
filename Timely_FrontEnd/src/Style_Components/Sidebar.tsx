@@ -72,9 +72,9 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                                 <ArrowLeft className="w-4 h-4" />
                             </button>
                         ) : (
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? "bg-white/10" : "bg-black/5"}`}>
-                                <img src={timelyLogo} alt="Timely" className="w-7 h-7 object-contain" />
-                            </div>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-white/20 border border-white/10" : "bg-black/10 border border-black/5"}`}>
+    <img src={timelyLogo} alt="Timely" className="w-8 h-8 object-contain" />
+</div>
                         )}
                         <div>
                             <h1 className={`text-lg font-semibold tracking-tight ${n.text}`}>Timely</h1>
