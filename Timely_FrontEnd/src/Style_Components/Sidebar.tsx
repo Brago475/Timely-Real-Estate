@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Home, FolderOpen, Users, UserCheck, BarChart3, Clock, Settings, LogOut, ChevronLeft, ChevronRight, ArrowLeft, Shield, UserPlus, MessageCircle } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
+import timelyLogo from "../assets/Timely_logo.png";
 
 type Props = { sidebarToggle: boolean; setSidebarToggle?: (v: boolean) => void; onNavigate: (page: string) => void; onBack?: () => void; isAdmin: boolean; activePage?: string; userName?: string; userEmail?: string; userRole?: string; };
 
@@ -60,17 +61,6 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
         );
     };
 
-    const TimelyLogo = () => (
-        <svg className="w-8 h-8" viewBox="0 0 120 112" fill="none">
-            <polygon points="60,12 10,52 20,52 20,100 100,100 100,52 110,52" fill="none" stroke="#3b82f6" strokeWidth="5" strokeLinejoin="round" />
-            <rect x="47" y="65" width="26" height="35" rx="2" fill="#3b82f6" />
-            <circle cx="60" cy="48" r="14" fill="none" stroke="#c9a84c" strokeWidth="2.5" />
-            <line x1="60" y1="48" x2="60" y2="38" stroke="#c9a84c" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="60" y1="48" x2="68" y2="48" stroke="#c9a84c" strokeWidth="2.5" strokeLinecap="round" />
-            <circle cx="60" cy="48" r="2" fill="#c9a84c" />
-        </svg>
-    );
-
     return (
         <aside className={`${sidebarToggle ? "w-0 -translate-x-full" : "w-72 translate-x-0"} ${n.sidebar} fixed top-0 left-0 h-full border-r transition-all duration-300 ease-in-out z-40 overflow-hidden`}>
             <div className="h-full flex flex-col px-4 py-5">
@@ -79,7 +69,7 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                     <div className="flex items-center gap-3">
                         {onBack && activePage !== "dashboard" ? (
                             <button onClick={onBack} className={`w-9 h-9 ${n.inset} rounded-xl flex items-center justify-center ${n.tertiary} transition-colors`}><ArrowLeft className="w-4 h-4" /></button>
-                        ) : <TimelyLogo />}
+                        ) : <img src={timelyLogo} alt="Timely" className="w-9 h-9 rounded-lg" />}
                         <div><h1 className={`text-lg font-semibold tracking-tight ${n.text}`}>Timely</h1><p className={`text-[10px] tracking-[0.2em] uppercase ${n.tertiary}`}>Real Estate</p></div>
                     </div>
                 </div>
