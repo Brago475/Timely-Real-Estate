@@ -37,7 +37,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
             <div className="relative z-10 flex min-h-screen">
                 {/* Left — Login Card */}
-                <div className="w-full lg:w-[460px] min-h-screen flex items-center justify-center p-6 lg:p-10 bg-black/40 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none">
+                <div className="w-full lg:w-auto min-h-screen flex items-center justify-center p-6 lg:p-10 lg:ml-[10%] bg-black/40 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none">
                     <div className={`w-full max-w-[420px] bg-black/80 backdrop-blur-2xl rounded-3xl p-10 border border-white/10 ${shake ? "animate-shake" : ""}`}>
 
                         {/* Logo + Name */}
