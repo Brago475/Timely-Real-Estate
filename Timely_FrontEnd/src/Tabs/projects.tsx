@@ -217,11 +217,12 @@ const RealEstateProjects: React.FC = () => {
         showToast('Project updated', 'success');
     };
 
-    const updateProjectStatus = (projectId: string, newStatus: string) => {
+const updateProjectStatus = async (projectId: string, newStatus: string) => {
         if (!canEdit) { showToast('You do not have permission to change status', 'error'); return; }
         const project = projects.find(p => p.projectId === projectId);
         if (!project) return;
         const updated = { ...project, status: newStatus };
+        try { await fetch(`${API_BASE}/project-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, status: newStatus }) }); } catch (err) { console.error('Failed to sync status to API:', err); }
         saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === projectId ? updated : p));
         if (selectedProject?.projectId === projectId) setSelectedProject(updated);

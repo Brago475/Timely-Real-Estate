@@ -7,22 +7,15 @@ import { authenticate, authorize } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/projects — Create a new project
 router.post("/projects", authenticate, authorize("admin"), async (req: Request, res: Response) => {
   const { projectName, clientName, status, priority, budget, dateCreated, dateDue, description } = req.body || {};
-
-  if (!projectName) {
-    return res.status(400).json({ error: "projectName is required." });
-  }
+  if (!projectName) return res.status(400).json({ error: "projectName is required." });
 
   try {
     const project = await prisma.project.create({
       data: {
-        code: "TEMP",
-        name: projectName,
-        description: description || "",
-        status: status || "Planning",
-        priority: priority || "Medium",
+        code: "TEMP", name: projectName, description: description || "",
+        status: status || "planning", priority: priority || "medium",
         budget: budget ? parseFloat(budget) : null,
         dateCreated: dateCreated ? new Date(dateCreated) : null,
         dateDue: dateDue ? new Date(dateDue) : null,
@@ -31,19 +24,9 @@ router.post("/projects", authenticate, authorize("admin"), async (req: Request, 
     });
 
     const code = formatCode("P", project.id);
-    await prisma.project.update({
-      where: { id: project.id },
-      data: { code },
-    });
+    await prisma.project.update({ where: { id: project.id }, data: { code } });
 
-    await appendAuditLog(
-      "CREATE_PROJECT",
-      "project",
-      code,
-      req.user?.email || "unknown_admin",
-      `Project created: ${projectName}`
-    );
-
+    await appendAuditLog("CREATE_PROJECT", "project", code, req.user?.email || "unknown_admin", `Project created: ${projectName}`);
     return res.json({ success: true, projectId: project.id, projectCode: code });
   } catch (err) {
     console.error("Error creating project:", err);
@@ -51,7 +34,6 @@ router.post("/projects", authenticate, authorize("admin"), async (req: Request, 
   }
 });
 
-// GET /api/projects — List all projects
 router.get("/projects", authenticate, async (req: Request, res: Response) => {
   try {
     const projects = await prisma.project.findMany({
@@ -64,23 +46,16 @@ router.get("/projects", authenticate, async (req: Request, res: Response) => {
     });
 
     const data = projects.map((p) => {
-      const clientNames = p.clientProjects
-        .map((cp) => `${cp.client.firstName} ${cp.client.lastName}`.trim())
-        .join(", ");
-
+      const clientNames = p.clientProjects.map((cp) => `${cp.client.firstName} ${cp.client.lastName}`.trim()).join(", ");
       return {
-        projectId: String(p.id),
-        projectCode: p.code,
-        projectName: p.name,
-        clientName: clientNames,
-        status: p.status,
-        priority: p.priority,
-        budget: p.budget ? String(p.budget) : "",
-        description: p.description,
+        projectId: String(p.id), projectCode: p.code, projectName: p.name, clientName: clientNames,
+        status: p.status, priority: p.priority,
+        budget: p.budget ? String(p.budget) : "", description: p.description,
+        startDate: p.dateCreated ? p.dateCreated.toISOString().split("T")[0] : "",
+        endDate: p.dateDue ? p.dateDue.toISOString().split("T")[0] : "",
         dateCreated: p.dateCreated ? p.dateCreated.toISOString().split("T")[0] : "",
         dateDue: p.dateDue ? p.dateDue.toISOString().split("T")[0] : "",
-        createdAt: p.createdAt.toISOString(),
-        updatedAt: p.updatedAt.toISOString(),
+        createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString(),
       };
     });
 
@@ -91,33 +66,16 @@ router.get("/projects", authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/projects-delete — Delete a project
 router.post("/projects-delete", authenticate, authorize("admin"), async (req: Request, res: Response) => {
   const { projectId } = req.body || {};
-
-  if (!projectId) {
-    return res.status(400).json({ error: "projectId is required." });
-  }
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
 
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: Number(projectId) },
-    });
-
-    if (!project) {
-      return res.status(404).json({ error: "Project not found." });
-    }
+    const project = await prisma.project.findUnique({ where: { id: Number(projectId) } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
 
     await prisma.project.delete({ where: { id: project.id } });
-
-    await appendAuditLog(
-      "DELETE_PROJECT",
-      "project",
-      project.code,
-      req.user?.email || "unknown_admin",
-      `Project deleted: ${project.name}`
-    );
-
+    await appendAuditLog("DELETE_PROJECT", "project", project.code, req.user?.email || "unknown_admin", `Project deleted: ${project.name}`);
     return res.json({ success: true });
   } catch (err) {
     console.error("Error deleting project:", err);
@@ -125,65 +83,31 @@ router.post("/projects-delete", authenticate, authorize("admin"), async (req: Re
   }
 });
 
-// POST /api/projects/assign — Assign project to client + consultants
 router.post("/projects/assign", authenticate, authorize("admin"), async (req: Request, res: Response) => {
   const { clientId, projectId, consultantIds } = req.body || {};
-
-  if (!clientId || !projectId) {
-    return res.status(400).json({ error: "clientId and projectId are required." });
-  }
+  if (!clientId || !projectId) return res.status(400).json({ error: "clientId and projectId are required." });
 
   try {
-    // Mark old projects as not current for this client
-    await prisma.clientProject.updateMany({
-      where: { clientId: Number(clientId) },
-      data: { isCurrent: false },
-    });
+    await prisma.clientProject.updateMany({ where: { clientId: Number(clientId) }, data: { isCurrent: false } });
 
-    // Assign client to project
     await prisma.clientProject.upsert({
-      where: {
-        clientId_projectId: {
-          clientId: Number(clientId),
-          projectId: Number(projectId),
-        },
-      },
+      where: { clientId_projectId: { clientId: Number(clientId), projectId: Number(projectId) } },
       update: { isCurrent: true },
-      create: {
-        clientId: Number(clientId),
-        projectId: Number(projectId),
-        isCurrent: true,
-      },
+      create: { clientId: Number(clientId), projectId: Number(projectId), isCurrent: true },
     });
 
-    // Assign consultants if provided
     if (Array.isArray(consultantIds) && consultantIds.length > 0) {
       for (const cid of consultantIds) {
         await prisma.consultantProject.upsert({
-          where: {
-            consultantId_projectId: {
-              consultantId: Number(cid),
-              projectId: Number(projectId),
-            },
-          },
+          where: { consultantId_projectId: { consultantId: Number(cid), projectId: Number(projectId) } },
           update: {},
-          create: {
-            consultantId: Number(cid),
-            projectId: Number(projectId),
-          },
+          create: { consultantId: Number(cid), projectId: Number(projectId) },
         });
       }
     }
 
-    await appendAuditLog(
-      "ASSIGN_PROJECT",
-      "project_assignment",
-      `C${clientId}-P${projectId}`,
-      req.user?.email || "unknown_admin",
-      `Project ${projectId} assigned to client ${clientId}`
-    );
+    await appendAuditLog("ASSIGN_PROJECT", "project_assignment", `C${clientId}-P${projectId}`, req.user?.email || "unknown_admin", `Project ${projectId} assigned to client ${clientId}`);
 
-    // Send notification email to client
     const client = await prisma.user.findUnique({ where: { id: Number(clientId) } });
     const project = await prisma.project.findUnique({ where: { id: Number(projectId) } });
 
@@ -191,8 +115,7 @@ router.post("/projects/assign", authenticate, authorize("admin"), async (req: Re
       const emailCode = formatCode("EM", Date.now() % 10000);
       await prisma.emailOutbox.create({
         data: {
-          code: emailCode,
-          toEmail: client.email,
+          code: emailCode, toEmail: client.email,
           subject: `New Project Assigned: ${project.name}`,
           body: `Hi ${client.firstName},\n\nA new project has been assigned to you:\n\nProject: ${project.name}\nProject Code: ${project.code}\n\nLog in to your portal to view details.\n\nBest regards,\nThe Timely Team`,
         },
@@ -206,20 +129,13 @@ router.post("/projects/assign", authenticate, authorize("admin"), async (req: Re
   }
 });
 
-// POST /api/project-details — Create/update project details
-router.post("/project-details", authenticate, authorize("admin"), async (req: Request, res: Response) => {
-  const { projectId, dateCreated, dateDue, description } = req.body || {};
-
-  if (!projectId) {
-    return res.status(400).json({ error: "projectId is required." });
-  }
+router.post("/project-details", authenticate, authorize("admin", "consultant"), async (req: Request, res: Response) => {
+  const { projectId, dateCreated, dateDue, description, status, priority } = req.body || {};
+  if (!projectId) return res.status(400).json({ error: "projectId is required." });
 
   try {
     const project = await prisma.project.findUnique({ where: { id: Number(projectId) } });
-
-    if (!project) {
-      return res.status(404).json({ error: "Project not found." });
-    }
+    if (!project) return res.status(404).json({ error: "Project not found." });
 
     await prisma.project.update({
       where: { id: Number(projectId) },
@@ -227,17 +143,12 @@ router.post("/project-details", authenticate, authorize("admin"), async (req: Re
         dateCreated: dateCreated ? new Date(dateCreated) : project.dateCreated,
         dateDue: dateDue ? new Date(dateDue) : project.dateDue,
         description: description !== undefined ? description : project.description,
+        status: status !== undefined ? status : project.status,
+        priority: priority !== undefined ? priority : project.priority,
       },
     });
 
-    await appendAuditLog(
-      "UPDATE_PROJECT_DETAILS",
-      "project_details",
-      project.code,
-      req.user?.email || "unknown_admin",
-      `Project details updated for ${project.name}`
-    );
-
+    await appendAuditLog("UPDATE_PROJECT_DETAILS", "project_details", project.code, req.user?.email || "unknown_admin", `Project updated: ${project.name}${status ? ` → ${status}` : ""}`);
     return res.json({ success: true });
   } catch (err) {
     console.error("Error updating project details:", err);
@@ -245,27 +156,20 @@ router.post("/project-details", authenticate, authorize("admin"), async (req: Re
   }
 });
 
-// GET /api/project-details/:projectId — Get project details
 router.get("/project-details/:projectId", authenticate, async (req: Request, res: Response) => {
-  const { projectId } = req.params;
+  const projectId = String(req.params.projectId);
 
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: Number(projectId) },
-    });
-
-    if (!project) {
-      return res.json({ data: null });
-    }
+    const project = await prisma.project.findUnique({ where: { id: Number(projectId) } });
+    if (!project) return res.json({ data: null });
 
     return res.json({
       data: {
         projectId: String(project.id),
         dateCreated: project.dateCreated ? project.dateCreated.toISOString().split("T")[0] : "",
         dateDue: project.dateDue ? project.dateDue.toISOString().split("T")[0] : "",
-        description: project.description,
-        createdAt: project.createdAt.toISOString(),
-        updatedAt: project.updatedAt.toISOString(),
+        description: project.description, status: project.status, priority: project.priority,
+        createdAt: project.createdAt.toISOString(), updatedAt: project.updatedAt.toISOString(),
       },
     });
   } catch (err) {

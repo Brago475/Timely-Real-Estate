@@ -135,15 +135,29 @@ const Dashboard: React.FC<DashboardProps> = ({
         })();
     }, []);
 
-    const stats = useMemo(() => {
-        const active = projects.filter(p => (p.status || "").toLowerCase() === "in progress").length;
-        const completed = projects.filter(p => (p.status || "").toLowerCase() === "completed").length;
+const stats = useMemo(() => {
+        const active = projects.filter(p => {
+            const st = (p.status || "").toLowerCase();
+            return st === "in_progress" || st === "in progress" || st === "active";
+        }).length;
+        const completed = projects.filter(p => {
+            const st = (p.status || "").toLowerCase();
+            return st === "completed";
+        }).length;
+        const planning = projects.filter(p => {
+            const st = (p.status || "").toLowerCase();
+            return st === "planning";
+        }).length;
+        const onHold = projects.filter(p => {
+            const st = (p.status || "").toLowerCase();
+            return st === "on_hold" || st === "on hold";
+        }).length;
         const total = projects.length;
         const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
         const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0, 0, 0, 0);
         const weekH = hoursLogs.filter(l => new Date(l.date) >= ws).reduce((s, l) => s + l.hours, 0);
         const totalH = hoursLogs.reduce((s, l) => s + l.hours, 0);
-        return { active, completed, total, progress, weekH, totalH, clients: clients.length, consultants: consultants.length };
+        return { active, completed, planning, onHold, total, progress, weekH, totalH, clients: clients.length, consultants: consultants.length };
     }, [projects, clients, consultants, hoursLogs]);
 
     const holidays = useMemo(() => getHolidays(calDate.getFullYear()), [calDate]);
@@ -204,8 +218,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <FadeIn delay={50}>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
                         {[
-                            { label: "Projects", value: stats.total, detail: `${stats.active} active`, page: "projects" },
-                            { label: "Clients", value: stats.clients, detail: "accounts", page: "client" },
+                            { label: "Projects", value: stats.total, detail: `${stats.active} active · ${stats.planning} planning`, page: "projects" },                            { label: "Clients", value: stats.clients, detail: "accounts", page: "client" },
                             { label: "Consultants", value: stats.consultants, detail: "team", page: "consultants" },
                             { label: "Hours", value: fmtH(stats.weekH), detail: "this week", page: "hours" },
                         ].map((st, i) => (
@@ -299,10 +312,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                                         />
                                     </div>
                                 </div>
-                                <div className={`flex gap-6 mt-4 text-xs ${n.secondary}`}>
+                                <div className={`flex gap-4 mt-4 text-xs ${n.secondary}`}>
                                     <span>{stats.completed} completed</span>
-                                    <span>{stats.active} in progress</span>
-                                    <span>{stats.total} total</span>
+                                    <span>{stats.active} active</span>
+                                    <span>{stats.planning} planning</span>
+                                    {stats.onHold > 0 && <span>{stats.onHold} on hold</span>}
                                 </div>
                             </div>
                         </FadeIn>
