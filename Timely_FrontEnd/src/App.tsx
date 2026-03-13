@@ -85,7 +85,6 @@ function AppContent() {
 
     const handleBack = () => { setPageHistory(p => { if (p.length <= 1) return p; const h = [...p]; h.pop(); setActivePage(h[h.length - 1] || "dashboard"); return h; }); };
 
-    // Loading screen — black with new logo
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center">
@@ -97,7 +96,6 @@ function AppContent() {
         );
     }
 
-    // Login — no wrapper, Login handles its own background
     if (!isAuthed) {
         return <Login onLoginSuccess={handleLoginSuccess} />;
     }
@@ -124,7 +122,7 @@ function AppContent() {
     };
 
     return (
-        <div className={`min-h-screen ${isDark ? "neu-bg-dark text-white" : "neu-bg-light text-gray-900"}`}>
+        <div className={`min-h-screen ${isDark ? "bg-[#0a0a0a] text-white" : "bg-[#eaeaea] text-gray-900"}`}>
             <SidebarLayout sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} onBack={pageHistory.length > 1 ? handleBack : undefined} isAdmin={isAdmin} activePage={activePage} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} />
             <div className={`min-h-screen transition-all duration-300 ${!sidebarToggle ? "ml-72" : "ml-0"}`}>
                 <Navbar sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} activePage={activePage} onLogout={handleLogout} userRole={currentRole} userName={userData?.name} userEmail={userData?.email} />
