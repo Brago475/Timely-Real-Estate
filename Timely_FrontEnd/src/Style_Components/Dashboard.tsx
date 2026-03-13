@@ -76,17 +76,18 @@ const Dashboard: React.FC<DashboardProps> = ({
         flat: isDark ? "neu-dark-flat" : "neu-light-flat",
         inset: isDark ? "neu-dark-inset" : "neu-light-inset",
         pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
-        text: isDark ? "text-gray-200" : "text-gray-800",
+        text: isDark ? "text-white" : "text-gray-900",
         secondary: isDark ? "text-gray-400" : "text-gray-500",
-        tertiary: isDark ? "text-gray-600" : "text-gray-400",
-        strong: isDark ? "text-white" : "text-gray-900",
-        link: isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900",
-        progress: isDark ? "bg-gray-400" : "bg-gray-700",
-        progressTrack: isDark ? "bg-gray-800" : "bg-gray-300",
-        avatar: isDark ? "bg-gray-700 text-gray-300" : "bg-gray-300 text-gray-600",
-        badge: isDark ? "bg-gray-800 text-gray-400" : "bg-gray-300 text-gray-600",
-        todayBg: isDark ? "bg-white text-black" : "bg-gray-900 text-white",
-        dot: isDark ? "bg-gray-500" : "bg-gray-400",
+        tertiary: isDark ? "text-gray-500" : "text-gray-400",
+        strong: isDark ? "text-white" : "text-black",
+        link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
+        progress: isDark ? "bg-blue-500" : "bg-blue-600",
+        progressTrack: isDark ? "bg-gray-900" : "bg-gray-300",
+        avatar: isDark ? "bg-gray-800 text-white" : "bg-gray-300 text-gray-700",
+        badge: isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-50 text-blue-600",
+        todayBg: isDark ? "bg-blue-500 text-white" : "bg-blue-600 text-white",
+        dot: isDark ? "bg-blue-400" : "bg-blue-500",
+        label: isDark ? "text-blue-400/60" : "text-blue-600/60",
     };
 
     const isAdmin = userRole === "admin";
@@ -265,7 +266,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {alerts.length > 0 && (
                             <FadeIn delay={100}>
                                 <div>
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary} mb-4`}>Alerts</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label} mb-4`}>Alerts</h2>
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {alerts.map((a, i) => (
                                             <div
@@ -275,7 +276,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             >
                                                 <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                                                 <p className={`text-sm ${n.text} flex-1`}>{a.msg}</p>
-                                                <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary}`} />
+                                                <ArrowRight className={`w-3.5 h-3.5 ${n.label}}`} />
                                             </div>
                                         ))}
                                     </div>
@@ -287,7 +288,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={130}>
                             <div className={`${n.card} p-6`}>
                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Completion</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Completion</h2>
                                     <span className={`text-lg font-semibold ${n.strong}`}>{stats.progress}%</span>
                                 </div>
                                 <div className={`${n.inset} p-1`}>
@@ -310,12 +311,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={160}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Projects</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Projects</h2>
                                     <button onClick={() => nav("projects")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {projects.length === 0 ? (
                                     <div className={`${n.card} p-10 text-center`}>
-                                        <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${n.tertiary}`} />
+                                        <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${n.label}`} />
                                         <p className={`text-sm ${n.secondary}`}>No projects yet</p>
                                         {isAdmin && (
                                             <button onClick={() => nav("projects")} className={`mt-2 text-xs underline ${n.link}`}>Create first project</button>
@@ -350,7 +351,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={190}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Activity</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Activity</h2>
                                     <button onClick={() => nav("reports")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {activities.length === 0 ? (
@@ -391,7 +392,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={100}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>
                                         {calDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                                     </h2>
                                     <div className="flex gap-2">
@@ -408,7 +409,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 <div className={`${n.card} p-5`}>
                                     <div className="grid grid-cols-7 gap-1 mb-2">
                                         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                                            <div key={i} className={`text-center text-[10px] font-medium ${n.tertiary} py-1`}>{d}</div>
+                                            <div key={i} className={`text-center text-[10px] font-medium ${n.label} py-1`}>{d}</div>
                                         ))}
                                     </div>
                                     <div className="grid grid-cols-7 gap-1">
@@ -436,7 +437,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={150}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Clients</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Clients</h2>
                                     <button onClick={() => nav("client")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {clients.length === 0 ? (
@@ -456,7 +457,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className={`text-sm font-medium ${n.text} truncate`}>{c.firstName} {c.lastName}</p>
-                                                    <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
+                                                    <p className={`text-[11px] ${n.label} truncate`}>{c.email}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -469,7 +470,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <FadeIn delay={200}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary}`}>Team</h2>
+                                    <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Team</h2>
                                     <button onClick={() => nav("consultants")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {consultants.length === 0 ? (
@@ -504,7 +505,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 {/* Team Feed */}
                 <FadeIn delay={250}>
                     <div className="mt-10">
-                        <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.tertiary} mb-4`}>Team Feed</h2>
+                        <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label} mb-4`}>Team Feed</h2>
                         <div className={`${n.card} p-5`}>
                             <TeamFeed userName={userName || "User"} userEmail={userEmail || ""} userRole={userRole || "admin"} maxPosts={10} />
                         </div>
