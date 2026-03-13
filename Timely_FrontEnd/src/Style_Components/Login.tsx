@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import timelyLogo from "../assets/Timely_logo.png";
+import timelyLogo from "../assets/Timely_logo.jpg";
 
 interface LoginProps {
   onLoginSuccess: (userData: {
