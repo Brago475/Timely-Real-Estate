@@ -89,51 +89,50 @@
 .neu-light {
   background: #ffffff;
   box-shadow:
-    6px 6px 14px rgba(0, 0, 0, 0.08),
-    -6px -6px 14px rgba(255, 255, 255, 1);
+    5px 5px 12px rgba(0, 0, 0, 0.1),
+    -2px -2px 8px rgba(255, 255, 255, 0.5);
   border-radius: 16px;
 }
 
 .neu-light-sm {
   background: #ffffff;
   box-shadow:
-    3px 3px 8px rgba(0, 0, 0, 0.06),
-    -3px -3px 8px rgba(255, 255, 255, 1);
+    3px 3px 8px rgba(0, 0, 0, 0.08),
+    -1px -1px 4px rgba(255, 255, 255, 0.4);
   border-radius: 12px;
 }
 
 .neu-light-inset {
-  background: #f0f0f0;
+  background: #ebebeb;
   box-shadow:
-    inset 3px 3px 8px rgba(0, 0, 0, 0.08),
-    inset -3px -3px 8px rgba(255, 255, 255, 1);
+    inset 3px 3px 6px rgba(0, 0, 0, 0.1),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.6);
   border-radius: 12px;
 }
 
 .neu-light-flat {
-  background: #f8f8f8;
+  background: #f5f5f5;
   box-shadow:
-    2px 2px 6px rgba(0, 0, 0, 0.05),
-    -2px -2px 6px rgba(255, 255, 255, 0.9);
+    3px 3px 8px rgba(0, 0, 0, 0.07),
+    -1px -1px 4px rgba(255, 255, 255, 0.3);
   border-radius: 10px;
 }
 
 .neu-light-flat:hover {
   background: #ffffff;
   box-shadow:
-    4px 4px 10px rgba(0, 0, 0, 0.08),
-    -4px -4px 10px rgba(255, 255, 255, 1);
+    4px 4px 10px rgba(0, 0, 0, 0.1),
+    -2px -2px 6px rgba(255, 255, 255, 0.4);
 }
 
 .neu-light-pressed {
-  background: #f0f0f0;
+  background: #ebebeb;
   box-shadow:
-    inset 2px 2px 6px rgba(0, 0, 0, 0.07),
-    inset -2px -2px 6px rgba(255, 255, 255, 0.9);
+    inset 2px 2px 5px rgba(0, 0, 0, 0.09),
+    inset -1px -1px 4px rgba(255, 255, 255, 0.5);
   border-radius: 10px;
 }
 
 /* Page backgrounds */
 .neu-bg-dark { background: #0a0a0a; }
-.neu-bg-light { background: #f2f2f2; }
-
+.neu-bg-light { background: #e8e8e8; }

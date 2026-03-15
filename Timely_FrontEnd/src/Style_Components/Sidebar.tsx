@@ -12,7 +12,7 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
     const isConsultant = userRole === "consultant";
 
     const n = {
-        sidebar: isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-[#f5f5f5] border-gray-200",
+        sidebar: isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-[#e0e0e0] border-gray-200",
         text: isDark ? "text-white" : "text-gray-900",
         secondary: isDark ? "text-gray-300" : "text-gray-600",
         tertiary: isDark ? "text-gray-500" : "text-gray-400",

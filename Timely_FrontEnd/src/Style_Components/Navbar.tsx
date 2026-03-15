@@ -29,13 +29,13 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
     const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
 
     const n = {
-        header: isDark ? "bg-[#0a0a0a]/95 border-gray-800 backdrop-blur-md" : "bg-[#f5f5f5]/95 border-gray-200 backdrop-blur-md",
+        header: isDark ? "bg-[#0a0a0a]/95 border-gray-800 backdrop-blur-md" : "bg-[#e0e0e0]/95 border-gray-200 backdrop-blur-md",
         text: isDark ? "text-white" : "text-gray-900",
         secondary: isDark ? "text-gray-300" : "text-gray-600",
         tertiary: isDark ? "text-gray-500" : "text-gray-400",
         label: isDark ? "text-blue-400" : "text-blue-600",
         btn: isDark ? "text-gray-400 hover:text-white hover:bg-gray-800" : "text-gray-500 hover:text-gray-900 hover:bg-gray-200",
-        dropdown: isDark ? "bg-[#111111] border-gray-800 shadow-2xl shadow-black/40" : "bg-[#f0f0f0] border-gray-200 shadow-xl shadow-black/10",
+        dropdown: isDark ? "bg-[#111111] border-gray-800 shadow-2xl shadow-black/40" : "bg-white border-gray-300 shadow-xl shadow-black/15",
         dropHover: isDark ? "hover:bg-gray-800/80" : "hover:bg-gray-200/80",
         divider: isDark ? "border-gray-800" : "border-gray-200",
         flat: isDark ? "neu-dark-flat" : "neu-light-flat",
