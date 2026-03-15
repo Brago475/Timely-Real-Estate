@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Menu, Search, Bell, ChevronRight, Settings, LogOut, User, FolderOpen, Home, X, Clock, CheckCircle, AlertTriangle, Mail, MessageCircle } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import { useNotifications } from "./Notifications";
+import type InviteMembers from "../Views_Layouts/InviteMembers";
 
 type UserRole = "admin" | "consultant" | "client";
 type SearchResult = { type: "project" | "consultant" | "client" | "page"; id: string; name: string; subtitle: string; };
@@ -14,7 +15,7 @@ const PAGE_INFO: Record<string, { title: string; icon: React.ReactNode }> = {
     client: { title: "Clients", icon: <User className="w-4 h-4" /> }, consultants: { title: "Consultants", icon: <User className="w-4 h-4" /> },
     reports: { title: "Reports", icon: <FolderOpen className="w-4 h-4" /> }, admin: { title: "Admin Panel", icon: <Settings className="w-4 h-4" /> },
     hours: { title: "Hours", icon: <Clock className="w-4 h-4" /> }, settings: { title: "Settings", icon: <Settings className="w-4 h-4" /> },
-    profile: { title: "Profile", icon: <User className="w-4 h-4" /> }, EmailGenerator: { title: "Create Account", icon: <User className="w-4 h-4" /> },
+    profile: { title: "Profile", icon: <User className="w-4 h-4" /> }, InviteMembers: { title: "Invite Members", icon: <User className="w-4 h-4" /> },
     messages: { title: "Messages", icon: <MessageCircle className="w-4 h-4" /> },
 };
 

@@ -9,7 +9,7 @@ import ClientPortal from "./ClientPortal_views/ClientPortal";
 import Login from "./Style_Components/Login";
 import AdminTab from "./Tabs/admin";
 import ReportsTab from "./Tabs/reports";
-import EmailGenerator from "./Views_Layouts/EmailGenerator";
+import InviteMembers from "./Views_Layouts/InviteMembers";
 import ProfilePage from "./Views_Layouts/Profile";
 import RealEstateProjects from "./Tabs/projects";
 import ClientsPage from "./Tabs/clients";
@@ -77,7 +77,7 @@ function AppContent() {
 
     const handleNavigation = (page: string) => {
         if (page === "logout") { handleLogout(); return; }
-        if (new Set(["admin", "EmailGenerator"]).has(page) && !isAdmin) return;
+        if (new Set(["admin", "InviteMembers"]).has(page) && !isAdmin) return;
         if (new Set(["dashboard", "projects", "client", "consultants", "reports", "hours", "settings", "profile", "messages"]).has(page) && !isStaff) return;
         if (page === "client_home" && !isClient) return;
         setActivePage(page); setPageHistory(p => [...p, page]);
@@ -114,7 +114,7 @@ function AppContent() {
             case "hours": return <HoursPage />;
             case "messages": return <ConsultantMessages consultantId={consultantId} consultantEmail={userData?.email || ""} consultantName={userData?.name || "Consultant"} />;
             case "admin": return <AdminTab onNavigate={handleNavigation} />;
-            case "EmailGenerator": return <EmailGenerator />;
+            case "InviteMembers": return <InviteMembers />;
             case "settings": return <SettingsPage />;
             case "profile": return <ProfilePage />;
             default: return <Dashboard sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} onNavigate={handleNavigation} />;

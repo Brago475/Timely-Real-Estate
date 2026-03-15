@@ -42,7 +42,7 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
 
     const adminItems = [
         { id: "admin", label: "Admin Panel", icon: Shield },
-        { id: "EmailGenerator", label: "Create Account", icon: UserPlus },
+        { id: "InviteMembers", label: "Invite Members", icon: UserPlus },
     ];
 
     const NavItem = ({ id, label, icon: Icon, isActive, isLogout = false }: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; isActive: boolean; isLogout?: boolean }) => {
