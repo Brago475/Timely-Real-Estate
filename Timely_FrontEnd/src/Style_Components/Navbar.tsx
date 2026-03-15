@@ -1,6 +1,6 @@
 ﻿// src/Style_Components/Navbar.tsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Menu, Search, Bell, ChevronRight, Settings, LogOut, User, FolderOpen, Home, X, Clock, CheckCircle, AlertTriangle, Mail, MessageCircle } from "lucide-react";
+import { Menu, Search, Bell, ChevronRight, Settings, LogOut, User, FolderOpen, Home, X, Clock, CheckCircle, AlertTriangle, MessageCircle, Sun, Moon } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import { useNotifications } from "./Notifications";
 
@@ -8,6 +8,27 @@ type UserRole = "admin" | "consultant" | "client";
 type SearchResult = { type: "project" | "consultant" | "client" | "page"; id: string; name: string; subtitle: string; };
 
 interface NavbarProps { sidebarToggle: boolean; setSidebarToggle: (v: boolean) => void; activePage?: string; onNavigate?: (page: string) => void; onLogout?: () => void; userName?: string; userEmail?: string; userRole?: UserRole; }
+
+// 30 gradient options
+const GRADIENTS = [
+    "from-blue-500 to-cyan-400", "from-purple-500 to-pink-400", "from-emerald-500 to-teal-400",
+    "from-orange-500 to-amber-400", "from-rose-500 to-pink-400", "from-indigo-500 to-blue-400",
+    "from-violet-500 to-purple-400", "from-cyan-500 to-blue-400", "from-teal-500 to-emerald-400",
+    "from-fuchsia-500 to-pink-400", "from-sky-500 to-indigo-400", "from-amber-500 to-yellow-400",
+    "from-lime-500 to-green-400", "from-red-500 to-orange-400", "from-pink-500 to-rose-400",
+    "from-blue-600 to-violet-500", "from-emerald-600 to-cyan-500", "from-purple-600 to-indigo-500",
+    "from-orange-600 to-red-500", "from-teal-600 to-blue-500", "from-rose-600 to-purple-500",
+    "from-indigo-600 to-cyan-500", "from-violet-600 to-fuchsia-500", "from-cyan-600 to-teal-500",
+    "from-amber-600 to-orange-500", "from-sky-600 to-blue-500", "from-fuchsia-600 to-violet-500",
+    "from-green-500 to-emerald-400", "from-blue-500 to-purple-500", "from-pink-600 to-orange-400",
+];
+
+const getGradient = (name: string, email: string): string => {
+    const str = (email || name || "user").toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) { hash = str.charCodeAt(i) + ((hash << 5) - hash); hash = hash & hash; }
+    return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
+};
 
 const PAGE_INFO: Record<string, { title: string; icon: React.ReactNode }> = {
     dashboard: { title: "Dashboard", icon: <Home className="w-4 h-4" /> }, projects: { title: "Projects", icon: <FolderOpen className="w-4 h-4" /> },
@@ -25,18 +46,20 @@ const ROLE_PAGES: Record<UserRole, string[]> = {
 };
 
 const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, activePage = "dashboard", onNavigate, onLogout, userName = "Admin User", userEmail = "admin@timely.com", userRole }) => {
-    const { isDark } = useTheme();
+    const { isDark, toggleTheme } = useTheme();
     const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
+
+    const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
 
     const n = {
         header: isDark ? "bg-[#0a0a0a]/95 border-gray-800 backdrop-blur-md" : "bg-white/95 border-gray-200 backdrop-blur-md",
         text: isDark ? "text-white" : "text-gray-900",
         secondary: isDark ? "text-gray-300" : "text-gray-600",
-        tertiary: isDark ? "text-gray-500" : "text-gray-400",
+        tertiary: isDark ? "text-gray-400" : "text-gray-500",
         label: isDark ? "text-blue-400" : "text-blue-600",
-        btn: isDark ? "text-gray-400 hover:text-white hover:bg-gray-800" : "text-gray-500 hover:text-gray-900 hover:bg-gray-200",
-        dropdown: isDark ? "bg-[#111111] border-gray-800 shadow-2xl shadow-black/40" : "bg-white border-gray-300 shadow-xl shadow-black/15",
-        dropHover: isDark ? "hover:bg-gray-800/80" : "hover:bg-gray-200/80",
+        btn: isDark ? "text-gray-400 hover:text-white hover:bg-blue-500/10" : "text-gray-500 hover:text-gray-900 hover:bg-blue-50",
+        dropdown: isDark ? "bg-[#111111] border-gray-800 shadow-2xl shadow-black/40" : "bg-white border-gray-200 shadow-xl shadow-black/15",
+        dropHover: isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50",
         divider: isDark ? "border-gray-800" : "border-gray-200",
         flat: isDark ? "neu-dark-flat" : "neu-light-flat",
         inset: isDark ? "neu-dark-inset" : "neu-light-inset",
@@ -45,6 +68,7 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
     const safeRole: UserRole = userRole === "admin" || userRole === "consultant" || userRole === "client" ? userRole : "admin";
     const allowedPages = useMemo(() => new Set(ROLE_PAGES[safeRole]), [safeRole]);
     const pageInfo = PAGE_INFO[activePage] || { title: activePage, icon: <Home className="w-4 h-4" /> };
+    const gradient = useMemo(() => getGradient(userName, userEmail), [userName, userEmail]);
 
     const [showSearch, setShowSearch] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -110,9 +134,9 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
                                 {searchResults.length > 0 && (
                                     <div className={`absolute top-full left-0 right-0 mt-2 ${n.dropdown} border rounded-xl overflow-hidden z-50`}>
                                         {searchResults.map((r, i) => (
-                                            <button key={`${r.type}_${r.id}_${i}`} onClick={() => handleResult(r)} className={`w-full px-3.5 py-2.5 flex items-center gap-3 ${n.dropHover} transition-colors text-left`}>
+                                            <button key={`${r.type}_${r.id}_${i}`} onClick={() => handleResult(r)} className={`w-full px-3.5 py-2.5 flex items-center gap-3 ${n.dropHover} transition-colors text-left group`}>
                                                 <div className={`w-7 h-7 ${n.inset} rounded-lg flex items-center justify-center`}>{resultIcon(r.type)}</div>
-                                                <div className="flex-1 min-w-0"><p className={`${n.text} text-sm truncate`}>{r.name}</p><p className={`${n.tertiary} text-xs`}>{r.subtitle}</p></div>
+                                                <div className="flex-1 min-w-0"><p className={`${n.text} text-sm truncate ${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} transition-colors`}>{r.name}</p><p className={`${n.tertiary} text-xs`}>{r.subtitle}</p></div>
                                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{r.type}</span>
                                             </button>
                                         ))}
@@ -124,6 +148,19 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
                             <button onClick={() => setShowSearch(true)} className={`p-2 ${n.btn} rounded-lg transition-colors`}><Search className="w-4 h-4" /></button>
                         )}
                     </div>
+
+                    {/* Theme Toggle */}
+                    <button onClick={toggleTheme} className={`relative w-14 h-7 rounded-full transition-all duration-300 flex items-center ${isDark ? "bg-gray-800" : "bg-blue-100"}`}>
+                        <div className={`absolute w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm ${isDark ? "left-1 bg-gray-600" : "left-8 bg-white"}`}>
+                            {isDark ? <Moon className="w-3 h-3 text-blue-300" /> : <Sun className="w-3 h-3 text-amber-500" />}
+                        </div>
+                        <div className={`absolute transition-opacity duration-300 ${isDark ? "right-2 opacity-100" : "right-2 opacity-0"}`}>
+                            <Moon className="w-3 h-3 text-gray-500" />
+                        </div>
+                        <div className={`absolute transition-opacity duration-300 ${isDark ? "left-2 opacity-0" : "left-2 opacity-100"}`}>
+                            <Sun className="w-3 h-3 text-amber-400" />
+                        </div>
+                    </button>
 
                     {/* Notifications */}
                     <div className="relative" ref={notifRef}>
@@ -161,20 +198,32 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
 
                     {/* User Menu */}
                     <div className="relative" ref={userRef}>
-                        <button onClick={() => setShowUserMenu(!showUserMenu)} className={`flex items-center gap-2.5 px-2 py-1.5 ${n.dropHover} rounded-xl transition-colors`}>
-                            <div className={`w-8 h-8 ${n.inset} rounded-lg flex items-center justify-center text-xs font-semibold ${n.secondary}`}>{initials}</div>
-                            <div className="hidden md:block text-left"><p className={`${n.text} text-xs font-medium`}>{userName}</p><p className={`${n.tertiary} text-[10px]`}>{roleLabel}</p></div>
+                        <button onClick={() => setShowUserMenu(!showUserMenu)} className={`flex items-center gap-2.5 px-2 py-1.5 ${n.dropHover} rounded-xl transition-colors group`}>
+                            <div className={`w-8 h-8 bg-gradient-to-br ${gradient} rounded-lg flex items-center justify-center text-xs font-semibold text-white shadow-sm`}>{initials}</div>
+                            <div className="hidden md:block text-left">
+                                <p className={`${n.text} text-xs font-medium ${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} transition-colors`}>{userName}</p>
+                                <p className={`${n.tertiary} text-[10px]`}>{roleLabel}</p>
+                            </div>
                         </button>
                         {showUserMenu && (
                             <div className={`absolute right-0 top-full mt-2 w-52 ${n.dropdown} border rounded-xl overflow-hidden z-50 animate-fadeIn`}>
                                 <div className={`px-4 py-3 border-b ${n.divider}`}>
-                                    <p className={`${n.text} text-sm font-medium`}>{userName}</p>
-                                    <p className={`${n.tertiary} text-xs mt-0.5`}>{userEmail}</p>
-                                    <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{roleLabel}</span>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className={`w-10 h-10 bg-gradient-to-br ${gradient} rounded-lg flex items-center justify-center text-sm font-semibold text-white shadow-sm`}>{initials}</div>
+                                        <div>
+                                            <p className={`${n.text} text-sm font-medium`}>{userName}</p>
+                                            <p className={`${n.tertiary} text-xs`}>{userEmail}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{roleLabel}</span>
                                 </div>
                                 <div className="py-1.5">
-                                    <button onClick={() => { setShowUserMenu(false); onNavigate?.("profile"); }} className={`w-full px-4 py-2 flex items-center gap-2.5 ${n.dropHover} ${n.secondary} transition-colors text-sm`}><User className="w-4 h-4" />Profile</button>
-                                    <button onClick={() => { setShowUserMenu(false); onNavigate?.("settings"); }} className={`w-full px-4 py-2 flex items-center gap-2.5 ${n.dropHover} ${n.secondary} transition-colors text-sm`}><Settings className="w-4 h-4" />Settings</button>
+                                    <button onClick={() => { setShowUserMenu(false); onNavigate?.("profile"); }} className={`w-full px-4 py-2 flex items-center gap-2.5 ${n.dropHover} ${n.secondary} transition-colors text-sm group`}>
+                                        <User className="w-4 h-4" /><span className={`${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} transition-colors`}>Profile</span>
+                                    </button>
+                                    <button onClick={() => { setShowUserMenu(false); onNavigate?.("settings"); }} className={`w-full px-4 py-2 flex items-center gap-2.5 ${n.dropHover} ${n.secondary} transition-colors text-sm group`}>
+                                        <Settings className="w-4 h-4" /><span className={`${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} transition-colors`}>Settings</span>
+                                    </button>
                                 </div>
                                 <div className={`py-1.5 border-t ${n.divider}`}>
                                     <button onClick={() => { setShowUserMenu(false); onLogout ? onLogout() : onNavigate?.("logout"); }} className={`w-full px-4 py-2 flex items-center gap-2.5 text-red-400 ${isDark ? "hover:bg-red-500/10" : "hover:bg-red-50"} transition-colors text-sm`}><LogOut className="w-4 h-4" />Logout</button>
@@ -188,4 +237,6 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
     );
 };
 
+// Export gradient helper so other components can use it
+export { getGradient, GRADIENTS };
 export default Navbar;
