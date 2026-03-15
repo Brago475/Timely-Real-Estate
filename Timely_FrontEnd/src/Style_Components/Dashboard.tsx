@@ -96,10 +96,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const { isDark } = useTheme();
 
-    // ONE hover
+    // ONE hover bg — every interactive element
     const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
-    // Text that turns blue on group hover
-    const ghBlue = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
+    // Text turns blue on parent hover — every interactive text
+    const gb = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
 
     const n = {
         bg: isDark ? "neu-bg-dark" : "neu-bg-light",
@@ -225,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </FadeIn>
 
-                {/* Stats — cards with scale animation + blue hover */}
+                {/* Stats — scale + bg hover + text turns blue */}
                 <FadeIn delay={50}>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
                         {[
@@ -235,16 +235,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                             { label: "Hours", value: fmtH(stats.weekH), detail: "this week", page: "hours" },
                         ].map((st, i) => (
                             <div key={i} onClick={() => nav(st.page)}
-                                className={`${n.card} ${hover} p-5 cursor-pointer transition-all duration-200 rounded-2xl hover:scale-[1.02] group`}>
+                                className={`${n.card} ${hover} group p-5 cursor-pointer transition-all duration-200 rounded-2xl hover:scale-[1.02]`}>
                                 <p className={`text-[11px] uppercase tracking-wider ${n.label} mb-3`}>{st.label}</p>
-                                <p className={`text-3xl font-semibold tracking-tight ${n.strong}`}>{st.value}</p>
-                                <p className={`text-xs ${n.secondary} mt-1`}>{st.detail}</p>
+                                <p className={`text-3xl font-semibold tracking-tight ${n.strong} ${gb} transition-colors`}>{st.value}</p>
+                                <p className={`text-xs ${n.secondary} ${gb} mt-1 transition-colors`}>{st.detail}</p>
                             </div>
                         ))}
                     </div>
                 </FadeIn>
 
-                {/* Quick Actions — BLACK text, blue hover bg */}
+                {/* Quick Actions — black text, bg hover + text turns blue */}
                 <FadeIn delay={80}>
                     <div className={`${n.card} p-2 mb-10 flex items-center gap-1 overflow-x-auto`}>
                         {(isAdmin ? [
@@ -263,9 +263,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                             { label: "Documents", page: "settings", icon: FolderOpen },
                         ]).map((a, i) => (
                             <button key={i} onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.text} ${hover} active:scale-95`}>
-                                <a.icon className="w-3.5 h-3.5" />
-                                {a.label}
+                                className={`group flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.text} ${hover} active:scale-95`}>
+                                <a.icon className={`w-3.5 h-3.5 ${gb} transition-colors`} />
+                                <span className={`${gb} transition-colors`}>{a.label}</span>
                             </button>
                         ))}
                     </div>
@@ -275,7 +275,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {/* Left */}
                     <div className="lg:col-span-2 space-y-8">
 
-                        {/* Alerts */}
+                        {/* Alerts — bg hover + text turns blue */}
                         {alerts.length > 0 && (
                             <FadeIn delay={100}>
                                 <div>
@@ -285,8 +285,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div key={i} onClick={() => a.page && nav(a.page)}
                                                 className={`${n.flat} ${hover} group flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                                                <p className={`text-sm ${n.text} ${ghBlue} flex-1 transition-colors`}>{a.msg}</p>
-                                                <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary}`} />
+                                                <p className={`text-sm ${n.text} ${gb} flex-1 transition-colors`}>{a.msg}</p>
+                                                <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary} ${gb} transition-colors`} />
                                             </div>
                                         ))}
                                     </div>
@@ -294,12 +294,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </FadeIn>
                         )}
 
-                        {/* Completion — BLACK text */}
+                        {/* Completion — black text, bg hover */}
                         <FadeIn delay={130}>
-                            <div className={`${n.card} ${hover} p-6 transition-all duration-200 rounded-2xl`}>
+                            <div className={`${n.card} ${hover} group p-6 transition-all duration-200 rounded-2xl`}>
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Completion</h2>
-                                    <span className={`text-lg font-semibold ${n.strong}`}>{stats.progress}%</span>
+                                    <span className={`text-lg font-semibold ${n.strong} ${gb} transition-colors`}>{stats.progress}%</span>
                                 </div>
                                 <div className={`${n.inset} p-1`}>
                                     <div className="h-2 rounded-full overflow-hidden">
@@ -315,7 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Projects — row hover: bg blue + name turns blue */}
+                        {/* Projects — bg hover + name turns blue */}
                         <FadeIn delay={160}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -334,11 +334,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div key={p.projectId} onClick={() => nav("projects")}
                                                 className={`${n.flat} ${hover} group flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-9 h-9 rounded-xl ${n.inset} flex items-center justify-center flex-shrink-0`}>
-                                                    <FolderOpen className={`w-4 h-4 ${n.secondary}`} />
+                                                    <FolderOpen className={`w-4 h-4 ${n.secondary} ${gb} transition-colors`} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${n.text} ${ghBlue} truncate transition-colors`}>{p.projectName}</p>
-                                                    <p className={`text-[11px] ${n.tertiary}`}>{p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}</p>
+                                                    <p className={`text-sm font-medium ${n.text} ${gb} truncate transition-colors`}>{p.projectName}</p>
+                                                    <p className={`text-[11px] ${n.tertiary} ${gb} transition-colors`}>{p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}</p>
                                                 </div>
                                                 <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${getStatusBadge(p.status, isDark)}`}>
                                                     {fmtStatus(p.status)}
@@ -368,7 +368,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                     <div className={`absolute -left-6 top-4 w-[9px] h-[9px] rounded-full ${getActivityColor(a.actionRaw)}`} />
                                                     <div className="flex-1 min-w-0">
                                                         <p className={`text-sm ${n.text}`}>
-                                                            <span className="font-medium">{a.user}</span>
+                                                            <span className={`font-medium ${gb} transition-colors`}>{a.user}</span>
                                                             <span className={`${n.secondary}`}> {a.action}</span>
                                                         </p>
                                                         <p className={`text-[11px] ${n.tertiary} truncate mt-0.5`}>{a.target}</p>
@@ -386,7 +386,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {/* Right */}
                     <div className="space-y-8">
 
-                        {/* Calendar */}
+                        {/* Calendar — bg hover + text turns blue on each day */}
                         <FadeIn delay={100}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -416,7 +416,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                 ${!day ? "" :
                                                 isToday(day)
                                                     ? `${n.todayBg} font-bold`
-                                                    : `cursor-pointer ${n.text} ${hover}`}`}>
+                                                    : `cursor-pointer ${n.text} ${hover} ${isDark ? "hover:text-blue-400" : "hover:text-blue-600"}`}`}>
                                                 {day}
                                                 {day && (hasDue(day) || isHol(day)) && (
                                                     <div className="absolute bottom-0.5 flex gap-0.5">
@@ -431,7 +431,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Clients — row hover: bg blue + name turns blue */}
+                        {/* Clients — bg hover + name turns blue */}
                         <FadeIn delay={150}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -449,8 +449,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${n.text} ${ghBlue} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
-                                                    <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
+                                                    <p className={`text-sm font-medium ${n.text} ${gb} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-[11px] ${n.tertiary} ${gb} truncate transition-colors`}>{c.email}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -459,7 +459,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Team — row hover: bg blue + name turns blue */}
+                        {/* Team — bg hover + name turns blue */}
                         <FadeIn delay={200}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -477,8 +477,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${n.text} ${ghBlue} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
-                                                    <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
+                                                    <p className={`text-sm font-medium ${n.text} ${gb} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-[11px] ${n.tertiary} ${gb} truncate transition-colors`}>{c.email}</p>
                                                 </div>
                                             </div>
                                         ))}
