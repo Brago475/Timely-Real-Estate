@@ -46,6 +46,15 @@ const fmtStatus = (s: string): string => {
     return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 };
 
+const getStatusBadge = (s: string, isDark: boolean): string => {
+    const st = (s || "").toLowerCase().replace(/_/g, " ");
+    if (st === "completed") return isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700";
+    if (st === "in progress" || st === "active") return isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700";
+    if (st === "planning") return isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700";
+    if (st === "on hold") return isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700";
+    return isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700";
+};
+
 const getHolidays = (year: number): Record<string, string> => {
     const h: Record<string, string> = {
         [`${year}-01-01`]: "New Year's", [`${year}-07-04`]: "Independence Day",
@@ -87,6 +96,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const { isDark } = useTheme();
 
+    // ONE hover for the entire app
+    const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
+
     const n = {
         bg: isDark ? "neu-bg-dark" : "neu-bg-light",
         card: isDark ? "neu-dark" : "neu-light",
@@ -94,20 +106,15 @@ const Dashboard: React.FC<DashboardProps> = ({
         inset: isDark ? "neu-dark-inset" : "neu-light-inset",
         pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
         text: isDark ? "text-white" : "text-gray-900",
+        strong: isDark ? "text-white" : "text-black",
+        // Stronger greys — visible in both modes
         secondary: isDark ? "text-gray-300" : "text-gray-600",
         tertiary: isDark ? "text-gray-400" : "text-gray-500",
-        strong: isDark ? "text-white" : "text-black",
+        label: isDark ? "text-blue-400" : "text-blue-600",
         link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
         progress: isDark ? "bg-blue-500" : "bg-blue-600",
-        badge: isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700",
         todayBg: isDark ? "bg-blue-500 text-white" : "bg-blue-600 text-white",
         dot: isDark ? "bg-blue-400" : "bg-blue-500",
-        label: isDark ? "text-blue-400" : "text-blue-600",
-        // Simple blue outline on hover — no glow, no white shadows
-        edgeHover: "hover:ring-1 hover:ring-blue-500/30 transition-all duration-200",
-        edgeHoverFlat: "hover:ring-1 hover:ring-blue-500/25 transition-all duration-200",
-        // Date text — visible in both modes
-        date: isDark ? "text-blue-400" : "text-gray-600",
     };
 
     const isAdmin = userRole === "admin";
@@ -156,16 +163,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     }, []);
 
     const stats = useMemo(() => {
-        const active = projects.filter(p => {
-            const st = (p.status || "").toLowerCase();
-            return st === "in_progress" || st === "in progress" || st === "active";
-        }).length;
+        const active = projects.filter(p => { const st = (p.status || "").toLowerCase(); return st === "in_progress" || st === "in progress" || st === "active"; }).length;
         const completed = projects.filter(p => (p.status || "").toLowerCase() === "completed").length;
         const planning = projects.filter(p => (p.status || "").toLowerCase() === "planning").length;
-        const onHold = projects.filter(p => {
-            const st = (p.status || "").toLowerCase();
-            return st === "on_hold" || st === "on hold";
-        }).length;
+        const onHold = projects.filter(p => { const st = (p.status || "").toLowerCase(); return st === "on_hold" || st === "on hold"; }).length;
         const total = projects.length;
         const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
         const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0, 0, 0, 0);
@@ -183,11 +184,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         return arr;
     }, [calDate]);
 
-    const isToday = (d: number | null) => {
-        if (!d) return false;
-        const t = new Date();
-        return d === t.getDate() && calDate.getMonth() === t.getMonth() && calDate.getFullYear() === t.getFullYear();
-    };
+    const isToday = (d: number | null) => { if (!d) return false; const t = new Date(); return d === t.getDate() && calDate.getMonth() === t.getMonth() && calDate.getFullYear() === t.getFullYear(); };
     const ds = (d: number) => `${calDate.getFullYear()}-${String(calDate.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const hasDue = (d: number | null) => d ? projects.some(p => p.dateDue === ds(d)) : false;
     const isHol = (d: number | null) => d ? holidays[ds(d)] || false : false;
@@ -218,7 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 {/* Header */}
                 <FadeIn>
                     <div className="mb-10">
-                        <p className={`text-[11px] tracking-[0.15em] uppercase ${n.date} mb-1`}>
+                        <p className={`text-[11px] tracking-[0.15em] uppercase ${n.tertiary} mb-1`}>
                             {today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                         </p>
                         <h1 className={`text-2xl font-semibold tracking-tight ${n.strong}`}>
@@ -236,11 +233,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                             { label: "Consultants", value: stats.consultants, detail: "registered", page: "consultants" },
                             { label: "Hours", value: fmtH(stats.weekH), detail: "this week", page: "hours" },
                         ].map((st, i) => (
-                            <div
-                                key={i}
-                                onClick={() => nav(st.page)}
-                                className={`${n.card} ${n.edgeHover} p-5 cursor-pointer hover:scale-[1.02]`}
-                            >
+                            <div key={i} onClick={() => nav(st.page)}
+                                className={`${n.card} ${hover} p-5 cursor-pointer transition-all duration-200 rounded-2xl`}>
                                 <p className={`text-[11px] uppercase tracking-wider ${n.label} mb-3`}>{st.label}</p>
                                 <p className={`text-3xl font-semibold tracking-tight ${n.strong}`}>{st.value}</p>
                                 <p className={`text-xs ${n.secondary} mt-1`}>{st.detail}</p>
@@ -267,12 +261,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                             { label: "Projects", page: "projects", icon: FolderOpen },
                             { label: "Documents", page: "settings", icon: FolderOpen },
                         ]).map((a, i) => (
-                            <button
-                                key={i}
-                                onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${isDark ? "text-gray-300 hover:text-blue-400 hover:bg-blue-500/10" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"} active:scale-95`}
-                                style={{ background: isDark ? "transparent" : undefined }}
-                            >
+                            <button key={i} onClick={() => nav(a.page)}
+                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.secondary} ${hover} active:scale-95`}>
                                 <a.icon className="w-3.5 h-3.5" />
                                 {a.label}
                             </button>
@@ -291,12 +281,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label} mb-4`}>Alerts</h2>
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {alerts.map((a, i) => (
-                                            <div
-                                                key={i}
-                                                onClick={() => a.page && nav(a.page)}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3.5 cursor-pointer`}
-                                            >
-                                                <div className={`w-2 h-2 rounded-full ${isDark ? "bg-amber-400" : "bg-amber-500"} flex-shrink-0`} />
+                                            <div key={i} onClick={() => a.page && nav(a.page)}
+                                                className={`${n.flat} ${hover} flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
+                                                <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                                                 <p className={`text-sm ${n.text} flex-1`}>{a.msg}</p>
                                                 <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary}`} />
                                             </div>
@@ -308,17 +295,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                         {/* Progress */}
                         <FadeIn delay={130}>
-                            <div className={`${n.card} ${n.edgeHover} p-6`}>
+                            <div className={`${n.card} ${hover} p-6 transition-all duration-200 rounded-2xl`}>
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Completion</h2>
                                     <span className={`text-lg font-semibold ${n.strong}`}>{stats.progress}%</span>
                                 </div>
                                 <div className={`${n.inset} p-1`}>
                                     <div className="h-2 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full ${n.progress} rounded-full transition-all duration-700`}
-                                            style={{ width: `${stats.progress}%` }}
-                                        />
+                                        <div className={`h-full ${n.progress} rounded-full transition-all duration-700`} style={{ width: `${stats.progress}%` }} />
                                     </div>
                                 </div>
                                 <div className={`flex gap-4 mt-4 text-xs ${n.secondary}`}>
@@ -330,7 +314,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Projects */}
+                        {/* Projects — status badges colored */}
                         <FadeIn delay={160}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -341,18 +325,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <div className={`${n.card} p-10 text-center`}>
                                         <FolderOpen className={`w-8 h-8 mx-auto mb-3 ${n.tertiary}`} />
                                         <p className={`text-sm ${n.secondary}`}>No projects yet</p>
-                                        {isAdmin && (
-                                            <button onClick={() => nav("projects")} className={`mt-2 text-xs underline ${n.link}`}>Create first project</button>
-                                        )}
+                                        {isAdmin && <button onClick={() => nav("projects")} className={`mt-2 text-xs underline ${n.link}`}>Create first project</button>}
                                     </div>
                                 ) : (
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {projects.slice(0, 6).map(p => (
-                                            <div
-                                                key={p.projectId}
-                                                onClick={() => nav("projects")}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-4 px-4 py-3.5 cursor-pointer`}
-                                            >
+                                            <div key={p.projectId} onClick={() => nav("projects")}
+                                                className={`${n.flat} ${hover} flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-9 h-9 rounded-xl ${n.inset} flex items-center justify-center flex-shrink-0`}>
                                                     <FolderOpen className={`w-4 h-4 ${n.secondary}`} />
                                                 </div>
@@ -360,7 +339,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                     <p className={`text-sm font-medium ${n.text} truncate`}>{p.projectName}</p>
                                                     <p className={`text-[11px] ${n.tertiary}`}>{p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}</p>
                                                 </div>
-                                                <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${n.badge}`}>
+                                                <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${getStatusBadge(p.status, isDark)}`}>
                                                     {fmtStatus(p.status)}
                                                 </span>
                                             </div>
@@ -380,10 +359,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 {activities.length === 0 ? (
                                     <p className={`text-sm ${n.secondary} py-4`}>No recent activity</p>
                                 ) : (
-                                    <div className={`${n.card} ${n.edgeHover} p-5`}>
+                                    <div className={`${n.card} p-5`}>
                                         <div className="relative pl-6">
                                             <div className={`absolute left-[7px] top-1 bottom-1 w-px ${isDark ? "bg-gray-800" : "bg-gray-200"}`} />
-
                                             {activities.slice(0, 6).map(a => (
                                                 <div key={a.id} className="relative flex items-start gap-3 py-3 group">
                                                     <div className={`absolute -left-6 top-4 w-[9px] h-[9px] rounded-full ${getActivityColor(a.actionRaw)}`} />
@@ -416,16 +394,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     </h2>
                                     <div className="flex gap-2">
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))}
-                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer ${n.edgeHoverFlat}`}>
+                                            className={`w-8 h-8 ${n.flat} ${hover} flex items-center justify-center cursor-pointer rounded-lg transition-all duration-200`}>
                                             <ChevronLeft className="w-3.5 h-3.5" />
                                         </button>
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))}
-                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer ${n.edgeHoverFlat}`}>
+                                            className={`w-8 h-8 ${n.flat} ${hover} flex items-center justify-center cursor-pointer rounded-lg transition-all duration-200`}>
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 </div>
-                                <div className={`${n.card} ${n.edgeHover} p-5`}>
+                                <div className={`${n.card} p-5`}>
                                     <div className="grid grid-cols-7 gap-1 mb-2">
                                         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                                             <div key={i} className={`text-center text-[10px] font-medium ${n.label} py-1`}>{d}</div>
@@ -437,7 +415,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                 ${!day ? "" :
                                                 isToday(day)
                                                     ? `${n.todayBg} font-bold`
-                                                    : `cursor-pointer ${isDark ? "text-gray-200 hover:text-blue-400 hover:bg-blue-500/10" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"}`}`}>
+                                                    : `cursor-pointer ${n.text} ${hover}`}`}>
                                                 {day}
                                                 {day && (hasDue(day) || isHol(day)) && (
                                                     <div className="absolute bottom-0.5 flex gap-0.5">
@@ -460,17 +438,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <button onClick={() => nav("client")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {clients.length === 0 ? (
-                                    <div className={`${n.card} p-8 text-center`}>
-                                        <p className={`text-sm ${n.secondary}`}>No clients yet</p>
-                                    </div>
+                                    <div className={`${n.card} p-8 text-center`}><p className={`text-sm ${n.secondary}`}>No clients yet</p></div>
                                 ) : (
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {clients.slice(0, 5).map(c => (
-                                            <div
-                                                key={c.customerId}
-                                                onClick={() => nav("client")}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer`}
-                                            >
+                                            <div key={c.customerId} onClick={() => nav("client")}
+                                                className={`${n.flat} ${hover} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
@@ -493,17 +466,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <button onClick={() => nav("consultants")} className={`text-xs transition-colors ${n.link}`}>View all</button>
                                 </div>
                                 {consultants.length === 0 ? (
-                                    <div className={`${n.card} p-8 text-center`}>
-                                        <p className={`text-sm ${n.secondary}`}>No consultants yet</p>
-                                    </div>
+                                    <div className={`${n.card} p-8 text-center`}><p className={`text-sm ${n.secondary}`}>No consultants yet</p></div>
                                 ) : (
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {consultants.slice(0, 5).map(c => (
-                                            <div
-                                                key={c.consultantId}
-                                                onClick={() => nav("consultants")}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer`}
-                                            >
+                                            <div key={c.consultantId} onClick={() => nav("consultants")}
+                                                className={`${n.flat} ${hover} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
@@ -524,7 +492,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <FadeIn delay={250}>
                     <div className="mt-10">
                         <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label} mb-4`}>Team Feed</h2>
-                        <div className={`${n.card} ${n.edgeHover} p-5`}>
+                        <div className={`${n.card} p-5`}>
                             <TeamFeed userName={userName || "User"} userEmail={userEmail || ""} userRole={userRole || "admin"} maxPosts={10} />
                         </div>
                     </div>
