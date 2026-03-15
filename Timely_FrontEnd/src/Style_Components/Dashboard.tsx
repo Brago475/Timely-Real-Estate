@@ -95,7 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
         text: isDark ? "text-white" : "text-gray-900",
         secondary: isDark ? "text-gray-300" : "text-gray-600",
-        tertiary: isDark ? "text-gray-500" : "text-gray-400",
+        tertiary: isDark ? "text-gray-500" : "text-gray-500",
         strong: isDark ? "text-white" : "text-black",
         link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
         progress: isDark ? "bg-blue-500" : "bg-blue-600",
@@ -105,10 +105,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         label: isDark ? "text-blue-400" : "text-blue-600",
         edgeHover: isDark
             ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
-            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),0_4px_12px_rgba(0,0,0,0.08)]",
         edgeHoverFlat: isDark
             ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]"
-            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),4px_4px_10px_rgba(0,0,0,0.08),-4px_-4px_10px_rgba(255,255,255,0.9)]",
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),0_2px_8px_rgba(0,0,0,0.06)]",
     };
 
     const isAdmin = userRole === "admin";
@@ -271,8 +271,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <button
                                 key={i}
                                 onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.secondary} hover:text-white active:scale-95`}
-                                style={{ background: "transparent" }}
+                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${isDark ? "text-gray-300 hover:text-white" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"} active:scale-95`}
+                                style={{ background: isDark ? "transparent" : undefined }}
                             >
                                 <a.icon className="w-3.5 h-3.5" />
                                 {a.label}
@@ -383,7 +383,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 ) : (
                                     <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
                                         <div className="relative pl-6">
-                                            <div className={`absolute left-[7px] top-1 bottom-1 w-px ${isDark ? "bg-gray-800" : "bg-gray-300"}`} />
+                                            <div className={`absolute left-[7px] top-1 bottom-1 w-px ${isDark ? "bg-gray-800" : "bg-gray-200"}`} />
 
                                             {activities.slice(0, 6).map(a => (
                                                 <div key={a.id} className="relative flex items-start gap-3 py-3 group">
@@ -438,7 +438,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                 ${!day ? "" :
                                                 isToday(day)
                                                     ? `${n.todayBg} font-bold`
-                                                    : `cursor-pointer ${n.secondary} hover:text-white`}`}>
+                                                    : `cursor-pointer ${isDark ? "text-gray-300 hover:text-white" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"}`}`}>
                                                 {day}
                                                 {day && (hasDue(day) || isHol(day)) && (
                                                     <div className="absolute bottom-0.5 flex gap-0.5">
