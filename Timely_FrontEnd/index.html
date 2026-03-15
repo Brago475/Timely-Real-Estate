@@ -2,94 +2,242 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/src/assets/Timely_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Timely Real Estate</title>
     <style>
-      /* Loading screen — shows before React mounts */
+      html, body {
+        background: #0a0a0a;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+      }
+
       #app-loader {
         position: fixed;
         inset: 0;
-        background: #0f172a;
+        background: #0a0a0a;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 99999;
-        transition: opacity 0.4s ease-out;
+        transition: opacity 0.5s ease-out, transform 0.5s ease-out;
       }
       #app-loader.fade-out {
         opacity: 0;
+        transform: scale(1.02);
         pointer-events: none;
       }
-      #app-loader .logo-icon {
-        width: 64px;
-        height: 64px;
-        margin-bottom: 24px;
-        animation: float 2s ease-in-out infinite;
+
+      /* Clock animation */
+      .clock-container {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        margin-bottom: 32px;
       }
-      #app-loader .logo-text {
+      .clock-bg {
+        width: 80px;
+        height: 80px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: breathe 3s ease-in-out infinite;
+      }
+      .clock-ring {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 2px solid rgba(59,130,246,0.3);
+        position: relative;
+        animation: ringPulse 3s ease-in-out infinite;
+      }
+      .clock-dot {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: #3b82f6;
+        border-radius: 50%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .clock-hand-m {
+        position: absolute;
+        width: 2px;
+        height: 16px;
+        background: #3b82f6;
+        border-radius: 2px;
+        top: 50%;
+        left: 50%;
+        transform-origin: bottom center;
+        transform: translate(-50%, -100%);
+        animation: minuteHand 2s linear infinite;
+      }
+      .clock-hand-h {
+        position: absolute;
+        width: 2.5px;
+        height: 11px;
+        background: #60a5fa;
+        border-radius: 2px;
+        top: 50%;
+        left: 50%;
+        transform-origin: bottom center;
+        transform: translate(-50%, -100%);
+        animation: hourHand 6s linear infinite;
+      }
+      /* Tick marks */
+      .clock-tick {
+        position: absolute;
+        width: 1.5px;
+        height: 4px;
+        background: rgba(255,255,255,0.15);
+        top: 2px;
+        left: 50%;
+        transform-origin: 50% 24px;
+      }
+
+      /* Orbiting dot */
+      .orbit-dot {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        background: #3b82f6;
+        border-radius: 50%;
+        top: -3px;
+        left: 50%;
+        transform-origin: 50% 43px;
+        animation: orbit 2.5s linear infinite;
+        box-shadow: 0 0 12px rgba(59,130,246,0.6);
+      }
+
+      .logo-text {
         font-family: 'Georgia', 'Times New Roman', serif;
-        font-size: 28px;
+        font-size: 26px;
         font-weight: bold;
         color: #ffffff;
-        letter-spacing: 4px;
+        letter-spacing: 6px;
         margin-bottom: 4px;
+        opacity: 0;
+        animation: textIn 0.6s ease-out 0.3s forwards;
       }
-      #app-loader .logo-sub {
+      .logo-sub {
+        font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 10px;
+        color: #444;
+        letter-spacing: 8px;
+        text-transform: uppercase;
+        margin-bottom: 48px;
+        opacity: 0;
+        animation: textIn 0.6s ease-out 0.5s forwards;
+      }
+
+      /* Progress bar */
+      .loader-track {
+        width: 140px;
+        height: 2px;
+        background: #161616;
+        border-radius: 2px;
+        overflow: hidden;
+        opacity: 0;
+        animation: textIn 0.6s ease-out 0.7s forwards;
+      }
+      .loader-fill {
+        height: 100%;
+        width: 30%;
+        background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+        border-radius: 2px;
+        animation: slide 1.4s ease-in-out infinite;
+      }
+
+      /* Loading text */
+      .loader-text {
         font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
         font-size: 11px;
-        color: #64748b;
-        letter-spacing: 6px;
-        text-transform: uppercase;
-        margin-bottom: 40px;
+        color: #333;
+        margin-top: 16px;
+        letter-spacing: 2px;
+        opacity: 0;
+        animation: textIn 0.6s ease-out 0.9s forwards;
       }
-      #app-loader .loader-bar {
-        width: 160px;
-        height: 3px;
-        background: #1e293b;
-        border-radius: 3px;
-        overflow: hidden;
+      .loader-text span {
+        animation: dotPulse 1.4s ease-in-out infinite;
       }
-      #app-loader .loader-fill {
-        height: 100%;
-        width: 40%;
-        background: linear-gradient(90deg, #3b82f6, #60a5fa);
-        border-radius: 3px;
-        animation: loading 1.2s ease-in-out infinite;
+      .loader-text span:nth-child(2) { animation-delay: 0.2s; }
+      .loader-text span:nth-child(3) { animation-delay: 0.4s; }
+
+      @keyframes minuteHand {
+        from { transform: translate(-50%, -100%) rotate(0deg); }
+        to { transform: translate(-50%, -100%) rotate(360deg); }
       }
-      @keyframes loading {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(400%); }
+      @keyframes hourHand {
+        from { transform: translate(-50%, -100%) rotate(0deg); }
+        to { transform: translate(-50%, -100%) rotate(360deg); }
       }
-      @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-6px); }
+      @keyframes orbit {
+        from { transform: translateX(-50%) rotate(0deg); }
+        to { transform: translateX(-50%) rotate(360deg); }
+      }
+      @keyframes ringPulse {
+        0%, 100% { border-color: rgba(59,130,246,0.3); }
+        50% { border-color: rgba(59,130,246,0.6); }
+      }
+      @keyframes breathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+      }
+      @keyframes slide {
+        0% { transform: translateX(-150%); }
+        100% { transform: translateX(500%); }
+      }
+      @keyframes textIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes dotPulse {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
       }
     </style>
   </head>
   <body>
-    <!-- Loading screen -->
     <div id="app-loader">
-      <svg class="logo-icon" viewBox="0 0 120 112" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="60,12 10,52 20,52 20,100 100,100 100,52 110,52" fill="none" stroke="#3b82f6" stroke-width="5" stroke-linejoin="round"/>
-        <rect x="47" y="65" width="26" height="35" rx="2" fill="#3b82f6"/>
-        <circle cx="60" cy="48" r="14" fill="none" stroke="#c9a84c" stroke-width="2.5"/>
-        <line x1="60" y1="48" x2="60" y2="38" stroke="#c9a84c" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="60" y1="48" x2="68" y2="48" stroke="#c9a84c" stroke-width="2.5" stroke-linecap="round"/>
-        <circle cx="60" cy="48" r="2" fill="#c9a84c"/>
-      </svg>
+      <!-- Animated Clock -->
+      <div class="clock-container">
+        <div class="clock-bg">
+          <div class="clock-ring">
+            <!-- Tick marks at 12, 3, 6, 9 -->
+            <div class="clock-tick" style="transform: translateX(-50%) rotate(0deg)"></div>
+            <div class="clock-tick" style="transform: translateX(-50%) rotate(90deg)"></div>
+            <div class="clock-tick" style="transform: translateX(-50%) rotate(180deg)"></div>
+            <div class="clock-tick" style="transform: translateX(-50%) rotate(270deg)"></div>
+            <div class="clock-hand-h"></div>
+            <div class="clock-hand-m"></div>
+            <div class="clock-dot"></div>
+          </div>
+        </div>
+        <div class="orbit-dot"></div>
+      </div>
+
       <div class="logo-text">TIMELY</div>
       <div class="logo-sub">Real Estate</div>
-      <div class="loader-bar">
+
+      <div class="loader-track">
         <div class="loader-fill"></div>
+      </div>
+
+      <div class="loader-text">
+        Loading<span>.</span><span>.</span><span>.</span>
       </div>
     </div>
 
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Remove loader once React mounts
       window.addEventListener('DOMContentLoaded', () => {
         const checkReact = setInterval(() => {
           const root = document.getElementById('root');
@@ -97,7 +245,7 @@
             const loader = document.getElementById('app-loader');
             if (loader) {
               loader.classList.add('fade-out');
-              setTimeout(() => loader.remove(), 400);
+              setTimeout(() => loader.remove(), 500);
             }
             clearInterval(checkReact);
           }
