@@ -95,7 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
         text: isDark ? "text-white" : "text-gray-900",
         secondary: isDark ? "text-gray-300" : "text-gray-600",
-        tertiary: isDark ? "text-gray-500" : "text-gray-500",
+        tertiary: isDark ? "text-gray-400" : "text-gray-500",
         strong: isDark ? "text-white" : "text-black",
         link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
         progress: isDark ? "bg-blue-500" : "bg-blue-600",
@@ -103,12 +103,11 @@ const Dashboard: React.FC<DashboardProps> = ({
         todayBg: isDark ? "bg-blue-500 text-white" : "bg-blue-600 text-white",
         dot: isDark ? "bg-blue-400" : "bg-blue-500",
         label: isDark ? "text-blue-400" : "text-blue-600",
-        edgeHover: isDark
-            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
-            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),0_4px_12px_rgba(0,0,0,0.08)]",
-        edgeHoverFlat: isDark
-            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]"
-            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),0_2px_8px_rgba(0,0,0,0.06)]",
+        // Simple blue outline on hover — no glow, no white shadows
+        edgeHover: "hover:ring-1 hover:ring-blue-500/30 transition-all duration-200",
+        edgeHoverFlat: "hover:ring-1 hover:ring-blue-500/25 transition-all duration-200",
+        // Date text — visible in both modes
+        date: isDark ? "text-blue-400" : "text-gray-600",
     };
 
     const isAdmin = userRole === "admin";
@@ -219,7 +218,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 {/* Header */}
                 <FadeIn>
                     <div className="mb-10">
-                        <p className={`text-[11px] tracking-[0.15em] uppercase ${n.tertiary} mb-1`}>
+                        <p className={`text-[11px] tracking-[0.15em] uppercase ${n.date} mb-1`}>
                             {today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                         </p>
                         <h1 className={`text-2xl font-semibold tracking-tight ${n.strong}`}>
@@ -240,7 +239,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <div
                                 key={i}
                                 onClick={() => nav(st.page)}
-                                className={`${n.card} ${n.edgeHover} p-5 cursor-pointer transition-all duration-200 hover:scale-[1.02]`}
+                                className={`${n.card} ${n.edgeHover} p-5 cursor-pointer hover:scale-[1.02]`}
                             >
                                 <p className={`text-[11px] uppercase tracking-wider ${n.label} mb-3`}>{st.label}</p>
                                 <p className={`text-3xl font-semibold tracking-tight ${n.strong}`}>{st.value}</p>
@@ -271,7 +270,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <button
                                 key={i}
                                 onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${isDark ? "text-gray-300 hover:text-white" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"} active:scale-95`}
+                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${isDark ? "text-gray-300 hover:text-blue-400 hover:bg-blue-500/10" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"} active:scale-95`}
                                 style={{ background: isDark ? "transparent" : undefined }}
                             >
                                 <a.icon className="w-3.5 h-3.5" />
@@ -295,9 +294,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div
                                                 key={i}
                                                 onClick={() => a.page && nav(a.page)}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3.5 cursor-pointer`}
                                             >
-                                                <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                                                <div className={`w-2 h-2 rounded-full ${isDark ? "bg-amber-400" : "bg-amber-500"} flex-shrink-0`} />
                                                 <p className={`text-sm ${n.text} flex-1`}>{a.msg}</p>
                                                 <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary}`} />
                                             </div>
@@ -309,7 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                         {/* Progress */}
                         <FadeIn delay={130}>
-                            <div className={`${n.card} ${n.edgeHover} p-6 transition-all duration-200`}>
+                            <div className={`${n.card} ${n.edgeHover} p-6`}>
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label}`}>Completion</h2>
                                     <span className={`text-lg font-semibold ${n.strong}`}>{stats.progress}%</span>
@@ -352,7 +351,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div
                                                 key={p.projectId}
                                                 onClick={() => nav("projects")}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-4 px-4 py-3.5 cursor-pointer`}
                                             >
                                                 <div className={`w-9 h-9 rounded-xl ${n.inset} flex items-center justify-center flex-shrink-0`}>
                                                     <FolderOpen className={`w-4 h-4 ${n.secondary}`} />
@@ -381,7 +380,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 {activities.length === 0 ? (
                                     <p className={`text-sm ${n.secondary} py-4`}>No recent activity</p>
                                 ) : (
-                                    <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                                    <div className={`${n.card} ${n.edgeHover} p-5`}>
                                         <div className="relative pl-6">
                                             <div className={`absolute left-[7px] top-1 bottom-1 w-px ${isDark ? "bg-gray-800" : "bg-gray-200"}`} />
 
@@ -417,16 +416,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     </h2>
                                     <div className="flex gap-2">
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))}
-                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer`}>
+                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer ${n.edgeHoverFlat}`}>
                                             <ChevronLeft className="w-3.5 h-3.5" />
                                         </button>
                                         <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))}
-                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer`}>
+                                            className={`w-8 h-8 ${n.flat} flex items-center justify-center cursor-pointer ${n.edgeHoverFlat}`}>
                                             <ChevronRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 </div>
-                                <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                                <div className={`${n.card} ${n.edgeHover} p-5`}>
                                     <div className="grid grid-cols-7 gap-1 mb-2">
                                         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                                             <div key={i} className={`text-center text-[10px] font-medium ${n.label} py-1`}>{d}</div>
@@ -438,7 +437,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                                 ${!day ? "" :
                                                 isToday(day)
                                                     ? `${n.todayBg} font-bold`
-                                                    : `cursor-pointer ${isDark ? "text-gray-300 hover:text-white" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"}`}`}>
+                                                    : `cursor-pointer ${isDark ? "text-gray-200 hover:text-blue-400 hover:bg-blue-500/10" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"}`}`}>
                                                 {day}
                                                 {day && (hasDue(day) || isHol(day)) && (
                                                     <div className="absolute bottom-0.5 flex gap-0.5">
@@ -470,7 +469,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div
                                                 key={c.customerId}
                                                 onClick={() => nav("client")}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer`}
                                             >
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
@@ -503,7 +502,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div
                                                 key={c.consultantId}
                                                 onClick={() => nav("consultants")}
-                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200`}
+                                                className={`${n.flat} ${n.edgeHoverFlat} flex items-center gap-3 px-4 py-3 cursor-pointer`}
                                             >
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
@@ -525,7 +524,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <FadeIn delay={250}>
                     <div className="mt-10">
                         <h2 className={`text-[11px] uppercase tracking-wider font-medium ${n.label} mb-4`}>Team Feed</h2>
-                        <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
+                        <div className={`${n.card} ${n.edgeHover} p-5`}>
                             <TeamFeed userName={userName || "User"} userEmail={userEmail || ""} userRole={userRole || "admin"} maxPosts={10} />
                         </div>
                     </div>
