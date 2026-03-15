@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTheme } from "./ThemeContext";
-import { Heart, Trash2, Send, RefreshCw, AlertCircle, X } from "lucide-react";
+import { getGradient } from "../Style_Components/Navbar";
+import { Heart, Trash2, Send, RefreshCw, AlertCircle, X, AlertTriangle } from "lucide-react";
 
 const API_BASE = "/api";
 
@@ -34,19 +35,23 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
 }) => {
     const { isDark } = useTheme();
 
+    const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
+    const gb = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
+
     const n = {
         text: isDark ? "text-white" : "text-gray-900",
-        secondary: isDark ? "text-gray-400" : "text-gray-500",
-        tertiary: isDark ? "text-gray-600" : "text-gray-400",
-        label: isDark ? "text-blue-400/60" : "text-blue-600/60",
+        secondary: isDark ? "text-gray-300" : "text-gray-600",
+        tertiary: isDark ? "text-gray-400" : "text-gray-500",
+        label: isDark ? "text-blue-400" : "text-blue-600",
         link: isDark ? "text-blue-400" : "text-blue-600",
         flat: isDark ? "neu-dark-flat" : "neu-light-flat",
         inset: isDark ? "neu-dark-inset" : "neu-light-inset",
+        card: isDark ? "neu-dark" : "neu-light",
         input: isDark
             ? "bg-transparent border-gray-800 text-white placeholder-gray-600"
             : "bg-transparent border-gray-300 text-gray-900 placeholder-gray-400",
-        avatar: isDark ? "bg-gray-800 text-gray-300" : "bg-gray-200 text-gray-600",
         divider: isDark ? "border-gray-800" : "border-gray-200",
+        modal: isDark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-200",
     };
 
     const [posts, setPosts] = useState<Post[]>([]);
@@ -54,6 +59,8 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
     const [loading, setLoading] = useState(true);
     const [posting, setPosting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Post | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchPosts = useCallback(async () => {
         try {
@@ -116,18 +123,23 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
         }
     };
 
-    const handleDelete = async (postId: string) => {
-        if (!confirm("Delete this post?")) return;
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
         try {
-            const res = await fetch(`${API_BASE}/team-feed/${postId}/delete`, {
+            const res = await fetch(`${API_BASE}/team-feed/${deleteTarget.postId}/delete`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
             });
             if (!res.ok) throw new Error("Failed");
-            setPosts((prev) => prev.filter((p) => p.postId !== postId));
+            setPosts((prev) => prev.filter((p) => p.postId !== deleteTarget.postId));
+            setDeleteTarget(null);
         } catch (err: any) {
             console.error("Error deleting:", err);
             setError("Failed to delete post");
+            setDeleteTarget(null);
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -146,6 +158,59 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
 
     return (
         <div className={className}>
+            {/* Delete Confirmation Modal */}
+            {deleteTarget && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4" onClick={() => !deleting && setDeleteTarget(null)}>
+                    <div className={`${n.modal} border rounded-2xl w-full max-w-sm animate-fadeIn`} onClick={e => e.stopPropagation()}>
+                        {/* Icon */}
+                        <div className="pt-6 pb-2 flex justify-center">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isDark ? "bg-red-500/15" : "bg-red-50"}`}>
+                                <Trash2 className={`w-5 h-5 ${isDark ? "text-red-400" : "text-red-500"}`} />
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="px-6 pb-2 text-center">
+                            <h3 className={`text-lg font-semibold ${n.text} mb-1`}>Delete Post</h3>
+                            <p className={`text-sm ${n.secondary}`}>
+                                This will permanently remove this post from the team feed. This action cannot be undone.
+                            </p>
+                        </div>
+
+                        {/* Preview */}
+                        <div className={`mx-6 my-3 p-3 rounded-xl ${isDark ? "bg-white/5" : "bg-gray-50"} border ${n.divider}`}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <div className={`w-5 h-5 bg-gradient-to-br ${getGradient(deleteTarget.authorName, deleteTarget.authorEmail)} rounded-full flex items-center justify-center text-[7px] font-semibold text-white`}>
+                                    {initials(deleteTarget.authorName)}
+                                </div>
+                                <span className={`text-xs font-medium ${n.text}`}>{deleteTarget.authorName}</span>
+                                <span className={`text-[10px] ${n.tertiary}`}>{fmtTime(deleteTarget.createdAt)}</span>
+                            </div>
+                            <p className={`text-xs ${n.secondary} line-clamp-2`}>{deleteTarget.content}</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="px-6 pb-6 pt-2 flex gap-3">
+                            <button
+                                onClick={() => setDeleteTarget(null)}
+                                disabled={deleting}
+                                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"} disabled:opacity-50`}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                disabled={deleting}
+                                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {deleting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                {deleting ? "Deleting..." : "Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Error */}
             {error && (
                 <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-red-500/10 text-red-400 text-xs">
@@ -157,7 +222,7 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
 
             {/* Compose */}
             <div className={`flex gap-3 pb-5 mb-5 border-b ${n.divider}`}>
-                <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
+                <div className={`w-8 h-8 bg-gradient-to-br ${getGradient(userName, userEmail)} rounded-full flex items-center justify-center text-[10px] font-semibold text-white flex-shrink-0`}>
                     {initials(userName)}
                 </div>
                 <div className="flex-1">
@@ -179,7 +244,7 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
                             disabled={!newPost.trim() || posting}
                             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all
                                 ${newPost.trim()
-                                    ? `${n.link} ${isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50"}`
+                                    ? `${n.link} ${hover}`
                                     : `${n.tertiary} cursor-not-allowed`}`}
                         >
                             {posting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
@@ -203,20 +268,20 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
                     {posts.map((post) => (
                         <div
                             key={post.postId}
-                            className={`${n.flat} p-4 transition-all duration-200`}
+                            className={`${n.flat} ${hover} group p-4 transition-all duration-200 rounded-xl`}
                         >
                             <div className="flex gap-3">
-                                <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
+                                <div className={`w-8 h-8 bg-gradient-to-br ${getGradient(post.authorName, post.authorEmail)} rounded-full flex items-center justify-center text-[10px] font-semibold text-white flex-shrink-0`}>
                                     {initials(post.authorName)}
                                 </div>
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-sm font-medium ${n.text}`}>
+                                        <span className={`text-sm font-medium ${n.text} ${gb} transition-colors`}>
                                             {post.authorName}
                                         </span>
                                         {post.authorRole === "admin" && (
-                                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-50 text-blue-600"}`}>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-100 text-blue-700"}`}>
                                                 Admin
                                             </span>
                                         )}
@@ -243,7 +308,7 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
 
                                         {(post.authorEmail === userEmail || userRole === "admin") && (
                                             <button
-                                                onClick={() => handleDelete(post.postId)}
+                                                onClick={() => setDeleteTarget(post)}
                                                 className={`text-[11px] ${n.tertiary} hover:text-red-400 transition-colors`}
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
