@@ -110,12 +110,12 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                     </ul>
 
                     {/* User Card — gradient avatar */}
-                    <div className={`mt-3 p-3 ${n.card} rounded-xl transition-colors`}>
+                    <div onClick={() => onNavigate("profile")} className={`mt-3 p-3 ${n.card} ${hover} group rounded-xl transition-all duration-200 cursor-pointer`}>
                         <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center text-xs font-semibold text-white shadow-sm`}>{initials}</div>
                             <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium ${n.text} truncate`}>{userName}</p>
-                                <p className={`text-[11px] ${n.tertiary} truncate`}>{roleLabel}</p>
+                                <p className={`text-sm font-medium ${n.text} ${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} truncate transition-colors`}>{userName}</p>
+                                <p className={`text-[11px] ${n.tertiary} ${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} truncate transition-colors`}>{roleLabel}</p>
                             </div>
                             <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
                         </div>
