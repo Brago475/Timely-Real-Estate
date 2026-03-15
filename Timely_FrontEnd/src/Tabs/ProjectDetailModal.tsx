@@ -1,4 +1,4 @@
-﻿// src/Tabs/ProjectDetailModal.tsx
+// src/Tabs/ProjectDetailModal.tsx
 //
 // Contains all modals for the Projects page:
 //   - Tabbed Detail Modal (Overview / Property / Listing / Team / Progress)

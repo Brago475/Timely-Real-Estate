@@ -18,7 +18,7 @@ import ConsultantsPage from "./Tabs/consultants";
 import HoursPage from "./Tabs/hours";
 import SettingsPage from "./Tabs/settings";
 import ConsultantMessages from "./Tabs/ConsultantMessages";
-import PublicListing from "./Pages/PublicListing";
+import ListingView from "./Pages/ListingView";
 import timelyLogo from "./assets/Timely_logo.png";
 
 type UserRole = "admin" | "consultant" | "client";
@@ -31,8 +31,9 @@ const normalizeRole = (role?: string): UserRole => {
     return "client";
 };
 
-// ─── Detect public listing URL ────────────────────────────────────────────────
-// Matches /listing/:slug — rendered before auth, no sidebar/navbar
+// ─── Detect /listing/:slug ────────────────────────────────────────────────────
+// If the URL matches this pattern we render ListingView directly.
+// Auth + assignment checks happen inside ListingView itself.
 const getListingSlug = (): string | null => {
     const match = window.location.pathname.match(/^\/listing\/(.+)$/);
     return match ? match[1] : null;
@@ -40,15 +41,15 @@ const getListingSlug = (): string | null => {
 
 function AppContent() {
     const { isDark } = useTheme();
-    const { user: authUser, isLoggedIn, login, logout: authLogout } = useAuth();
+    const { user: authUser, isLoggedIn, logout: authLogout } = useAuth();
 
     const [sidebarToggle, setSidebarToggle] = useState(false);
-    const [isAuthed, setIsAuthed] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [activePage, setActivePage] = useState("dashboard");
-    const [pageHistory, setPageHistory] = useState<string[]>(["dashboard"]);
-    const [userData, setUserData] = useState<UserInfo | null>(null);
-    const [consultantId, setConsultantId] = useState("");
+    const [isAuthed, setIsAuthed]           = useState(false);
+    const [isLoading, setIsLoading]         = useState(true);
+    const [activePage, setActivePage]       = useState("dashboard");
+    const [pageHistory, setPageHistory]     = useState<string[]>(["dashboard"]);
+    const [userData, setUserData]           = useState<UserInfo | null>(null);
+    const [consultantId, setConsultantId]   = useState("");
 
     const currentRole: UserRole | undefined = userData?.role;
     const isAdmin      = currentRole === "admin";
@@ -61,8 +62,8 @@ function AppContent() {
             setUserData({ customerId: authUser.customerId, email: authUser.email, name: authUser.name, role: normalizeRole(authUser.role) });
             setIsAuthed(true);
         } else {
-            const storedUser      = localStorage.getItem("timely_user");
-            const authenticated   = localStorage.getItem("timely_authenticated");
+            const storedUser    = localStorage.getItem("timely_user");
+            const authenticated = localStorage.getItem("timely_authenticated");
             if (storedUser && authenticated === "true") {
                 try {
                     const p = JSON.parse(storedUser);
@@ -80,7 +81,7 @@ function AppContent() {
                 if (userData.consultantId) { setConsultantId(userData.consultantId); return; }
                 try {
                     const data = await apiGet("/consultants");
-                    const c = (data.data || []).find((c: any) => c.email === userData.email);
+                    const c    = (data.data || []).find((c: any) => c.email === userData.email);
                     if (c) setConsultantId(c.consultantId);
                 } catch {}
             }
@@ -90,8 +91,7 @@ function AppContent() {
 
     const handleLoginSuccess = (user: { customerId: string; consultantId?: string; email: string; name: string; role?: string }) => {
         const u: UserInfo = { customerId: user.customerId, consultantId: user.consultantId, email: user.email, name: user.name, role: normalizeRole(user.role) };
-        setUserData(u);
-        setIsAuthed(true);
+        setUserData(u); setIsAuthed(true);
         localStorage.setItem("timely_user", JSON.stringify(u));
         localStorage.setItem("timely_authenticated", "true");
         if (u.role === "client") { setActivePage("client_home"); setPageHistory(["client_home"]); }
@@ -124,10 +124,7 @@ function AppContent() {
         });
     };
 
-    // ── Public listing intercept — after all hooks ─────────────────────────
-    const listingSlug = getListingSlug();
-    if (listingSlug) return <PublicListing />;
-
+    // ── Loading splash ────────────────────────────────────────────────────────
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center">
@@ -139,10 +136,15 @@ function AppContent() {
         );
     }
 
-    if (!isAuthed) {
-        return <Login onLoginSuccess={handleLoginSuccess} />;
-    }
+    // ── /listing/:slug — render ListingView after hooks, before auth redirect ─
+    // ListingView handles its own not-logged-in and access-denied states.
+    const listingSlug = getListingSlug();
+    if (listingSlug) return <ListingView />;
 
+    // ── Auth gate ─────────────────────────────────────────────────────────────
+    if (!isAuthed) return <Login onLoginSuccess={handleLoginSuccess} />;
+
+    // ── Client portal ─────────────────────────────────────────────────────────
     if (isClient) {
         return (
             <ClientPortal
@@ -154,34 +156,22 @@ function AppContent() {
         );
     }
 
+    // ── Staff app ─────────────────────────────────────────────────────────────
     const renderActivePage = () => {
         switch (activePage) {
-            case "dashboard":
-                return <Dashboard sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} onNavigate={handleNavigation} />;
-            case "projects":
-                return <RealEstateProjects />;
-            case "listings":
-                return <Listings />;
-            case "client":
-                return <ClientsPage />;
-            case "consultants":
-                return <ConsultantsPage userRole={currentRole} />;
-            case "reports":
-                return <ReportsTab />;
-            case "hours":
-                return <HoursPage />;
-            case "messages":
-                return <ConsultantMessages consultantId={consultantId} consultantEmail={userData?.email || ""} consultantName={userData?.name || "Consultant"} />;
-            case "admin":
-                return <AdminTab onNavigate={handleNavigation} />;
-            case "InviteMembers":
-                return <InviteMembers />;
-            case "settings":
-                return <SettingsPage />;
-            case "profile":
-                return <ProfilePage />;
-            default:
-                return <Dashboard sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} onNavigate={handleNavigation} />;
+            case "dashboard":    return <Dashboard sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} onNavigate={handleNavigation} />;
+            case "projects":     return <RealEstateProjects />;
+            case "listings":     return <Listings />;
+            case "client":       return <ClientsPage />;
+            case "consultants":  return <ConsultantsPage userRole={currentRole} />;
+            case "reports":      return <ReportsTab />;
+            case "hours":        return <HoursPage />;
+            case "messages":     return <ConsultantMessages consultantId={consultantId} consultantEmail={userData?.email || ""} consultantName={userData?.name || "Consultant"} />;
+            case "admin":        return <AdminTab onNavigate={handleNavigation} />;
+            case "InviteMembers":return <InviteMembers />;
+            case "settings":     return <SettingsPage />;
+            case "profile":      return <ProfilePage />;
+            default:             return <Dashboard sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} onNavigate={handleNavigation} />;
         }
     };
 
