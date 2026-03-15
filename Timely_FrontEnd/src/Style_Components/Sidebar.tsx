@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Home, FolderOpen, Users, UserCheck, BarChart3, Clock, Settings, LogOut, ChevronLeft, ChevronRight, ArrowLeft, Shield, UserPlus, MessageCircle } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
+import { getGradient } from "./Navbar";
 import timelyLogo from "../assets/Timely_logo.png";
 
 type Props = { sidebarToggle: boolean; setSidebarToggle?: (v: boolean) => void; onNavigate: (page: string) => void; onBack?: () => void; isAdmin: boolean; activePage?: string; userName?: string; userEmail?: string; userRole?: string; };
@@ -11,11 +12,13 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
     const [hovered, setHovered] = useState<string | null>(null);
     const isConsultant = userRole === "consultant";
 
+    const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
+
     const n = {
         sidebar: isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
         text: isDark ? "text-white" : "text-gray-900",
-        secondary: isDark ? "text-gray-300" : "text-gray-700",
-        tertiary: isDark ? "text-gray-500" : "text-gray-500",
+        secondary: isDark ? "text-gray-200" : "text-gray-700",
+        tertiary: isDark ? "text-gray-400" : "text-gray-500",
         label: isDark ? "text-blue-400" : "text-blue-600",
         flat: isDark ? "neu-dark-flat" : "neu-light-flat",
         inset: isDark ? "neu-dark-inset" : "neu-light-inset",
@@ -24,11 +27,11 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
         divider: isDark ? "border-gray-800" : "border-gray-200",
         activeBar: "bg-blue-500",
         activeIcon: "bg-blue-600 text-white",
-        hoverBg: isDark ? "hover:bg-gray-900/50" : "hover:bg-blue-50",
     };
 
     const initials = (userName || "U").split(" ").map(x => x[0]).join("").toUpperCase().slice(0, 2);
     const roleLabel = userRole === "admin" ? "Administrator" : userRole === "consultant" ? "Consultant" : "Client";
+    const gradient = getGradient(userName, userEmail);
 
     const menuItems = [
         { id: "dashboard", label: "Dashboard", icon: Home },
@@ -48,10 +51,10 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
     const NavItem = ({ id, label, icon: Icon, isActive, isLogout = false }: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; isActive: boolean; isLogout?: boolean }) => {
         const isHovered = hovered === id;
         return (
-            <li className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 ${isActive ? n.pressed : isLogout ? "hover:bg-red-500/10" : n.hoverBg}`}
+            <li className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 ${isActive ? n.pressed : isLogout ? "hover:bg-red-500/10" : hover}`}
                 onClick={() => onNavigate(id)} onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)}>
                 {isActive && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 ${n.activeBar} rounded-r-full`} />}
-                <div className={`px-3 py-2.5 flex items-center gap-3 transition-colors duration-200 ${isActive ? n.label : isLogout ? "text-red-500" : isDark ? n.tertiary : "text-gray-800"} ${isHovered && !isActive && !isLogout ? (isDark ? n.text : "text-blue-600") : ""}`}>
+                <div className={`px-3 py-2.5 flex items-center gap-3 transition-colors duration-200 ${isActive ? n.label : isLogout ? "text-red-500" : isDark ? "text-gray-300" : "text-gray-800"} ${isHovered && !isActive && !isLogout ? (isDark ? "text-blue-400" : "text-blue-600") : ""}`}>
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${isActive ? n.activeIcon : isLogout ? "bg-red-500/10 text-red-500" : n.inset} ${isHovered && !isActive && !isLogout ? "scale-105" : ""}`}>
                         <Icon className="w-4 h-4" />
                     </div>
@@ -86,13 +89,13 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                 {/* Main Nav */}
                 <div className="flex-1 overflow-y-auto">
                     <div className="mb-6">
-                        <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${isDark ? n.tertiary : "text-gray-500"}`}>Menu</p>
+                        <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.tertiary}`}>Menu</p>
                         <ul>{menuItems.map(item => <NavItem key={item.id} id={item.id} label={item.label} icon={item.icon} isActive={activePage === item.id} />)}</ul>
                     </div>
 
                     {isAdmin && (
                         <div className="mb-6">
-                            <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${isDark ? "text-amber-500/70" : "text-amber-700"}`}>Administration</p>
+                            <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${isDark ? "text-amber-400" : "text-amber-700"}`}>Administration</p>
                             <ul>{adminItems.map(item => <NavItem key={item.id} id={item.id} label={item.label} icon={item.icon} isActive={activePage === item.id} />)}</ul>
                         </div>
                     )}
@@ -106,13 +109,13 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                         <NavItem id="logout" label="Logout" icon={LogOut} isActive={false} isLogout />
                     </ul>
 
-                    {/* User Card */}
+                    {/* User Card — gradient avatar */}
                     <div className={`mt-3 p-3 ${n.card} rounded-xl transition-colors`}>
                         <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 ${n.inset} rounded-full flex items-center justify-center text-xs font-semibold ${n.secondary}`}>{initials}</div>
+                            <div className={`w-9 h-9 bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center text-xs font-semibold text-white shadow-sm`}>{initials}</div>
                             <div className="flex-1 min-w-0">
                                 <p className={`text-sm font-medium ${n.text} truncate`}>{userName}</p>
-                                <p className={`text-[11px] ${isDark ? n.tertiary : "text-gray-500"} truncate`}>{roleLabel}</p>
+                                <p className={`text-[11px] ${n.tertiary} truncate`}>{roleLabel}</p>
                             </div>
                             <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
                         </div>
