@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Menu, Search, Bell, ChevronRight, Settings, LogOut, User, FolderOpen, Home, X, Clock, CheckCircle, AlertTriangle, Mail, MessageCircle } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import { useNotifications } from "./Notifications";
-import type InviteMembers from "../Views_Layouts/InviteMembers";
 
 type UserRole = "admin" | "consultant" | "client";
 type SearchResult = { type: "project" | "consultant" | "client" | "page"; id: string; name: string; subtitle: string; };
@@ -20,7 +19,7 @@ const PAGE_INFO: Record<string, { title: string; icon: React.ReactNode }> = {
 };
 
 const ROLE_PAGES: Record<UserRole, string[]> = {
-    admin: ["dashboard", "projects", "client", "consultants", "reports", "hours", "settings", "profile", "EmailGenerator", "admin"],
+    admin: ["dashboard", "projects", "client", "consultants", "reports", "hours", "settings", "profile", "InviteMembers", "admin"],
     consultant: ["dashboard", "projects", "client", "consultants", "reports", "hours", "settings", "profile", "messages"],
     client: ["dashboard", "projects", "settings", "profile"],
 };

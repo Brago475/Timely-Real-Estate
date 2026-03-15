@@ -10,13 +10,12 @@ type UserRole = "admin" | "consultant" | "client";
 type UserStatus = "active" | "inactive" | "suspended";
 type ApprovalStatus = "pending" | "approved" | "denied";
 type AlertType = "warning" | "error" | "info";
-type AdminView = "dashboard" | "users" | "consultants" | "projects" | "timelogs" | "emails" | "alerts" | "documents" | "messages";
+type AdminView = "dashboard" | "users" | "consultants" | "projects" | "timelogs" | "alerts" | "documents" | "messages";
 
 interface User { customerId: string; clientCode: string; firstName: string; middleName: string; lastName: string; email: string; tempPassword: string; status?: UserStatus; role?: string; }
 interface Consultant { consultantId: string; consultantCode: string; firstName: string; lastName: string; email: string; role: string; status?: UserStatus; }
 interface Project { projectId: string; projectCode: string; projectName: string; clientName: string; status: string; }
 interface HoursLog { logId: string; projectId: string; consultantId: string; date: string; hours: number; description: string; createdAt: string; approvalStatus?: ApprovalStatus; }
-interface Email { emailId: string; to: string; from: string; subject: string; body: string; status: string; createdAt: string; }
 interface Alert { id: string; type: AlertType; message: string; timestamp: string; expiresAt?: string; isCustom?: boolean; }
 interface AdminTabProps { onNavigate?: (page: string) => void; }
 interface Toast { id: string; message: string; type: "success" | "error" | "info"; }
@@ -56,7 +55,6 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const [consultants, setConsultants] = useState<Consultant[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [hoursLogs, setHoursLogs] = useState<HoursLog[]>([]);
-    const [emails, setEmails] = useState<Email[]>([]);
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [pendingDocRequests, setPendingDocRequests] = useState(0);
     const [unreadMessages, setUnreadMessages] = useState(0);
@@ -67,20 +65,13 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [selectedConsultant, setSelectedConsultant] = useState<Consultant | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [showResetPwModal, setShowResetPwModal] = useState(false);
     const [showRoleModal, setShowRoleModal] = useState(false);
-    const [showComposeModal, setShowComposeModal] = useState(false);
     const [showAnnounceModal, setShowAnnounceModal] = useState(false);
     const [showAlertModal, setShowAlertModal] = useState(false);
     const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
     const [newPassword, setNewPassword] = useState("");
     const [newRole, setNewRole] = useState("");
-    const [composeTo, setComposeTo] = useState("");
-    const [composeSubject, setComposeSubject] = useState("");
-    const [composeBody, setComposeBody] = useState("");
-    const [emailSuggestions, setEmailSuggestions] = useState<{ name: string; email: string }[]>([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
     const [announceSubject, setAnnounceSubject] = useState("");
     const [announceBody, setAnnounceBody] = useState("");
     const [announceTarget, setAnnounceTarget] = useState<"all" | "clients" | "consultants">("all");
@@ -96,7 +87,6 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const fetchConsultants = async () => { const d = await safeFetch(`${API_BASE}/api/consultants`); if (d?.data) setConsultants(d.data.map((c: Consultant) => ({ ...c, status: c.status || "active" }))); };
     const fetchProjects = async () => { const d = await safeFetch(`${API_BASE}/api/projects`); if (d?.data) setProjects(d.data); };
     const fetchHours = async () => { const d = await safeFetch(`${API_BASE}/api/hours-logs`); if (d?.data) setHoursLogs(d.data); };
-    const fetchEmails = async () => { const d = await safeFetch(`${API_BASE}/api/emails/outbox?limit=100`); if (d?.data) setEmails(d.data); };
 
     const genAlerts = () => {
         const sys: Alert[] = [];
@@ -108,7 +98,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
         setAlerts([...sys, ...custom]);
     };
 
-    const refreshAll = async () => { setIsLoading(true); await Promise.all([fetchUsers(), fetchConsultants(), fetchProjects(), fetchHours(), fetchEmails()]); setPendingDocRequests(getPendingDocs()); setUnreadMessages(getUnreadMsgs()); setIsLoading(false); };
+    const refreshAll = async () => { setIsLoading(true); await Promise.all([fetchUsers(), fetchConsultants(), fetchProjects(), fetchHours()]); setPendingDocRequests(getPendingDocs()); setUnreadMessages(getUnreadMsgs()); setIsLoading(false); };
 
     useEffect(() => { try { const s = localStorage.getItem("timely_user"); if (s) { const u = JSON.parse(s); if (u?.email) setAdminEmail(u.email); if (u?.firstName) setAdminName(`${u.firstName} ${u.lastName || ""}`); } const sa = localStorage.getItem("timely_custom_alerts"); if (sa) setAlerts(JSON.parse(sa).filter((a: Alert) => a.isCustom)); } catch {} refreshAll(); }, []);
     useEffect(() => { genAlerts(); }, [users, projects, hoursLogs]);
@@ -125,7 +115,6 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const getConHours = (cid: string) => hoursLogs.filter(l => l.consultantId === cid).reduce((s, l) => s + (Number(l.hours) || 0), 0);
     const getProjHours = (pid: string) => hoursLogs.filter(l => l.projectId === pid).reduce((s, l) => s + (Number(l.hours) || 0), 0);
 
-    const handleEmailInput = (v: string) => { setComposeTo(v); if (v.length >= 2) { const all = [...users.map(u => ({ name: `${u.firstName} ${u.lastName}`, email: u.email })), ...consultants.map(c => ({ name: `${c.firstName} ${c.lastName}`, email: c.email }))]; const m = all.filter(p => p.name.toLowerCase().includes(v.toLowerCase()) || p.email.toLowerCase().includes(v.toLowerCase())); setEmailSuggestions(m.slice(0, 5)); setShowSuggestions(m.length > 0); } else setShowSuggestions(false); };
     const handleResetPw = () => { if (!selectedUser || !newPassword) return; showToast(`Password reset for ${selectedUser.email}`); setShowResetPwModal(false); setNewPassword(""); setSelectedUser(null); };
     const handleChangeRole = () => { if (!selectedUser || !newRole) return; setUsers(p => p.map(u => u.customerId === selectedUser.customerId ? { ...u, role: newRole } : u)); showToast(`Role → ${newRole}`); setShowRoleModal(false); setNewRole(""); setSelectedUser(null); };
     const toggleUserSusp = (u: User) => { const ns: UserStatus = u.status === "suspended" ? "active" : "suspended"; setUsers(p => p.map(x => x.customerId === u.customerId ? { ...x, status: ns } : x)); showToast(`${u.firstName} ${ns === "suspended" ? "suspended" : "activated"}`); };
@@ -133,9 +122,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const approveLog = (id: string) => { setHoursLogs(p => p.map(l => l.logId === id ? { ...l, approvalStatus: "approved" as const } : l)); showToast("Approved"); };
     const denyLog = (id: string) => { setHoursLogs(p => p.map(l => l.logId === id ? { ...l, approvalStatus: "denied" as const } : l)); showToast("Denied"); };
 
-    const sendEmail = async () => { if (!composeTo || !composeSubject) { showToast("To and Subject required", "error"); return; } try { const r = await fetch(`${API_BASE}/api/emails/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: composeTo, from: "noreply@timely.com", subject: composeSubject, body: composeBody }) }); const d = await r.json(); if (r.ok && d.success) { showToast("Email sent"); setShowComposeModal(false); setComposeTo(""); setComposeSubject(""); setComposeBody(""); fetchEmails(); } else throw new Error(d.error); } catch (e: any) { showToast(e.message || "Failed", "error"); } };
-
-    const sendAnnounce = async () => { if (!announceSubject || !announceBody) { showToast("Subject and body required", "error"); return; } let recip: string[] = []; if (announceTarget === "all" || announceTarget === "clients") recip.push(...users.map(u => u.email)); if (announceTarget === "all" || announceTarget === "consultants") recip.push(...consultants.map(c => c.email)); let sent = 0; for (const email of recip) { try { const r = await fetch(`${API_BASE}/api/emails/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: email, from: "noreply@timely.com", subject: `[Announcement] ${announceSubject}`, body: announceBody }) }); if (r.ok) sent++; } catch {} } showToast(`Sent to ${sent} recipients`); setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); fetchEmails(); };
+    const sendAnnounce = async () => { if (!announceSubject || !announceBody) { showToast("Subject and body required", "error"); return; } let recip: string[] = []; if (announceTarget === "all" || announceTarget === "clients") recip.push(...users.map(u => u.email)); if (announceTarget === "all" || announceTarget === "consultants") recip.push(...consultants.map(c => c.email)); let sent = 0; for (const email of recip) { try { const r = await fetch(`${API_BASE}/api/emails/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: email, from: "noreply@timely.com", subject: `[Announcement] ${announceSubject}`, body: announceBody }) }); if (r.ok) sent++; } catch {} } showToast(`Sent to ${sent} recipients`); setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); };
 
     const createAlert = () => { if (!alertMsg) { showToast("Message required", "error"); return; } setAlerts(p => [...p, { id: `c-${Date.now()}`, type: alertType, message: alertMsg, timestamp: new Date().toISOString(), expiresAt: alertExpiry || undefined, isCustom: true }]); setAlertMsg(""); setAlertExpiry(""); setShowAlertModal(false); showToast("Alert created"); };
     const updateAlert = () => { if (!editingAlert || !alertMsg) return; setAlerts(p => p.map(a => a.id === editingAlert.id ? { ...a, message: alertMsg, type: alertType, expiresAt: alertExpiry || undefined } : a)); setEditingAlert(null); setAlertMsg(""); setAlertExpiry(""); setShowAlertModal(false); showToast("Updated"); };
@@ -152,7 +139,6 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
         { id: "timelogs", label: "Time Logs", icon: Clock, badge: stats.pendingLogs || undefined },
         { id: "documents", label: "Documents", icon: FileText, badge: pendingDocRequests || undefined },
         { id: "messages", label: "Messages", icon: MessageCircle, badge: unreadMessages || undefined },
-        { id: "emails", label: "Emails", icon: Mail },
         { id: "alerts", label: "Alerts", icon: AlertTriangle, badge: alerts.length || undefined },
     ];
 
@@ -184,7 +170,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                     {/* Quick actions */}
                     <div className="flex flex-wrap gap-2">
                         <button onClick={() => setShowAnnounceModal(true)} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-purple-400 transition-all`}><Megaphone className="w-3.5 h-3.5" />Announce</button>
-                        <button onClick={() => onNavigate?.("EmailGenerator")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.label} transition-all`}><Plus className="w-3.5 h-3.5" />Add Client</button>
+                        <button onClick={() => onNavigate?.("InviteMembers")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.label} transition-all`}><Plus className="w-3.5 h-3.5" />Invite Member</button>
                         <button onClick={() => onNavigate?.("projects")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-emerald-400 transition-all`}><FolderOpen className="w-3.5 h-3.5" />Projects</button>
                         <button onClick={() => onNavigate?.("hours")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-amber-400 transition-all`}><Clock className="w-3.5 h-3.5" />Hours</button>
                         <button onClick={() => setCurrentView("documents")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-pink-400 transition-all`}><FileText className="w-3.5 h-3.5" />Documents</button>
@@ -302,23 +288,6 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                     </div>
                 </div>)}
 
-                {/* ═══ EMAILS ═══ */}
-                {currentView === "emails" && (<div className="space-y-6">
-                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Email System</h2><div className="flex gap-2"><button onClick={() => exportCSV(emails, "emails", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={() => setShowComposeModal(true)} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl text-sm flex items-center gap-2`}><Send className="w-3.5 h-3.5" />Compose</button></div></div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className={`lg:col-span-1 ${n.card} p-1.5 space-y-1.5 max-h-[500px] overflow-y-auto`}>
-                            {emails.length === 0 ? <div className={`${n.flat} text-center py-8`}><Mail className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} /><p className={`text-sm ${n.secondary}`}>No emails</p></div> : emails.map(e => (
-                                <div key={e.emailId} onClick={() => setSelectedEmail(e)} className={`${n.flat} ${n.edgeHoverFlat} p-3 cursor-pointer transition-all duration-200 ${selectedEmail?.emailId === e.emailId ? "ring-1 ring-blue-500/30" : ""}`}>
-                                    <p className={`${n.text} text-sm font-medium truncate`}>{e.to}</p>
-                                    <p className={`${n.secondary} text-xs truncate`}>{e.subject}</p>
-                                    <p className={`${n.tertiary} text-[10px] mt-1`}>{fmtDate(e.createdAt)}</p>
-                                </div>
-                            ))}
-                        </div>
-                        <div className={`lg:col-span-2 ${n.card} p-5`}>{selectedEmail ? (<div><div className={`mb-4 pb-4 border-b ${n.divider}`}><h3 className={`font-semibold mb-2 ${n.text}`}>{selectedEmail.subject}</h3><div className="grid grid-cols-2 gap-2 text-sm"><div><span className={n.tertiary}>To:</span><span className={`ml-2 ${n.text}`}>{selectedEmail.to}</span></div><div><span className={n.tertiary}>From:</span><span className={`ml-2 ${n.text}`}>{selectedEmail.from}</span></div><div><span className={n.tertiary}>Date:</span><span className={`ml-2 ${n.text}`}>{fmtDate(selectedEmail.createdAt)}</span></div><div><span className={n.tertiary}>Status:</span><span className="text-emerald-400 ml-2">{selectedEmail.status}</span></div></div></div><div className={`${n.inset} rounded-xl p-4`}><pre className={`text-sm whitespace-pre-wrap font-sans ${n.text}`}>{selectedEmail.body}</pre></div></div>) : (<div className={`flex flex-col items-center justify-center h-64 ${n.tertiary}`}><Mail className="w-10 h-10 mb-2 opacity-30" /><p className="text-sm">Select an email</p></div>)}</div>
-                    </div>
-                </div>)}
-
                 {/* ═══ ALERTS ═══ */}
                 {currentView === "alerts" && (<div className="space-y-6">
                     <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Alerts</h2><button onClick={() => { setEditingAlert(null); setAlertMsg(""); setAlertType("info"); setAlertExpiry(""); setShowAlertModal(true); }} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl text-sm flex items-center gap-2`}><Plus className="w-3.5 h-3.5" />Create</button></div>
@@ -346,13 +315,6 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
             <Modal show={showRoleModal && !!selectedUser} onClose={() => { setShowRoleModal(false); setSelectedUser(null); }} title="Change Role">
                 <select value={newRole} onChange={e => setNewRole(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="client">Client</option><option value="consultant">Consultant</option><option value="admin">Admin</option></select>
                 <div className="flex gap-3"><button onClick={() => { setShowRoleModal(false); setSelectedUser(null); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={handleChangeRole} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>Save</button></div>
-            </Modal>
-
-            <Modal show={showComposeModal} onClose={() => { setShowComposeModal(false); setComposeTo(""); setComposeSubject(""); setComposeBody(""); }} title="Compose Email" icon={<Send className={`w-5 h-5 ${n.label}`} />}>
-                <div className="relative"><label className={`${n.label} text-[11px] block mb-1`}>To</label><input type="text" value={composeTo} onChange={e => handleEmailInput(e.target.value)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} placeholder="Name or email..." className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} />{showSuggestions && emailSuggestions.length > 0 && (<div className={`absolute z-10 w-full mt-1 ${n.modal} border rounded-xl overflow-hidden`}>{emailSuggestions.map((s, i) => (<div key={i} onMouseDown={() => { setComposeTo(s.email); setShowSuggestions(false); }} className={`px-3 py-2 cursor-pointer ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><p className={`text-sm ${n.text}`}>{s.name}</p><p className={`text-[11px] ${n.tertiary}`}>{s.email}</p></div>))}</div>)}</div>
-                <div><label className={`${n.label} text-[11px] block mb-1`}>Subject</label><input type="text" value={composeSubject} onChange={e => setComposeSubject(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
-                <div><label className={`${n.label} text-[11px] block mb-1`}>Body</label><textarea value={composeBody} onChange={e => setComposeBody(e.target.value)} rows={6} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none`} /></div>
-                <div className="flex gap-3"><button onClick={() => { setShowComposeModal(false); setComposeTo(""); setComposeSubject(""); setComposeBody(""); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={sendEmail} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}><Send className="w-3.5 h-3.5" />Send</button></div>
             </Modal>
 
             <Modal show={showAnnounceModal} onClose={() => { setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); }} title="Announcement" icon={<Megaphone className="w-5 h-5 text-purple-400" />}>
