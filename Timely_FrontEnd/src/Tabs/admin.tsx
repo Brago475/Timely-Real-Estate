@@ -35,17 +35,22 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
         flat: isDark ? "neu-dark-flat" : "neu-light-flat", inset: isDark ? "neu-dark-inset" : "neu-light-inset",
         pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
         text: isDark ? "text-white" : "text-gray-900", secondary: isDark ? "text-gray-300" : "text-gray-600",
-        tertiary: isDark ? "text-gray-500" : "text-gray-400", strong: isDark ? "text-white" : "text-black",
+        tertiary: isDark ? "text-gray-500" : "text-gray-500", strong: isDark ? "text-white" : "text-black",
         label: isDark ? "text-blue-400" : "text-blue-600", link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
         badge: isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700",
         input: isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
-        modal: isDark ? "bg-[#111111] border-gray-800" : "bg-[#f0f0f0] border-gray-300",
-        modalHead: isDark ? "bg-[#111111]" : "bg-[#f0f0f0]",
-        btnPrimary: "bg-blue-600 hover:bg-blue-500 text-white", btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        modal: isDark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-200",
+        modalHead: isDark ? "bg-[#111111]" : "bg-white",
+        btnPrimary: "bg-blue-600 hover:bg-blue-500 text-white", btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800",
         btnDanger: "bg-red-600 hover:bg-red-500 text-white", divider: isDark ? "border-gray-800" : "border-gray-200",
-        edgeHover: isDark ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]" : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
-        edgeHoverFlat: isDark ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]" : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),4px_4px_10px_rgba(0,0,0,0.08),-4px_-4px_10px_rgba(255,255,255,0.9)]",
+        edgeHover: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),0_4px_12px_rgba(0,0,0,0.08)]",
+        edgeHoverFlat: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),0_2px_8px_rgba(0,0,0,0.06)]",
         barBg: isDark ? "bg-gray-800" : "bg-gray-200",
+        actionHover: isDark ? "hover:bg-gray-800" : "hover:bg-blue-50",
     };
 
     const [currentView, setCurrentView] = useState<AdminView>("dashboard");
@@ -128,8 +133,8 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const updateAlert = () => { if (!editingAlert || !alertMsg) return; setAlerts(p => p.map(a => a.id === editingAlert.id ? { ...a, message: alertMsg, type: alertType, expiresAt: alertExpiry || undefined } : a)); setEditingAlert(null); setAlertMsg(""); setAlertExpiry(""); setShowAlertModal(false); showToast("Updated"); };
     const deleteAlert = (id: string) => { setAlerts(p => p.filter(a => a.id !== id)); showToast("Deleted"); };
 
-    const statusBadge = (s: string) => s === "active" ? "bg-emerald-500/20 text-emerald-400" : s === "suspended" ? "bg-red-500/20 text-red-400" : "bg-gray-500/20 text-gray-400";
-    const approvalBadge = (s: string) => s === "approved" ? "bg-emerald-500/20 text-emerald-400" : s === "denied" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400";
+    const statusBadge = (s: string) => s === "active" ? (isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700") : s === "suspended" ? (isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700") : (isDark ? "bg-gray-500/20 text-gray-400" : "bg-gray-100 text-gray-600");
+    const approvalBadge = (s: string) => s === "approved" ? (isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700") : s === "denied" ? (isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700") : (isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700");
 
     const tabs: { id: AdminView; label: string; icon: any; badge?: number }[] = [
         { id: "dashboard", label: "Overview", icon: BarChart3 },
@@ -145,7 +150,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     // ═══ MODAL HELPER ═══
     const Modal: React.FC<{ show: boolean; onClose: () => void; title: string; icon?: React.ReactNode; children: React.ReactNode }> = ({ show, onClose, title, icon, children }) => {
         if (!show) return null;
-        return (<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4"><div className={`${n.modal} border rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto`}><div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}><h2 className={`text-lg font-semibold ${n.text} flex items-center gap-2`}>{icon}{title}</h2><button onClick={onClose} className={`p-2 rounded-lg ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button></div><div className="p-5 space-y-4">{children}</div></div></div>);
+        return (<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4"><div className={`${n.modal} border rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto`}><div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}><h2 className={`text-lg font-semibold ${n.text} flex items-center gap-2`}>{icon}{title}</h2><button onClick={onClose} className={`p-2 rounded-lg ${n.actionHover}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button></div><div className="p-5 space-y-4">{children}</div></div></div>);
     };
 
     return (
@@ -162,25 +167,27 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
 
                 {/* Tabs */}
                 <div className={`${n.card} p-0.5 flex rounded-xl mb-8 overflow-x-auto`}>
-                    {tabs.map(t => (<button key={t.id} onClick={() => setCurrentView(t.id)} className={`px-4 py-2.5 text-sm rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${currentView === t.id ? n.btnPrimary : n.secondary}`}><t.icon className="w-3.5 h-3.5" />{t.label}{t.badge ? <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{t.badge}</span> : null}</button>))}
+                    {tabs.map(t => (<button key={t.id} onClick={() => setCurrentView(t.id)} className={`px-4 py-2.5 text-sm rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${currentView === t.id ? n.btnPrimary : isDark ? n.secondary : "text-gray-700 hover:text-blue-600"}`}><t.icon className="w-3.5 h-3.5" />{t.label}{t.badge ? <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{t.badge}</span> : null}</button>))}
                 </div>
+
+                <div key={currentView} className="animate-fadeIn">
 
                 {/* ═══ DASHBOARD ═══ */}
                 {currentView === "dashboard" && (<div className="space-y-8">
                     {/* Quick actions */}
                     <div className="flex flex-wrap gap-2">
-                        <button onClick={() => setShowAnnounceModal(true)} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-purple-400 transition-all`}><Megaphone className="w-3.5 h-3.5" />Announce</button>
+                        <button onClick={() => setShowAnnounceModal(true)} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${isDark ? "text-purple-400" : "text-purple-600"} transition-all`}><Megaphone className="w-3.5 h-3.5" />Announce</button>
                         <button onClick={() => onNavigate?.("InviteMembers")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.label} transition-all`}><Plus className="w-3.5 h-3.5" />Invite Member</button>
-                        <button onClick={() => onNavigate?.("projects")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-emerald-400 transition-all`}><FolderOpen className="w-3.5 h-3.5" />Projects</button>
-                        <button onClick={() => onNavigate?.("hours")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-amber-400 transition-all`}><Clock className="w-3.5 h-3.5" />Hours</button>
-                        <button onClick={() => setCurrentView("documents")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-pink-400 transition-all`}><FileText className="w-3.5 h-3.5" />Documents</button>
-                        <button onClick={() => setCurrentView("messages")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-indigo-400 transition-all`}><MessageCircle className="w-3.5 h-3.5" />Messages{unreadMessages > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadMessages}</span>}</button>
+                        <button onClick={() => onNavigate?.("projects")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${isDark ? "text-emerald-400" : "text-emerald-600"} transition-all`}><FolderOpen className="w-3.5 h-3.5" />Projects</button>
+                        <button onClick={() => onNavigate?.("hours")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${isDark ? "text-amber-400" : "text-amber-600"} transition-all`}><Clock className="w-3.5 h-3.5" />Hours</button>
+                        <button onClick={() => setCurrentView("documents")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${isDark ? "text-pink-400" : "text-pink-600"} transition-all`}><FileText className="w-3.5 h-3.5" />Documents</button>
+                        <button onClick={() => setCurrentView("messages")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${isDark ? "text-indigo-400" : "text-indigo-600"} transition-all`}><MessageCircle className="w-3.5 h-3.5" />Messages{unreadMessages > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadMessages}</span>}</button>
                     </div>
 
                     {/* Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        {[{ l: "Clients", v: users.length, c: "" }, { l: "Active", v: stats.activeUsers, c: "text-emerald-400" }, { l: "Suspended", v: stats.suspendedUsers, c: "text-red-400" }, { l: "Consultants", v: consultants.length, c: "text-purple-400" }, { l: "Projects", v: projects.length, c: n.label }, { l: "Hours", v: stats.totalHours.toFixed(1), c: "text-amber-400" }].map((s, i) => (
-                            <div key={i} className={`${n.card} ${n.edgeHover} p-4 transition-all duration-200`}><span className={`${n.label} text-[11px] uppercase tracking-wider`}>{s.l}</span><p className={`text-2xl font-semibold ${s.c || n.strong} mt-1`}>{s.v}</p></div>
+                        {[{ l: "Clients", v: users.length, c: "" }, { l: "Active", v: stats.activeUsers, c: isDark ? "text-emerald-400" : "text-emerald-600" }, { l: "Suspended", v: stats.suspendedUsers, c: isDark ? "text-red-400" : "text-red-600" }, { l: "Consultants", v: consultants.length, c: isDark ? "text-purple-400" : "text-purple-600" }, { l: "Projects", v: projects.length, c: n.label }, { l: "Hours", v: stats.totalHours.toFixed(1), c: isDark ? "text-amber-400" : "text-amber-600" }].map((s, i) => (
+                            <div key={i} className={`${n.card} ${n.edgeHover} p-4 transition-all duration-200 hover:scale-[1.02]`}><span className={`${n.label} text-[11px] uppercase tracking-wider`}>{s.l}</span><p className={`text-2xl font-semibold ${s.c || n.strong} mt-1`}>{s.v}</p></div>
                         ))}
                     </div>
 
@@ -195,7 +202,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                         {/* Log Status */}
                         <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
                             <h3 className={`text-sm font-semibold mb-4 flex items-center gap-2 ${n.text}`}><BarChart3 className={`w-4 h-4 ${n.label}`} />Time Log Status</h3>
-                            <div className="space-y-3">{[{ l: "Pending", v: stats.pendingLogs, c: "bg-amber-500", t: "text-amber-400" }, { l: "Approved", v: stats.approvedLogs, c: "bg-emerald-500", t: "text-emerald-400" }, { l: "Denied", v: stats.deniedLogs, c: "bg-red-500", t: "text-red-400" }].map((x, i) => (<div key={i}><div className={`flex justify-between text-xs mb-1 ${n.tertiary}`}><span>{x.l}</span><span className={x.t}>{x.v}</span></div><div className={`h-2 ${n.barBg} rounded-full overflow-hidden`}><div className={`h-full ${x.c} rounded-full`} style={{ width: `${hoursLogs.length ? (x.v / hoursLogs.length) * 100 : 0}%` }} /></div></div>))}</div>
+                            <div className="space-y-3">{[{ l: "Pending", v: stats.pendingLogs, c: "bg-amber-500", t: isDark ? "text-amber-400" : "text-amber-600" }, { l: "Approved", v: stats.approvedLogs, c: "bg-emerald-500", t: isDark ? "text-emerald-400" : "text-emerald-600" }, { l: "Denied", v: stats.deniedLogs, c: "bg-red-500", t: isDark ? "text-red-400" : "text-red-600" }].map((x, i) => (<div key={i}><div className={`flex justify-between text-xs mb-1 ${n.tertiary}`}><span>{x.l}</span><span className={x.t}>{x.v}</span></div><div className={`h-2 ${n.barBg} rounded-full overflow-hidden`}><div className={`h-full ${x.c} rounded-full`} style={{ width: `${hoursLogs.length ? (x.v / hoursLogs.length) * 100 : 0}%` }} /></div></div>))}</div>
                         </div>
                         {/* Hours by consultant */}
                         <div className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200`}>
@@ -204,7 +211,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                         </div>
                     </div>
 
-                    {alerts.length > 0 && <div className={`${n.card} p-5`}><h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${n.text}`}><AlertTriangle className="w-4 h-4 text-amber-400" />Alerts</h3><div className="space-y-1.5">{alerts.slice(0, 3).map(a => (<div key={a.id} className={`${n.flat} p-2.5 flex items-center gap-2 text-xs`}><AlertTriangle className={`w-3 h-3 ${a.type === "error" ? "text-red-400" : a.type === "warning" ? "text-amber-400" : "text-blue-400"}`} /><span className={n.text}>{a.message}</span></div>))}</div></div>}
+                    {alerts.length > 0 && <div className={`${n.card} p-5`}><h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${n.text}`}><AlertTriangle className={`w-4 h-4 ${isDark ? "text-amber-400" : "text-amber-600"}`} />Alerts</h3><div className="space-y-1.5">{alerts.slice(0, 3).map(a => (<div key={a.id} className={`${n.flat} p-2.5 flex items-center gap-2 text-xs`}><AlertTriangle className={`w-3 h-3 ${a.type === "error" ? (isDark ? "text-red-400" : "text-red-600") : a.type === "warning" ? (isDark ? "text-amber-400" : "text-amber-600") : n.label}`} /><span className={n.text}>{a.message}</span></div>))}</div></div>}
                 </div>)}
 
                 {/* ═══ CLIENTS ═══ */}
@@ -219,11 +226,11 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                                     <div className="col-span-4 flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{u.firstName[0]}{u.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{u.firstName} {u.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{u.clientCode}</p></div></div>
                                     <div className="col-span-4 flex items-center"><span className={`${n.secondary} text-sm truncate`}>{u.email}</span></div>
                                     <div className="col-span-2 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${statusBadge(u.status || "active")}`}>{fmtStatus(u.status || "active")}</span></div>
-                                    <div className="col-span-2 flex items-center justify-end gap-1"><button onClick={e => { e.stopPropagation(); setSelectedUser(u); setShowResetPwModal(true); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Key className={`w-3.5 h-3.5 ${n.tertiary}`} /></button><button onClick={e => { e.stopPropagation(); toggleUserSusp(u); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Ban className={`w-3.5 h-3.5 ${u.status === "suspended" ? "text-red-400" : n.tertiary}`} /></button></div>
+                                    <div className="col-span-2 flex items-center justify-end gap-1"><button onClick={e => { e.stopPropagation(); setSelectedUser(u); setShowResetPwModal(true); }} className={`p-1.5 ${n.actionHover} rounded-lg`}><Key className={`w-3.5 h-3.5 ${n.tertiary}`} /></button><button onClick={e => { e.stopPropagation(); toggleUserSusp(u); }} className={`p-1.5 ${n.actionHover} rounded-lg`}><Ban className={`w-3.5 h-3.5 ${u.status === "suspended" ? "text-red-400" : n.tertiary}`} /></button></div>
                                 </div>
                             ))}
                         </div>
-                        <div className={`${n.card} p-5`}>{selectedUser ? (<div className="space-y-4"><div className="flex items-center gap-3"><div className={`w-12 h-12 ${n.inset} rounded-full flex items-center justify-center text-sm font-semibold ${n.secondary}`}>{selectedUser.firstName[0]}{selectedUser.lastName[0]}</div><div><h3 className={`font-semibold ${n.text}`}>{selectedUser.firstName} {selectedUser.lastName}</h3><p className={`${n.tertiary} text-xs`}>{selectedUser.clientCode}</p></div></div><div className={`space-y-2.5 pt-3 border-t ${n.divider}`}><div className="flex items-center gap-3"><Mail className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{selectedUser.email}</span></div><div className="flex items-center gap-3"><Shield className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm capitalize ${n.text}`}>{selectedUser.role}</span></div><div className="flex items-center gap-3"><UserCheck className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm capitalize ${selectedUser.status === "active" ? "text-emerald-400" : selectedUser.status === "suspended" ? "text-red-400" : n.secondary}`}>{selectedUser.status}</span></div><div className="flex items-center gap-3"><Key className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm font-mono ${n.text}`}>{selectedUser.tempPassword}</span></div></div><div className={`flex gap-2 pt-3 border-t ${n.divider}`}><button onClick={() => { setNewRole(selectedUser.role || "client"); setShowRoleModal(true); }} className={`flex-1 px-3 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Role</button><button onClick={() => setShowResetPwModal(true)} className={`flex-1 px-3 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>Reset PW</button></div></div>) : (<div className={`flex flex-col items-center justify-center h-64 ${n.tertiary}`}><Users className="w-10 h-10 mb-2 opacity-30" /><p className="text-sm">Select a client</p></div>)}</div>
+                        <div className={`${n.card} p-5`}>{selectedUser ? (<div className="space-y-4"><div className="flex items-center gap-3"><div className={`w-12 h-12 ${n.inset} rounded-full flex items-center justify-center text-sm font-semibold ${n.secondary}`}>{selectedUser.firstName[0]}{selectedUser.lastName[0]}</div><div><h3 className={`font-semibold ${n.text}`}>{selectedUser.firstName} {selectedUser.lastName}</h3><p className={`${n.tertiary} text-xs`}>{selectedUser.clientCode}</p></div></div><div className={`space-y-2.5 pt-3 border-t ${n.divider}`}><div className="flex items-center gap-3"><Mail className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm ${n.text}`}>{selectedUser.email}</span></div><div className="flex items-center gap-3"><Shield className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm capitalize ${n.text}`}>{selectedUser.role}</span></div><div className="flex items-center gap-3"><UserCheck className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm capitalize ${selectedUser.status === "active" ? (isDark ? "text-emerald-400" : "text-emerald-600") : selectedUser.status === "suspended" ? (isDark ? "text-red-400" : "text-red-600") : n.secondary}`}>{selectedUser.status}</span></div><div className="flex items-center gap-3"><Key className={`w-3.5 h-3.5 ${n.tertiary}`} /><span className={`text-sm font-mono ${n.text}`}>{selectedUser.tempPassword}</span></div></div><div className={`flex gap-2 pt-3 border-t ${n.divider}`}><button onClick={() => { setNewRole(selectedUser.role || "client"); setShowRoleModal(true); }} className={`flex-1 px-3 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Role</button><button onClick={() => setShowResetPwModal(true)} className={`flex-1 px-3 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>Reset PW</button></div></div>) : (<div className={`flex flex-col items-center justify-center h-64 ${n.tertiary}`}><Users className="w-10 h-10 mb-2 opacity-30" /><p className="text-sm">Select a client</p></div>)}</div>
                     </div>
                 </div>)}
 
@@ -236,10 +243,10 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                             {consultants.length === 0 ? <div className={`${n.flat} text-center py-12`}><Briefcase className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} /><p className={`text-sm ${n.secondary}`}>No consultants</p></div> : consultants.map(c => (
                                 <div key={c.consultantId} onClick={() => setSelectedConsultant(c)} className={`${n.flat} ${n.edgeHoverFlat} grid grid-cols-12 gap-4 px-4 py-3 cursor-pointer transition-all duration-200 ${selectedConsultant?.consultantId === c.consultantId ? "ring-1 ring-blue-500/30" : ""}`}>
                                     <div className="col-span-4 flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.consultantCode}</p></div></div>
-                                    <div className="col-span-2 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-400`}>{c.role || "Consultant"}</span></div>
+                                    <div className="col-span-2 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700"}`}>{c.role || "Consultant"}</span></div>
                                     <div className="col-span-2 flex items-center"><span className={`${n.secondary} text-sm`}>{getConHours(c.consultantId)}h</span></div>
                                     <div className="col-span-2 flex items-center"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${statusBadge(c.status || "active")}`}>{fmtStatus(c.status || "active")}</span></div>
-                                    <div className="col-span-2 flex items-center justify-end"><button onClick={e => { e.stopPropagation(); toggleConSusp(c); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Ban className={`w-3.5 h-3.5 ${c.status === "suspended" ? "text-red-400" : n.tertiary}`} /></button></div>
+                                    <div className="col-span-2 flex items-center justify-end"><button onClick={e => { e.stopPropagation(); toggleConSusp(c); }} className={`p-1.5 ${n.actionHover} rounded-lg`}><Ban className={`w-3.5 h-3.5 ${c.status === "suspended" ? "text-red-400" : n.tertiary}`} /></button></div>
                                 </div>
                             ))}
                         </div>
@@ -280,8 +287,8 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                                 <div className="col-span-1"><span className={`${n.label} text-sm font-semibold`}>{l.hours}h</span></div>
                                 <div className="col-span-1"><span className={`text-[10px] px-2 py-0.5 rounded-lg ${approvalBadge(l.approvalStatus || "pending")}`}>{fmtStatus(l.approvalStatus || "pending")}</span></div>
                                 <div className="col-span-2 flex items-center justify-end gap-1">
-                                    <button onClick={() => approveLog(l.logId)} className={`p-1.5 rounded-lg ${l.approvalStatus === "approved" ? "bg-emerald-500/20" : isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><CheckCircle className={`w-3.5 h-3.5 ${l.approvalStatus === "approved" ? "text-emerald-400" : n.tertiary}`} /></button>
-                                    <button onClick={() => denyLog(l.logId)} className={`p-1.5 rounded-lg ${l.approvalStatus === "denied" ? "bg-red-500/20" : isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"}`}><XCircle className={`w-3.5 h-3.5 ${l.approvalStatus === "denied" ? "text-red-400" : n.tertiary}`} /></button>
+                                    <button onClick={() => approveLog(l.logId)} className={`p-1.5 rounded-lg ${l.approvalStatus === "approved" ? (isDark ? "bg-emerald-500/20" : "bg-emerald-100") : n.actionHover}`}><CheckCircle className={`w-3.5 h-3.5 ${l.approvalStatus === "approved" ? (isDark ? "text-emerald-400" : "text-emerald-600") : n.tertiary}`} /></button>
+                                    <button onClick={() => denyLog(l.logId)} className={`p-1.5 rounded-lg ${l.approvalStatus === "denied" ? (isDark ? "bg-red-500/20" : "bg-red-100") : n.actionHover}`}><XCircle className={`w-3.5 h-3.5 ${l.approvalStatus === "denied" ? (isDark ? "text-red-400" : "text-red-600") : n.tertiary}`} /></button>
                                 </div>
                             </div>
                         ))}
@@ -291,11 +298,11 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                 {/* ═══ ALERTS ═══ */}
                 {currentView === "alerts" && (<div className="space-y-6">
                     <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Alerts</h2><button onClick={() => { setEditingAlert(null); setAlertMsg(""); setAlertType("info"); setAlertExpiry(""); setShowAlertModal(true); }} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl text-sm flex items-center gap-2`}><Plus className="w-3.5 h-3.5" />Create</button></div>
-                    {alerts.length === 0 ? <div className={`${n.card} p-8 text-center`}><Check className="w-10 h-10 text-emerald-400 mx-auto mb-3" /><p className={n.text}>No alerts</p></div> : <div className="space-y-1.5">{alerts.map(a => (
+                    {alerts.length === 0 ? <div className={`${n.card} p-8 text-center`}><Check className={`w-10 h-10 ${isDark ? "text-emerald-400" : "text-emerald-600"} mx-auto mb-3`} /><p className={n.text}>No alerts</p></div> : <div className="space-y-1.5">{alerts.map(a => (
                         <div key={a.id} className={`${n.card} ${n.edgeHover} p-4 flex items-start gap-3 transition-all duration-200`}>
-                            <AlertTriangle className={`w-4 h-4 mt-0.5 ${a.type === "error" ? "text-red-400" : a.type === "warning" ? "text-amber-400" : "text-blue-400"}`} />
+                            <AlertTriangle className={`w-4 h-4 mt-0.5 ${a.type === "error" ? (isDark ? "text-red-400" : "text-red-600") : a.type === "warning" ? (isDark ? "text-amber-400" : "text-amber-600") : n.label}`} />
                             <div className="flex-1"><p className={`${n.text} text-sm`}>{a.message}</p><div className={`flex items-center gap-4 mt-1`}><p className={`text-[10px] ${n.tertiary}`}>{fmtDate(a.timestamp)}</p>{a.expiresAt && <p className={`text-[10px] ${n.tertiary} flex items-center gap-1`}><Timer className="w-3 h-3" />Expires: {fmtDate(a.expiresAt)}</p>}{a.isCustom && <span className={`text-[10px] px-1.5 py-0.5 rounded ${n.badge}`}>Custom</span>}</div></div>
-                            {a.isCustom && <div className="flex items-center gap-1"><button onClick={() => { setEditingAlert(a); setAlertMsg(a.message); setAlertType(a.type); setAlertExpiry(a.expiresAt || ""); setShowAlertModal(true); }} className={`p-1.5 ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-200"} rounded-lg`}><Edit2 className={`w-3.5 h-3.5 ${n.tertiary}`} /></button><button onClick={() => deleteAlert(a.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button></div>}
+                            {a.isCustom && <div className="flex items-center gap-1"><button onClick={() => { setEditingAlert(a); setAlertMsg(a.message); setAlertType(a.type); setAlertExpiry(a.expiresAt || ""); setShowAlertModal(true); }} className={`p-1.5 ${n.actionHover} rounded-lg`}><Edit2 className={`w-3.5 h-3.5 ${n.tertiary}`} /></button><button onClick={() => deleteAlert(a.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button></div>}
                         </div>
                     ))}</div>}
                 </div>)}
@@ -303,6 +310,8 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                 {/* ═══ DELEGATED VIEWS ═══ */}
                 {currentView === "documents" && <AdminDocumentRequests adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
                 {currentView === "messages" && <AdminMessages adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
+
+                </div>
             </div>
 
             {/* ═══ MODALS ═══ */}
@@ -317,14 +326,14 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                 <div className="flex gap-3"><button onClick={() => { setShowRoleModal(false); setSelectedUser(null); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={handleChangeRole} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>Save</button></div>
             </Modal>
 
-            <Modal show={showAnnounceModal} onClose={() => { setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); }} title="Announcement" icon={<Megaphone className="w-5 h-5 text-purple-400" />}>
+            <Modal show={showAnnounceModal} onClose={() => { setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); }} title="Announcement" icon={<Megaphone className={`w-5 h-5 ${isDark ? "text-purple-400" : "text-purple-600"}`} />}>
                 <div><label className={`${n.label} text-[11px] block mb-1`}>Send To</label><select value={announceTarget} onChange={e => setAnnounceTarget(e.target.value as any)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="all">All ({users.length + consultants.length})</option><option value="clients">Clients ({users.length})</option><option value="consultants">Consultants ({consultants.length})</option></select></div>
                 <div><label className={`${n.label} text-[11px] block mb-1`}>Subject</label><input type="text" value={announceSubject} onChange={e => setAnnounceSubject(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
                 <div><label className={`${n.label} text-[11px] block mb-1`}>Message</label><textarea value={announceBody} onChange={e => setAnnounceBody(e.target.value)} rows={6} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none`} /></div>
                 <div className="flex gap-3"><button onClick={() => { setShowAnnounceModal(false); setAnnounceSubject(""); setAnnounceBody(""); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button><button onClick={sendAnnounce} className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm flex items-center justify-center gap-2"><Megaphone className="w-3.5 h-3.5" />Send</button></div>
             </Modal>
 
-            <Modal show={showAlertModal} onClose={() => { setShowAlertModal(false); setEditingAlert(null); setAlertMsg(""); setAlertExpiry(""); }} title={editingAlert ? "Edit Alert" : "Create Alert"} icon={<AlertTriangle className="w-5 h-5 text-amber-400" />}>
+            <Modal show={showAlertModal} onClose={() => { setShowAlertModal(false); setEditingAlert(null); setAlertMsg(""); setAlertExpiry(""); }} title={editingAlert ? "Edit Alert" : "Create Alert"} icon={<AlertTriangle className={`w-5 h-5 ${isDark ? "text-amber-400" : "text-amber-600"}`} />}>
                 <div><label className={`${n.label} text-[11px] block mb-1`}>Type</label><select value={alertType} onChange={e => setAlertType(e.target.value as AlertType)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="info">Info</option><option value="warning">Warning</option><option value="error">Error</option></select></div>
                 <div><label className={`${n.label} text-[11px] block mb-1`}>Message</label><input type="text" value={alertMsg} onChange={e => setAlertMsg(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
                 <div><label className={`${n.label} text-[11px] block mb-1`}>Expires (optional)</label><input type="datetime-local" value={alertExpiry} onChange={e => setAlertExpiry(e.target.value)} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
