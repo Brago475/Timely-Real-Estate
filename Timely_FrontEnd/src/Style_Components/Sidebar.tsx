@@ -1,5 +1,5 @@
 // src/Style_Components/Sidebar.tsx
-import React, { useState } from "react";
+import React from "react";
 import { Home, FolderOpen, Users, UserCheck, BarChart3, Clock, Settings, LogOut, ChevronLeft, ChevronRight, ArrowLeft, Shield, UserPlus, MessageCircle } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import { getGradient } from "./Navbar";
@@ -9,10 +9,10 @@ type Props = { sidebarToggle: boolean; setSidebarToggle?: (v: boolean) => void; 
 
 const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate, onBack, isAdmin, activePage = "dashboard", userName = "User", userEmail = "", userRole = "client" }) => {
     const { isDark } = useTheme();
-    const [hovered, setHovered] = useState<string | null>(null);
     const isConsultant = userRole === "consultant";
 
     const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
+    const gb = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
 
     const n = {
         sidebar: isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
@@ -48,21 +48,18 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
         { id: "InviteMembers", label: "Invite Members", icon: UserPlus },
     ];
 
-    const NavItem = ({ id, label, icon: Icon, isActive, isLogout = false }: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; isActive: boolean; isLogout?: boolean }) => {
-        const isHovered = hovered === id;
-        return (
-            <li className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 ${isActive ? n.pressed : isLogout ? "hover:bg-red-500/10" : hover}`}
-                onClick={() => onNavigate(id)} onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)}>
-                {isActive && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 ${n.activeBar} rounded-r-full`} />}
-                <div className={`px-3 py-2.5 flex items-center gap-3 transition-colors duration-200 ${isActive ? n.label : isLogout ? "text-red-500" : isDark ? "text-gray-300" : "text-gray-800"} ${isHovered && !isActive && !isLogout ? (isDark ? "text-blue-400" : "text-blue-600") : ""}`}>
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${isActive ? n.activeIcon : isLogout ? "bg-red-500/10 text-red-500" : n.inset} ${isHovered && !isActive && !isLogout ? "scale-105" : ""}`}>
-                        <Icon className="w-4 h-4" />
-                    </div>
-                    <span className={`text-sm font-medium ${isActive ? n.text : ""}`}>{label}</span>
+    const NavItem = ({ id, label, icon: Icon, isActive, isLogout = false }: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; isActive: boolean; isLogout?: boolean }) => (
+        <li className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 group ${isActive ? n.pressed : isLogout ? "hover:bg-red-500/10" : hover}`}
+            onClick={() => onNavigate(id)}>
+            {isActive && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 ${n.activeBar} rounded-r-full`} />}
+            <div className={`px-3 py-2.5 flex items-center gap-3 transition-colors duration-200 ${isActive ? n.label : isLogout ? "text-red-500" : isDark ? "text-gray-300" : "text-gray-800"}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${isActive ? n.activeIcon : isLogout ? "bg-red-500/10 text-red-500" : n.inset} ${!isActive && !isLogout ? "group-hover:scale-105" : ""}`}>
+                    <Icon className="w-4 h-4" />
                 </div>
-            </li>
-        );
-    };
+                <span className={`text-sm font-medium ${isActive ? n.text : ""} ${!isActive && !isLogout ? gb : ""} transition-colors`}>{label}</span>
+            </div>
+        </li>
+    );
 
     return (
         <aside className={`${sidebarToggle ? "w-0 -translate-x-full" : "w-72 translate-x-0"} ${n.sidebar} fixed top-0 left-0 h-full border-r transition-all duration-300 ease-in-out z-40 overflow-hidden`}>
@@ -89,7 +86,7 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                 {/* Main Nav */}
                 <div className="flex-1 overflow-y-auto">
                     <div className="mb-6">
-                        <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.tertiary}`}>Menu</p>
+                        <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.label}`}>Menu</p>
                         <ul>{menuItems.map(item => <NavItem key={item.id} id={item.id} label={item.label} icon={item.icon} isActive={activePage === item.id} />)}</ul>
                     </div>
 
@@ -109,13 +106,13 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                         <NavItem id="logout" label="Logout" icon={LogOut} isActive={false} isLogout />
                     </ul>
 
-                    {/* User Card — gradient avatar */}
+                    {/* User Card — gradient avatar + hover */}
                     <div onClick={() => onNavigate("profile")} className={`mt-3 p-3 ${n.card} ${hover} group rounded-xl transition-all duration-200 cursor-pointer`}>
                         <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center text-xs font-semibold text-white shadow-sm`}>{initials}</div>
                             <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium ${n.text} ${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} truncate transition-colors`}>{userName}</p>
-                                <p className={`text-[11px] ${n.tertiary} ${isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600"} truncate transition-colors`}>{roleLabel}</p>
+                                <p className={`text-sm font-medium ${n.text} ${gb} truncate transition-colors`}>{userName}</p>
+                                <p className={`text-[11px] ${n.tertiary} ${gb} truncate transition-colors`}>{roleLabel}</p>
                             </div>
                             <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
                         </div>
