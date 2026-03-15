@@ -96,8 +96,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const { isDark } = useTheme();
 
-    // ONE hover for the entire app
+    // ONE hover
     const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
+    // Text that turns blue on group hover
+    const ghBlue = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
 
     const n = {
         bg: isDark ? "neu-bg-dark" : "neu-bg-light",
@@ -107,8 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
         text: isDark ? "text-white" : "text-gray-900",
         strong: isDark ? "text-white" : "text-black",
-        // Stronger greys — visible in both modes
-        secondary: isDark ? "text-gray-300" : "text-gray-600",
+        secondary: isDark ? "text-gray-200" : "text-gray-600",
         tertiary: isDark ? "text-gray-400" : "text-gray-500",
         label: isDark ? "text-blue-400" : "text-blue-600",
         link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
@@ -224,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </FadeIn>
 
-                {/* Stats */}
+                {/* Stats — cards with scale animation + blue hover */}
                 <FadeIn delay={50}>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
                         {[
@@ -234,7 +235,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             { label: "Hours", value: fmtH(stats.weekH), detail: "this week", page: "hours" },
                         ].map((st, i) => (
                             <div key={i} onClick={() => nav(st.page)}
-                                className={`${n.card} ${hover} p-5 cursor-pointer transition-all duration-200 rounded-2xl`}>
+                                className={`${n.card} ${hover} p-5 cursor-pointer transition-all duration-200 rounded-2xl hover:scale-[1.02] group`}>
                                 <p className={`text-[11px] uppercase tracking-wider ${n.label} mb-3`}>{st.label}</p>
                                 <p className={`text-3xl font-semibold tracking-tight ${n.strong}`}>{st.value}</p>
                                 <p className={`text-xs ${n.secondary} mt-1`}>{st.detail}</p>
@@ -243,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </FadeIn>
 
-                {/* Quick Actions */}
+                {/* Quick Actions — BLACK text, blue hover bg */}
                 <FadeIn delay={80}>
                     <div className={`${n.card} p-2 mb-10 flex items-center gap-1 overflow-x-auto`}>
                         {(isAdmin ? [
@@ -262,7 +263,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             { label: "Documents", page: "settings", icon: FolderOpen },
                         ]).map((a, i) => (
                             <button key={i} onClick={() => nav(a.page)}
-                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.secondary} ${hover} active:scale-95`}>
+                                className={`flex items-center gap-2 text-[13px] px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 ${n.text} ${hover} active:scale-95`}>
                                 <a.icon className="w-3.5 h-3.5" />
                                 {a.label}
                             </button>
@@ -282,9 +283,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {alerts.map((a, i) => (
                                             <div key={i} onClick={() => a.page && nav(a.page)}
-                                                className={`${n.flat} ${hover} flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
+                                                className={`${n.flat} ${hover} group flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                                                <p className={`text-sm ${n.text} flex-1`}>{a.msg}</p>
+                                                <p className={`text-sm ${n.text} ${ghBlue} flex-1 transition-colors`}>{a.msg}</p>
                                                 <ArrowRight className={`w-3.5 h-3.5 ${n.tertiary}`} />
                                             </div>
                                         ))}
@@ -293,7 +294,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </FadeIn>
                         )}
 
-                        {/* Progress */}
+                        {/* Completion — BLACK text */}
                         <FadeIn delay={130}>
                             <div className={`${n.card} ${hover} p-6 transition-all duration-200 rounded-2xl`}>
                                 <div className="flex items-center justify-between mb-4">
@@ -305,7 +306,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                         <div className={`h-full ${n.progress} rounded-full transition-all duration-700`} style={{ width: `${stats.progress}%` }} />
                                     </div>
                                 </div>
-                                <div className={`flex gap-4 mt-4 text-xs ${n.secondary}`}>
+                                <div className={`flex gap-4 mt-4 text-xs ${n.text}`}>
                                     <span>{stats.completed} completed</span>
                                     <span>{stats.active} active</span>
                                     <span>{stats.planning} planning</span>
@@ -314,7 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Projects — status badges colored */}
+                        {/* Projects — row hover: bg blue + name turns blue */}
                         <FadeIn delay={160}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -331,12 +332,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {projects.slice(0, 6).map(p => (
                                             <div key={p.projectId} onClick={() => nav("projects")}
-                                                className={`${n.flat} ${hover} flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
+                                                className={`${n.flat} ${hover} group flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-9 h-9 rounded-xl ${n.inset} flex items-center justify-center flex-shrink-0`}>
                                                     <FolderOpen className={`w-4 h-4 ${n.secondary}`} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${n.text} truncate`}>{p.projectName}</p>
+                                                    <p className={`text-sm font-medium ${n.text} ${ghBlue} truncate transition-colors`}>{p.projectName}</p>
                                                     <p className={`text-[11px] ${n.tertiary}`}>{p.projectCode}{p.clientName ? ` · ${p.clientName}` : ""}</p>
                                                 </div>
                                                 <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${getStatusBadge(p.status, isDark)}`}>
@@ -430,7 +431,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Clients */}
+                        {/* Clients — row hover: bg blue + name turns blue */}
                         <FadeIn delay={150}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -443,12 +444,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {clients.slice(0, 5).map(c => (
                                             <div key={c.customerId} onClick={() => nav("client")}
-                                                className={`${n.flat} ${hover} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
+                                                className={`${n.flat} ${hover} group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${n.text} truncate`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-sm font-medium ${n.text} ${ghBlue} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
                                                     <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
                                                 </div>
                                             </div>
@@ -458,7 +459,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Team */}
+                        {/* Team — row hover: bg blue + name turns blue */}
                         <FadeIn delay={200}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -471,12 +472,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <div className={`${n.card} p-1.5 space-y-1.5`}>
                                         {consultants.slice(0, 5).map(c => (
                                             <div key={c.consultantId} onClick={() => nav("consultants")}
-                                                className={`${n.flat} ${hover} flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
+                                                className={`${n.flat} ${hover} group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
                                                     {c.firstName?.[0]}{c.lastName?.[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium ${n.text} truncate`}>{c.firstName} {c.lastName}</p>
+                                                    <p className={`text-sm font-medium ${n.text} ${ghBlue} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
                                                     <p className={`text-[11px] ${n.tertiary} truncate`}>{c.email}</p>
                                                 </div>
                                             </div>
