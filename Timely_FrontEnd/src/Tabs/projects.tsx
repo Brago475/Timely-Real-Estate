@@ -1,7 +1,12 @@
 ﻿// src/Tabs/projects.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../Views_Layouts/ThemeContext';
-import { Calendar, Plus, Search, Filter, ChevronRight, ChevronLeft, Clock, Users, FileText, CheckCircle2, AlertCircle, Target, TrendingUp, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown, UserPlus, UserMinus, FolderOpen, Link2, RefreshCw, Edit2, CheckCircle, Info, List, LayoutGrid, Timer, Play, Pause, Save } from 'lucide-react';
+import {
+    Calendar, Plus, Search, Filter, ChevronRight, Clock, Users, FileText,
+    CheckCircle2, AlertCircle, Target, TrendingUp, X, Trash2, UserPlus,
+    UserMinus, FolderOpen, Link2, RefreshCw, Edit2, CheckCircle, Info,
+    Timer, Play, Pause, Save, MapPin, Home, Building2, LayoutGrid
+} from 'lucide-react';
 import AssignmentService from '../services/AssignmentService';
 
 const API_BASE = '/api';
@@ -12,11 +17,16 @@ const STORAGE_KEYS = {
 };
 
 const fmtStatus = (s: string): string => {
-    if (!s) return "Planning";
-    return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    if (!s) return 'Planning';
+    return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
-interface Project { projectId: string; projectCode: string; projectName: string; clientName?: string; description: string; status: string; priority: string; startDate: string; endDate: string; budget: string; createdAt: string; createdBy?: string; }
+interface Project {
+    projectId: string; projectCode: string; projectName: string;
+    clientName?: string; description: string; status: string;
+    priority: string; startDate: string; endDate: string;
+    budget: string; createdAt: string; createdBy?: string;
+}
 interface Consultant { consultantId: string; consultantCode: string; firstName: string; lastName: string; email: string; }
 interface Client { customerId: string; clientCode: string; firstName: string; lastName: string; email: string; }
 interface Toast { id: string; message: string; type: 'success' | 'error' | 'info'; }
@@ -24,7 +34,13 @@ interface TimeEntry { id: string; projectId: string; consultantId: string; consu
 
 type UserRole = 'admin' | 'consultant' | 'client';
 
-const safeFetch = async (url: string) => { try { const r = await fetch(url); if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) return null; return await r.json(); } catch { return null; } };
+const safeFetch = async (url: string) => {
+    try {
+        const r = await fetch(url);
+        if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) return null;
+        return await r.json();
+    } catch { return null; }
+};
 
 const getCurrentUserRole = (): { role: UserRole; email: string; customerId?: string; name?: string; consultantId?: string } => {
     try {
@@ -37,6 +53,53 @@ const getCurrentUserRole = (): { role: UserRole; email: string; customerId?: str
         }
         return { role: 'client', email: parsed.email || '' };
     } catch { return { role: 'admin', email: 'admin@timely.com' }; }
+};
+
+// Cover gradient palette — dark, premium, blue-accented to match neumorphic system
+const COVER_GRADIENTS = [
+    ['#0d1b2e', '#1a3a5c'],
+    ['#111827', '#1e3a52'],
+    ['#0f1f35', '#1c3554'],
+    ['#0c1a2e', '#163050'],
+    ['#13202f', '#1b3349'],
+    ['#0e1c30', '#1a3358'],
+    ['#101e32', '#1d3a5e'],
+    ['#0b1825', '#142e4a'],
+];
+
+const COVER_ACCENTS = [
+    'radial-gradient(circle at 20% 80%, rgba(59,130,246,0.25) 0%, transparent 60%)',
+    'radial-gradient(circle at 80% 20%, rgba(59,130,246,0.2) 0%, transparent 55%)',
+    'radial-gradient(circle at 50% 50%, rgba(37,99,235,0.18) 0%, transparent 65%)',
+    'radial-gradient(circle at 10% 30%, rgba(96,165,250,0.2) 0%, transparent 50%)',
+    'radial-gradient(circle at 75% 70%, rgba(59,130,246,0.22) 0%, transparent 58%)',
+    'radial-gradient(circle at 30% 60%, rgba(37,99,235,0.2) 0%, transparent 55%)',
+    'radial-gradient(circle at 60% 20%, rgba(96,165,250,0.18) 0%, transparent 52%)',
+    'radial-gradient(circle at 15% 85%, rgba(59,130,246,0.24) 0%, transparent 60%)',
+];
+
+const getCoverStyle = (pid: string): React.CSSProperties => {
+    const hash = pid.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const [from, to] = COVER_GRADIENTS[hash % COVER_GRADIENTS.length];
+    const accent = COVER_ACCENTS[hash % COVER_ACCENTS.length];
+    return {
+        background: `${accent}, linear-gradient(145deg, ${from} 0%, ${to} 100%)`,
+    };
+};
+
+// Decorative property icon grid for cover area (subtle texture)
+const CoverDecoration: React.FC<{ pid: string }> = ({ pid }) => {
+    const hash = pid.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const Icon = hash % 3 === 0 ? Home : hash % 3 === 1 ? Building2 : FolderOpen;
+    return (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+            <Icon className="w-28 h-28 opacity-[0.04] text-white" strokeWidth={1} />
+            <div
+                className="absolute bottom-0 left-0 right-0 h-1 opacity-20"
+                style={{ background: 'linear-gradient(90deg, transparent, rgba(96,165,250,0.8), transparent)' }}
+            />
+        </div>
+    );
 };
 
 const RealEstateProjects: React.FC = () => {
@@ -76,8 +139,13 @@ const RealEstateProjects: React.FC = () => {
     const isClient = userRole === 'client';
     const canEdit = isAdmin || isConsultant;
 
+    // ─── State ────────────────────────────────────────────────────────────────
     const [toasts, setToasts] = useState<Toast[]>([]);
-    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => { const id = `t_${Date.now()}`; setToasts(p => [...p, { id, message, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000); };
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        const id = `t_${Date.now()}`;
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
+    };
 
     const [projects, setProjects] = useState<Project[]>([]);
     const [consultants, setConsultants] = useState<Consultant[]>([]);
@@ -93,32 +161,33 @@ const RealEstateProjects: React.FC = () => {
     const [showClientsModal, setShowClientsModal] = useState(false);
     const [showTimeModal, setShowTimeModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-    const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [showFilters, setShowFilters] = useState(false);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const [sortConfig, setSortConfig] = useState({ field: 'createdAt', direction: 'desc' as 'asc' | 'desc' });
-    const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
-    const [ganttStartDate, setGanttStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d; });
 
     const [timeForm, setTimeForm] = useState({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] });
     const [activeTimer, setActiveTimer] = useState<{ projectId: string; startTime: number } | null>(null);
     const [timerDisplay, setTimerDisplay] = useState('00:00:00');
 
-    const emptyForm = { projectName: '', description: '', status: 'planning', priority: 'medium', startDate: new Date().toISOString().split('T')[0], endDate: '', budget: '', selectedConsultants: [] as string[], selectedClients: [] as string[] };
+    const emptyForm = {
+        projectName: '', description: '', status: 'planning', priority: 'medium',
+        startDate: new Date().toISOString().split('T')[0], endDate: '', budget: '',
+        selectedConsultants: [] as string[], selectedClients: [] as string[]
+    };
     const [projectForm, setProjectForm] = useState(emptyForm);
 
     const statuses = [
-        { value: 'planning', label: 'Planning', color: 'bg-blue-600', icon: Target },
-        { value: 'in_progress', label: 'In Progress', color: 'bg-emerald-600', icon: TrendingUp },
-        { value: 'active', label: 'Active', color: 'bg-emerald-600', icon: TrendingUp },
-        { value: 'on_hold', label: 'On Hold', color: 'bg-amber-600', icon: Clock },
-        { value: 'completed', label: 'Completed', color: 'bg-gray-600', icon: CheckCircle2 },
-        { value: 'cancelled', label: 'Cancelled', color: 'bg-red-600', icon: X },
+        { value: 'planning',     label: 'Planning',     color: 'bg-blue-600',    icon: Target },
+        { value: 'in_progress',  label: 'In Progress',  color: 'bg-emerald-600', icon: TrendingUp },
+        { value: 'active',       label: 'Active',       color: 'bg-emerald-600', icon: TrendingUp },
+        { value: 'on_hold',      label: 'On Hold',      color: 'bg-amber-600',   icon: Clock },
+        { value: 'completed',    label: 'Completed',    color: 'bg-gray-600',    icon: CheckCircle2 },
+        { value: 'cancelled',    label: 'Cancelled',    color: 'bg-red-600',     icon: X },
     ];
 
+    // ─── Effects ─────────────────────────────────────────────────────────────
     useEffect(() => {
         const unsubscribe = AssignmentService.subscribe(() => setAssignmentRefreshKey(k => k + 1));
         const handleCustomEvent = () => setAssignmentRefreshKey(k => k + 1);
@@ -140,6 +209,7 @@ const RealEstateProjects: React.FC = () => {
 
     useEffect(() => { loadAllData(); }, []);
 
+    // ─── Data loading ─────────────────────────────────────────────────────────
     const loadAllData = async () => {
         setRefreshing(true);
         await Promise.all([loadProjects(), loadConsultants(), loadClients()]);
@@ -158,9 +228,14 @@ const RealEstateProjects: React.FC = () => {
     };
 
     const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
-    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/users-report`); if (d?.data) setClients(d.data); };
-    const loadTimeEntries = () => { try { const data = localStorage.getItem(STORAGE_KEYS.timeEntries); if (data) setTimeEntries(JSON.parse(data)); } catch (e) { console.error(e); } };
-    const saveTimeEntries = (data: TimeEntry[]) => { localStorage.setItem(STORAGE_KEYS.timeEntries, JSON.stringify(data)); setTimeEntries(data); };
+    const loadClients    = async () => { const d = await safeFetch(`${API_BASE}/users-report`); if (d?.data) setClients(d.data); };
+    const loadTimeEntries = () => {
+        try { const data = localStorage.getItem(STORAGE_KEYS.timeEntries); if (data) setTimeEntries(JSON.parse(data)); } catch (e) { console.error(e); }
+    };
+    const saveTimeEntries = (data: TimeEntry[]) => {
+        localStorage.setItem(STORAGE_KEYS.timeEntries, JSON.stringify(data));
+        setTimeEntries(data);
+    };
 
     const saveProjectToStorage = (updatedProject: Project) => {
         const local = JSON.parse(localStorage.getItem(STORAGE_KEYS.projects) || '[]');
@@ -169,6 +244,7 @@ const RealEstateProjects: React.FC = () => {
         localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(local));
     };
 
+    // ─── CRUD ─────────────────────────────────────────────────────────────────
     const getClientNameFromSelection = () => {
         if (projectForm.selectedClients.length === 0) return '';
         const c = clients.find(c => c.customerId === projectForm.selectedClients[0]);
@@ -201,7 +277,13 @@ const RealEstateProjects: React.FC = () => {
         } catch (err) { console.error('API Error:', err); }
 
         const timestamp = Date.now();
-        const newProject: Project = { projectId: String(timestamp), projectCode: `PRJ-${String(timestamp).slice(-6)}`, projectName: projectForm.projectName, clientName, description: projectForm.description, status: projectForm.status, priority: projectForm.priority, startDate: projectForm.startDate, endDate: projectForm.endDate, budget: projectForm.budget, createdAt: new Date().toISOString(), createdBy: userEmail };
+        const newProject: Project = {
+            projectId: String(timestamp), projectCode: `PRJ-${String(timestamp).slice(-6)}`,
+            projectName: projectForm.projectName, clientName, description: projectForm.description,
+            status: projectForm.status, priority: projectForm.priority, startDate: projectForm.startDate,
+            endDate: projectForm.endDate, budget: projectForm.budget,
+            createdAt: new Date().toISOString(), createdBy: userEmail
+        };
         const local = JSON.parse(localStorage.getItem(STORAGE_KEYS.projects) || '[]');
         localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify([...local, newProject]));
         if (selectedConsultantIds.length > 0 || selectedClientIds.length > 0) {
@@ -213,7 +295,12 @@ const RealEstateProjects: React.FC = () => {
 
     const updateProject = async () => {
         if (!selectedProject || !canEdit) { showToast('No permission', 'error'); return; }
-        const updated = { ...selectedProject, projectName: projectForm.projectName, description: projectForm.description, status: projectForm.status, priority: projectForm.priority, startDate: projectForm.startDate, endDate: projectForm.endDate, budget: projectForm.budget };
+        const updated = {
+            ...selectedProject,
+            projectName: projectForm.projectName, description: projectForm.description,
+            status: projectForm.status, priority: projectForm.priority,
+            startDate: projectForm.startDate, endDate: projectForm.endDate, budget: projectForm.budget
+        };
         try { await fetch(`${API_BASE}/project-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: updated.projectId, status: updated.status, priority: updated.priority, description: updated.description }) }); } catch {}
         saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
@@ -231,7 +318,6 @@ const RealEstateProjects: React.FC = () => {
         saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === projectId ? updated : p));
         if (selectedProject?.projectId === projectId) setSelectedProject(updated);
-        setShowStatusMenu(null);
         showToast(`Status → ${fmtStatus(newStatus)}`, 'success');
     };
 
@@ -239,8 +325,13 @@ const RealEstateProjects: React.FC = () => {
         if (!isAdmin) { showToast('Only admins can delete', 'error'); return; }
         try {
             const res = await fetch(`${API_BASE}/projects/${pid}`, { method: 'DELETE' });
-            if (res.ok) { AssignmentService.cleanupProjectAssignments(pid); showToast('Project deleted', 'success'); setShowDeleteConfirm(null); setShowDetailsModal(false); setSelectedProject(null); setProjects(prev => prev.filter(p => p.projectId !== pid)); return; }
-        } catch { }
+            if (res.ok) {
+                AssignmentService.cleanupProjectAssignments(pid);
+                showToast('Project deleted', 'success');
+                setShowDeleteConfirm(null); setShowDetailsModal(false); setSelectedProject(null);
+                setProjects(prev => prev.filter(p => p.projectId !== pid)); return;
+            }
+        } catch {}
         const local = JSON.parse(localStorage.getItem(STORAGE_KEYS.projects) || '[]');
         localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(local.filter((p: Project) => p.projectId !== pid)));
         AssignmentService.cleanupProjectAssignments(pid);
@@ -249,13 +340,28 @@ const RealEstateProjects: React.FC = () => {
         showToast('Project deleted', 'success');
     };
 
-    const startTimer = (projectId: string) => { if (!canEdit) { showToast('Only consultants can track time', 'error'); return; } setActiveTimer({ projectId, startTime: Date.now() }); showToast('Timer started', 'info'); };
-    const stopTimer = () => { if (!activeTimer) return; const elapsed = Math.floor((Date.now() - activeTimer.startTime) / 1000); setTimeForm({ hours: Math.floor(elapsed / 3600), minutes: Math.floor((elapsed % 3600) / 60), description: '', date: new Date().toISOString().split('T')[0] }); setSelectedProject(projects.find(p => p.projectId === activeTimer.projectId) || null); setActiveTimer(null); setTimerDisplay('00:00:00'); setShowTimeModal(true); };
+    const startTimer = (projectId: string) => {
+        if (!canEdit) { showToast('Only consultants can track time', 'error'); return; }
+        setActiveTimer({ projectId, startTime: Date.now() });
+        showToast('Timer started', 'info');
+    };
+    const stopTimer = () => {
+        if (!activeTimer) return;
+        const elapsed = Math.floor((Date.now() - activeTimer.startTime) / 1000);
+        setTimeForm({ hours: Math.floor(elapsed / 3600), minutes: Math.floor((elapsed % 3600) / 60), description: '', date: new Date().toISOString().split('T')[0] });
+        setSelectedProject(projects.find(p => p.projectId === activeTimer.projectId) || null);
+        setActiveTimer(null); setTimerDisplay('00:00:00'); setShowTimeModal(true);
+    };
 
     const addTimeEntry = () => {
         if (!selectedProject || !canEdit) return;
         if (timeForm.hours === 0 && timeForm.minutes === 0) { showToast('Enter time worked', 'error'); return; }
-        const entry: TimeEntry = { id: `time_${Date.now()}`, projectId: selectedProject.projectId, consultantId: userConsultantId || userEmail, consultantName: userName || userEmail, date: timeForm.date, hours: timeForm.hours, minutes: timeForm.minutes, description: timeForm.description, createdAt: new Date().toISOString() };
+        const entry: TimeEntry = {
+            id: `time_${Date.now()}`, projectId: selectedProject.projectId,
+            consultantId: userConsultantId || userEmail, consultantName: userName || userEmail,
+            date: timeForm.date, hours: timeForm.hours, minutes: timeForm.minutes,
+            description: timeForm.description, createdAt: new Date().toISOString()
+        };
         saveTimeEntries([...timeEntries, entry]);
         setTimeForm({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] });
         setShowTimeModal(false);
@@ -270,57 +376,63 @@ const RealEstateProjects: React.FC = () => {
         showToast('Entry deleted', 'success');
     };
 
+    // ─── Assignments ──────────────────────────────────────────────────────────
     const getProjectTimeEntries = (pid: string) => timeEntries.filter(te => te.projectId === pid);
-    const getProjectTotalTime = (pid: string) => { const entries = getProjectTimeEntries(pid); const totalMin = entries.reduce((s, e) => s + (e.hours * 60) + e.minutes, 0); return { hours: Math.floor(totalMin / 60), minutes: totalMin % 60 }; };
+    const getProjectTotalTime   = (pid: string) => {
+        const entries = getProjectTimeEntries(pid);
+        const totalMin = entries.reduce((s, e) => s + (e.hours * 60) + e.minutes, 0);
+        return { hours: Math.floor(totalMin / 60), minutes: totalMin % 60 };
+    };
 
     const assignConsultantToProject = (cid: string) => { if (!isAdmin || !selectedProject) return; const r = AssignmentService.assignConsultantToProject(selectedProject.projectId, cid); showToast(r ? 'Assigned' : 'Already assigned', r ? 'success' : 'info'); };
     const removeConsultantFromProject = (cid: string) => { if (!isAdmin || !selectedProject) return; AssignmentService.removeConsultantFromProject(selectedProject.projectId, cid); showToast('Removed', 'success'); };
-    const assignClientToProject = (cid: string) => { if (!isAdmin || !selectedProject) return; const r = AssignmentService.assignClientToProject(selectedProject.projectId, cid); showToast(r ? 'Assigned' : 'Already assigned', r ? 'success' : 'info'); };
+    const assignClientToProject   = (cid: string) => { if (!isAdmin || !selectedProject) return; const r = AssignmentService.assignClientToProject(selectedProject.projectId, cid); showToast(r ? 'Assigned' : 'Already assigned', r ? 'success' : 'info'); };
     const removeClientFromProject = (cid: string) => { if (!isAdmin || !selectedProject) return; AssignmentService.removeClientFromProject(selectedProject.projectId, cid); showToast('Removed', 'success'); };
 
-    const getProjectConsultants = (pid: string) => { const ids = AssignmentService.getConsultantsForProject(String(pid)); return consultants.filter(c => ids.includes(c.consultantId)); };
-    const getProjectClients = (pid: string) => { const ids = AssignmentService.getClientsForProject(String(pid)); return clients.filter(c => ids.includes(c.customerId)); };
+    const getProjectConsultants  = (pid: string) => { const ids = AssignmentService.getConsultantsForProject(String(pid)); return consultants.filter(c => ids.includes(c.consultantId)); };
+    const getProjectClients      = (pid: string) => { const ids = AssignmentService.getClientsForProject(String(pid)); return clients.filter(c => ids.includes(c.customerId)); };
     const getAvailableConsultants = (pid: string) => { const ids = AssignmentService.getConsultantsForProject(pid); return consultants.filter(c => !ids.includes(c.consultantId)); };
-    const getAvailableClients = (pid: string) => { const ids = AssignmentService.getClientsForProject(pid); return clients.filter(c => !ids.includes(c.customerId)); };
+    const getAvailableClients     = (pid: string) => { const ids = AssignmentService.getClientsForProject(pid); return clients.filter(c => !ids.includes(c.customerId)); };
 
-    const resetForm = () => setProjectForm(emptyForm);
-    const openProjectDetails = (p: Project) => { setSelectedProject(p); setProjectForm({ projectName: p.projectName, description: p.description || '', status: p.status, priority: p.priority || 'medium', startDate: p.startDate || '', endDate: p.endDate || '', budget: p.budget || '', selectedConsultants: [], selectedClients: [] }); setShowDetailsModal(true); };
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+    const resetForm         = () => setProjectForm(emptyForm);
+    const openProjectDetails = (p: Project) => {
+        setSelectedProject(p);
+        setProjectForm({ projectName: p.projectName, description: p.description || '', status: p.status, priority: p.priority || 'medium', startDate: p.startDate || '', endDate: p.endDate || '', budget: p.budget || '', selectedConsultants: [], selectedClients: [] });
+        setShowDetailsModal(true);
+    };
 
+    const getStatusColor = (st: string) => statuses.find(s => s.value === st)?.color || 'bg-gray-600';
+    const getPriorityColor = (p: string) => ({ low: 'text-gray-400', medium: 'text-amber-400', high: 'text-orange-400', urgent: 'text-red-400' }[p] || 'text-gray-400');
+    const formatDate   = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const formatBudget = (b: string) => b ? `$${Number(b).toLocaleString()}` : null;
+    const formatTime   = (h: number, m: number) => `${h}h ${m}m`;
+
+    // ─── Filtered projects ────────────────────────────────────────────────────
     const filteredProjects = useMemo(() => {
         let filtered = projects;
-        if (isClient && userCustomerId) { const ids = AssignmentService.getProjectsForClient(userCustomerId); filtered = filtered.filter(p => ids.includes(String(p.projectId))); }
-        if (isConsultant && userConsultantId) { const ids = AssignmentService.getProjectsForConsultant(userConsultantId); filtered = filtered.filter(p => ids.includes(String(p.projectId))); }
+        if (isClient && userCustomerId)       { const ids = AssignmentService.getProjectsForClient(userCustomerId);           filtered = filtered.filter(p => ids.includes(String(p.projectId))); }
+        if (isConsultant && userConsultantId) { const ids = AssignmentService.getProjectsForConsultant(userConsultantId);     filtered = filtered.filter(p => ids.includes(String(p.projectId))); }
         filtered = filtered.filter(p => {
             const matchSearch = p.projectName.toLowerCase().includes(searchTerm.toLowerCase()) || (p.projectCode || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.clientName || '').toLowerCase().includes(searchTerm.toLowerCase());
             const matchStatus = statusFilter === 'all' || p.status === statusFilter;
             return matchSearch && matchStatus;
         });
-        filtered.sort((a, b) => {
-            let aV: any, bV: any;
-            switch (sortConfig.field) { case 'name': aV = a.projectName.toLowerCase(); bV = b.projectName.toLowerCase(); break; case 'status': aV = a.status; bV = b.status; break; default: aV = new Date(a.createdAt || 0).getTime(); bV = new Date(b.createdAt || 0).getTime(); }
-            return sortConfig.direction === 'asc' ? (aV > bV ? 1 : -1) : (aV < bV ? 1 : -1);
-        });
+        filtered.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         return filtered;
-    }, [projects, searchTerm, statusFilter, sortConfig, isClient, isConsultant, userCustomerId, userConsultantId, assignmentRefreshKey]);
+    }, [projects, searchTerm, statusFilter, isClient, isConsultant, userCustomerId, userConsultantId, assignmentRefreshKey]);
 
-    const pStats = useMemo(() => ({ total: filteredProjects.length, planning: filteredProjects.filter(p => p.status === 'planning').length, active: filteredProjects.filter(p => p.status === 'active' || p.status === 'in_progress').length, completed: filteredProjects.filter(p => p.status === 'completed').length }), [filteredProjects]);
+    const pStats = useMemo(() => ({
+        total:     filteredProjects.length,
+        active:    filteredProjects.filter(p => p.status === 'active' || p.status === 'in_progress').length,
+        completed: filteredProjects.filter(p => p.status === 'completed').length,
+    }), [filteredProjects]);
 
-    const getStatusColor = (st: string) => statuses.find(s => s.value === st)?.color || 'bg-gray-600';
-    const getPriorityColor = (p: string) => ({ low: 'text-gray-400', medium: 'text-amber-400', high: 'text-orange-400', urgent: 'text-red-400' }[p] || 'text-gray-400');
-    const formatDate = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
-    const formatBudget = (b: string) => b ? `$${Number(b).toLocaleString()}` : '—';
-    const formatTime = (h: number, m: number) => `${h}h ${m}m`;
-    const toggleSort = (f: string) => setSortConfig(p => ({ field: f, direction: p.field === f && p.direction === 'asc' ? 'desc' : 'asc' }));
-    const getSortIcon = (f: string) => sortConfig.field !== f ? <ArrowUpDown className={`w-3.5 h-3.5 ${n.tertiary}`} /> : sortConfig.direction === 'asc' ? <ArrowUp className={`w-3.5 h-3.5 ${n.label}`} /> : <ArrowDown className={`w-3.5 h-3.5 ${n.label}`} />;
-
-    const ganttDays = useMemo(() => { const days = []; const start = new Date(ganttStartDate); for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); days.push(d); } return days; }, [ganttStartDate]);
-    const getProjectBarStyle = (project: Project) => { if (!project.startDate) return null; const start = new Date(project.startDate); const end = project.endDate ? new Date(project.endDate) : new Date(start.getTime() + 7 * 86400000); const gs = ganttDays[0]; const ge = ganttDays[ganttDays.length - 1]; if (end < gs || start > ge) return null; const startOff = Math.max(0, Math.floor((start.getTime() - gs.getTime()) / 86400000)); const dur = Math.min(42 - startOff, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1); return { left: `${(startOff / 42) * 100}%`, width: `${(Math.max(dur, 1) / 42) * 100}%` }; };
-    const navigateGantt = (dir: 'prev' | 'next') => { const d = new Date(ganttStartDate); d.setDate(d.getDate() + (dir === 'next' ? 14 : -14)); setGanttStartDate(d); };
-    const updateProjectDates = (pid: string, newStart: Date) => { if (!canEdit) return; const p = projects.find(p => p.projectId === pid); if (!p) return; const dur = p.startDate && p.endDate ? Math.ceil((new Date(p.endDate).getTime() - new Date(p.startDate).getTime()) / 86400000) : 7; const newEnd = new Date(newStart); newEnd.setDate(newEnd.getDate() + dur); const updated = { ...p, startDate: newStart.toISOString().split('T')[0], endDate: newEnd.toISOString().split('T')[0] }; saveProjectToStorage(updated); setProjects(projects.map(pr => pr.projectId === pid ? updated : pr)); showToast('Dates updated', 'success'); };
-
+    // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <div className={`min-h-screen ${n.bg} ${n.text}`}>
-            {/* Toasts */}
+
+            {/* ── Toasts ── */}
             <div className="fixed top-4 right-4 z-[10000] space-y-2">
                 {toasts.map(t => (
                     <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm animate-fadeIn`}>
@@ -331,21 +443,23 @@ const RealEstateProjects: React.FC = () => {
                 ))}
             </div>
 
-            {/* Timer */}
+            {/* ── Active timer float ── */}
             {activeTimer && (
                 <div className="fixed bottom-4 right-4 z-[9998]">
-                    <div className={`${n.card} p-4 flex items-center gap-4`}>
+                    <div className={`${n.card} p-4 flex items-center gap-4 rounded-2xl`}>
                         <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                         <div>
                             <p className={`${n.text} font-mono text-xl`}>{timerDisplay}</p>
                             <p className={`${n.tertiary} text-xs`}>{projects.find(p => p.projectId === activeTimer.projectId)?.projectName}</p>
                         </div>
-                        <button onClick={stopTimer} className={`px-4 py-2 ${n.btnDanger} rounded-lg flex items-center gap-2 text-sm`}><Pause className="w-4 h-4" />Stop</button>
+                        <button onClick={stopTimer} className={`px-4 py-2 ${n.btnDanger} rounded-lg flex items-center gap-2 text-sm`}>
+                            <Pause className="w-4 h-4" />Stop
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* Delete Confirm */}
+            {/* ── Delete confirm ── */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-md w-full p-6`}>
@@ -362,196 +476,276 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
+            {/* ══════════════════════════════════════════════
+                MAIN PAGE
+            ══════════════════════════════════════════════ */}
             <div className="max-w-7xl mx-auto px-6 py-8">
-                {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-start justify-between mb-6">
-                        <div>
-                            <h1 className={`text-2xl font-semibold tracking-tight ${n.strong} mb-1`}>Projects</h1>
-                            <p className={`text-sm ${n.secondary}`}>{isAdmin ? 'Manage all projects and assignments' : isConsultant ? 'Track time and update status' : 'View your assigned projects'}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {canEdit && (
-                                <div className={`${n.card} p-0.5 flex rounded-xl`}>
-                                    <button onClick={() => setViewMode('list')} className={`px-3 py-2 flex items-center gap-1.5 text-xs rounded-lg transition-all ${viewMode === 'list' ? n.btnPrimary : n.secondary}`}><List className="w-3.5 h-3.5" />List</button>
-                                    <button onClick={() => setViewMode('gantt')} className={`px-3 py-2 flex items-center gap-1.5 text-xs rounded-lg transition-all ${viewMode === 'gantt' ? n.btnPrimary : n.secondary}`}><LayoutGrid className="w-3.5 h-3.5" />Gantt</button>
-                                </div>
-                            )}
-                            <button onClick={loadAllData} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center ${refreshing ? 'animate-spin' : ''}`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button>
-                            {isAdmin && <button onClick={() => setShowCreateModal(true)} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm`}><Plus className="w-4 h-4" />New Project</button>}
-                        </div>
+
+                {/* ── Page header ── */}
+                <div className="flex items-start justify-between mb-8">
+                    <div>
+                        <h1 className={`text-2xl font-semibold tracking-tight ${n.strong} mb-1`}>Projects</h1>
+                        <p className={`text-sm ${n.secondary}`}>
+                            {isAdmin ? 'Manage all projects and assignments' : isConsultant ? 'Track time and update status' : 'View your assigned projects'}
+                        </p>
                     </div>
-
-                    {/* Search */}
-                    <div className="flex gap-3 items-center mb-6">
-                        <div className={`flex-1 ${n.flat} flex items-center gap-2 px-4 py-2.5`}>
-                            <Search className={`w-4 h-4 ${n.tertiary}`} />
-                            <input type="text" placeholder="Search projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full bg-transparent ${n.text} text-sm focus:outline-none`} />
-                        </div>
-                        <button onClick={() => setShowFilters(!showFilters)} className={`w-9 h-9 ${showFilters ? n.pressed : n.flat} flex items-center justify-center`}><Filter className={`w-4 h-4 ${n.secondary}`} /></button>
-                    </div>
-
-                    {showFilters && (
-                        <div className={`${n.card} p-4 mb-6`}>
-                            <label className={`${n.tertiary} text-xs block mb-2`}>Status</label>
-                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`px-3 py-2 ${n.input} border rounded-xl text-sm focus:outline-none`}>
-                                <option value="all">All</option>
-                                {statuses.map(st => <option key={st.value} value={st.value}>{st.label}</option>)}
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Total', value: pStats.total, icon: FolderOpen },
-                            { label: 'Planning', value: pStats.planning, icon: Target },
-                            { label: 'Active', value: pStats.active, icon: TrendingUp },
-                            { label: 'Completed', value: pStats.completed, icon: CheckCircle2 },
-                        ].map((st, i) => (
-                            <div key={i} className={`${n.card} ${n.edgeHover} p-4 transition-all duration-200`}>
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className={`${n.label} text-[11px] uppercase tracking-wider`}>{st.label}</span>
-                                    <st.icon className={`w-4 h-4 ${n.label}`} />
-                                </div>
-                                <div className={`text-2xl font-semibold ${n.strong}`}>{st.value}</div>
-                            </div>
-                        ))}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={loadAllData}
+                            disabled={refreshing}
+                            className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl transition-all ${refreshing ? 'animate-spin' : ''}`}
+                        >
+                            <RefreshCw className={`w-4 h-4 ${n.secondary}`} />
+                        </button>
+                        {isAdmin && (
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className={`${n.btnPrimary} px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium transition-all`}
+                            >
+                                <Plus className="w-4 h-4" />New Project
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* List View */}
-                {viewMode === 'list' && (
-                    <div className={`${n.card} p-1.5 space-y-1.5`}>
-                        {/* Table Header */}
-                        <div className={`${n.flat} grid grid-cols-12 gap-4 px-4 py-3`}>
-                            <div className={`col-span-3 flex items-center gap-1 cursor-pointer text-xs ${n.label}`} onClick={() => toggleSort('name')}>Project {getSortIcon('name')}</div>
-                            <div className={`col-span-2 text-xs ${n.label}`}>Client / Team</div>
-                            <div className={`col-span-2 text-xs ${n.label}`}>Timeline</div>
-                            <div className={`col-span-1 text-xs ${n.label}`}>Time</div>
-                            <div className={`col-span-2 flex items-center gap-1 cursor-pointer text-xs ${n.label}`} onClick={() => toggleSort('status')}>Status {getSortIcon('status')}</div>
-                            <div className={`col-span-2 text-xs ${n.label} text-right`}>Actions</div>
-                        </div>
-
-                        {filteredProjects.length === 0 ? (
-                            <div className={`${n.flat} text-center py-16`}>
-                                <FolderOpen className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} />
-                                <p className={`text-sm ${n.secondary}`}>{isClient || isConsultant ? 'No projects assigned to you yet' : 'No projects found'}</p>
+                {/* ── Stats row ── */}
+                <div className="grid grid-cols-3 gap-4 mb-8">
+                    {[
+                        { label: 'Total Projects', value: pStats.total,     accent: 'text-blue-400',    dot: 'bg-blue-500' },
+                        { label: 'Active',          value: pStats.active,    accent: 'text-emerald-400', dot: 'bg-emerald-500' },
+                        { label: 'Completed',       value: pStats.completed, accent: 'text-gray-400',    dot: 'bg-gray-500' },
+                    ].map((st, i) => (
+                        <div key={i} className={`${n.card} ${n.edgeHover} p-5 transition-all duration-200 rounded-2xl`}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className={`w-2 h-2 rounded-full ${st.dot}`} />
+                                <span className={`text-[11px] uppercase tracking-widest ${n.tertiary}`}>{st.label}</span>
                             </div>
-                        ) : filteredProjects.map(p => {
-                            const totalTime = getProjectTotalTime(p.projectId);
-                            const pClients = getProjectClients(p.projectId);
+                            <div className={`text-3xl font-semibold ${n.strong} tabular-nums`}>{st.value}</div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* ── Search + filter bar ── */}
+                <div className="flex gap-3 items-center mb-4">
+                    <div className={`flex-1 ${n.flat} flex items-center gap-2 px-4 py-2.5 rounded-xl`}>
+                        <Search className={`w-4 h-4 ${n.tertiary} flex-shrink-0`} />
+                        <input
+                            type="text"
+                            placeholder="Search by name, code, or client…"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`w-full bg-transparent ${n.text} text-sm focus:outline-none`}
+                        />
+                        {searchTerm && (
+                            <button onClick={() => setSearchTerm('')} className={n.tertiary}>
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`w-9 h-9 ${showFilters ? n.pressed : n.flat} flex items-center justify-center rounded-xl transition-all`}
+                    >
+                        <Filter className={`w-4 h-4 ${showFilters ? n.label : n.secondary}`} />
+                    </button>
+                </div>
+
+                {showFilters && (
+                    <div className={`${n.card} p-4 mb-6 rounded-2xl flex items-center gap-4 flex-wrap`}>
+                        <div>
+                            <label className={`${n.tertiary} text-[11px] block mb-1.5 uppercase tracking-wider`}>Status</label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className={`px-3 py-2 ${n.input} border rounded-xl text-sm focus:outline-none min-w-[160px]`}
+                            >
+                                <option value="all">All Statuses</option>
+                                {statuses.map(st => <option key={st.value} value={st.value}>{st.label}</option>)}
+                            </select>
+                        </div>
+                        {statusFilter !== 'all' && (
+                            <button
+                                onClick={() => setStatusFilter('all')}
+                                className={`mt-5 text-xs ${n.link} flex items-center gap-1`}
+                            >
+                                <X className="w-3 h-3" />Clear filter
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Card grid ── */}
+                {filteredProjects.length === 0 ? (
+                    <div className={`${n.card} rounded-2xl text-center py-20`}>
+                        <FolderOpen className={`w-12 h-12 ${n.tertiary} mx-auto mb-4`} strokeWidth={1.5} />
+                        <p className={`${n.secondary} text-sm`}>
+                            {isClient || isConsultant ? 'No projects assigned to you yet' : 'No projects match your search'}
+                        </p>
+                        {isAdmin && (
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className={`mt-5 px-4 py-2 ${n.btnPrimary} rounded-xl text-sm inline-flex items-center gap-2`}
+                            >
+                                <Plus className="w-4 h-4" />Create your first project
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                        {filteredProjects.map(p => {
+                            const statusInfo  = statuses.find(s => s.value === p.status);
+                            const pClients    = getProjectClients(p.projectId);
                             const pConsultants = getProjectConsultants(p.projectId);
+                            const totalTime   = getProjectTotalTime(p.projectId);
+                            const budget      = formatBudget(p.budget);
+                            const teamCount   = pClients.length + pConsultants.length;
+                            const clientLabel = pClients.length > 0
+                                ? `${pClients[0].firstName} ${pClients[0].lastName}${pClients.length > 1 ? ` +${pClients.length - 1}` : ''}`
+                                : p.clientName || null;
+
                             return (
-                                <div key={p.projectId} className={`${n.flat} ${n.edgeHoverFlat} grid grid-cols-12 gap-4 px-4 py-3.5 transition-all duration-200`}>
-                                    <div className="col-span-3 flex items-center gap-3 cursor-pointer" onClick={() => openProjectDetails(p)}>
-                                        <div className={`w-9 h-9 rounded-xl ${n.inset} flex items-center justify-center flex-shrink-0`}>
-                                            <FolderOpen className={`w-4 h-4 ${n.secondary}`} />
+                                <div
+                                    key={p.projectId}
+                                    className={`${n.card} rounded-2xl overflow-hidden group transition-all duration-200 ${n.edgeHover} flex flex-col`}
+                                >
+                                    {/* Cover image area */}
+                                    <div
+                                        className="relative h-44 flex-shrink-0 overflow-hidden"
+                                        style={getCoverStyle(p.projectId)}
+                                    >
+                                        <CoverDecoration pid={p.projectId} />
+
+                                        {/* Status badge */}
+                                        <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white flex items-center gap-1.5 ${statusInfo?.color || 'bg-gray-600'}`}>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
+                                            {fmtStatus(p.status)}
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className={`${n.text} text-sm font-medium truncate`}>{p.projectName}</p>
-                                            <p className={`${n.tertiary} text-[11px]`}>{p.projectCode}</p>
-                                        </div>
-                                    </div>
-                                    <div className="col-span-2 flex items-center">
-                                        <span className={`${n.secondary} text-sm truncate`}>
-                                            {pClients.length > 0 ? `${pClients[0].firstName} ${pClients[0].lastName}${pClients.length > 1 ? ` +${pClients.length - 1}` : ''}` : p.clientName || `${pConsultants.length + pClients.length} members`}
-                                        </span>
-                                    </div>
-                                    <div className="col-span-2 flex items-center"><span className={`${n.secondary} text-sm`}>{p.startDate ? formatDate(p.startDate) : '—'}</span></div>
-                                    <div className="col-span-1 flex items-center"><span className={`${n.secondary} text-sm flex items-center gap-1`}><Clock className="w-3 h-3" />{formatTime(totalTime.hours, totalTime.minutes)}</span></div>
-                                    <div className="col-span-2 relative flex items-center">
-                                        <button onClick={(e) => { e.stopPropagation(); if (canEdit) setShowStatusMenu(showStatusMenu === p.projectId ? null : p.projectId); }} className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${n.badge} ${canEdit ? 'cursor-pointer' : ''}`} disabled={!canEdit}>
-                                            {fmtStatus(p.status)}{canEdit && <ChevronRight className={`w-3 h-3 inline ml-0.5 transition-transform ${showStatusMenu === p.projectId ? 'rotate-90' : ''}`} />}
-                                        </button>
-                                        {showStatusMenu === p.projectId && canEdit && (
-                                            <div className={`absolute top-full left-0 mt-1 ${n.modal} border rounded-xl shadow-lg z-50 py-1 min-w-[150px]`}>
-                                                {statuses.map(st => (
-                                                    <button key={st.value} onClick={(e) => { e.stopPropagation(); updateProjectStatus(p.projectId, st.value); }} className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} ${p.status === st.value ? n.label : n.secondary}`}>
-                                                        <div className={`w-2 h-2 rounded-full ${st.color}`} />{st.label}
-                                                    </button>
-                                                ))}
+
+                                        {/* Admin quick-delete (hover) */}
+                                        {isAdmin && (
+                                            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(p.projectId); }}
+                                                    className="w-7 h-7 bg-black/50 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-red-500/80 transition-colors"
+                                                    title="Delete project"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5 text-white" />
+                                                </button>
                                             </div>
                                         )}
+
+                                        {/* Budget chip */}
+                                        {budget && (
+                                            <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/55 backdrop-blur-sm rounded-lg text-white text-xs font-semibold">
+                                                {budget}
+                                            </div>
+                                        )}
+
+                                        {/* Team pill */}
+                                        {teamCount > 0 && (
+                                            <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
+                                                <Users className="w-3 h-3" />{teamCount} member{teamCount !== 1 ? 's' : ''}
+                                            </div>
+                                        )}
+
+                                        {/* Bottom edge fade into card */}
+                                        <div
+                                            className={`absolute bottom-0 left-0 right-0 h-6`}
+                                            style={{ background: isDark ? 'linear-gradient(to bottom, transparent, rgba(17,17,17,0.8))' : 'linear-gradient(to bottom, transparent, rgba(228,228,228,0.7))' }}
+                                        />
                                     </div>
-                                    <div className="col-span-2 flex items-center justify-end gap-1">
-                                        {canEdit && !activeTimer && <button onClick={(e) => { e.stopPropagation(); startTimer(p.projectId); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`} title="Start Timer"><Play className="w-3.5 h-3.5 text-emerald-400" /></button>}
-                                        {canEdit && <button onClick={(e) => { e.stopPropagation(); setSelectedProject(p); setShowTimeModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`} title="Log Time"><Timer className={`w-3.5 h-3.5 ${n.tertiary}`} /></button>}
-                                        <button onClick={() => openProjectDetails(p)} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}><Edit2 className={`w-3.5 h-3.5 ${n.tertiary}`} /></button>
-                                        {isAdmin && <button onClick={() => setShowDeleteConfirm(p.projectId)} className={`p-2 rounded-lg hover:bg-red-500/20 transition-colors`}><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>}
+
+                                    {/* Card body */}
+                                    <div className="p-4 flex flex-col flex-1 gap-3">
+                                        {/* Title + code */}
+                                        <div>
+                                            <h3 className={`${n.strong} font-semibold text-[15px] leading-snug`}>{p.projectName}</h3>
+                                            <p className={`${n.tertiary} text-[11px] mt-0.5 font-mono`}>{p.projectCode}</p>
+                                        </div>
+
+                                        {/* Client */}
+                                        {clientLabel && (
+                                            <div className="flex items-center gap-1.5">
+                                                <Users className={`w-3.5 h-3.5 ${n.tertiary} flex-shrink-0`} />
+                                                <span className={`${n.secondary} text-xs truncate`}>{clientLabel}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Description */}
+                                        {p.description && (
+                                            <p className={`${n.secondary} text-xs leading-relaxed line-clamp-2`}>{p.description}</p>
+                                        )}
+
+                                        {/* Timeline */}
+                                        {(p.startDate || p.endDate) && (
+                                            <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}>
+                                                <Calendar className="w-3 h-3 flex-shrink-0" />
+                                                <span>
+                                                    {p.startDate ? formatDate(p.startDate) : '—'}
+                                                    {p.endDate && ` — ${formatDate(p.endDate)}`}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Spacer */}
+                                        <div className="flex-1" />
+
+                                        {/* Footer row */}
+                                        <div className={`flex items-center justify-between pt-3 border-t ${n.divider}`}>
+                                            <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}>
+                                                <Clock className="w-3 h-3" />
+                                                <span>{formatTime(totalTime.hours, totalTime.minutes)}</span>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5">
+                                                {/* Consultant quick-timer */}
+                                                {canEdit && !activeTimer && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); startTimer(p.projectId); }}
+                                                        className={`w-7 h-7 ${n.flat} rounded-lg flex items-center justify-center transition-all`}
+                                                        title="Start timer"
+                                                    >
+                                                        <Play className="w-3 h-3 text-emerald-400" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => openProjectDetails(p)}
+                                                    className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-[11px] font-medium flex items-center gap-1 transition-all`}
+                                                >
+                                                    View Details<ChevronRight className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
                 )}
-                {/* Gantt View */}
-                {viewMode === 'gantt' && canEdit && (
-                    <div className={`${n.card} overflow-hidden`}>
-                        <div className={`p-4 border-b ${n.divider} flex items-center justify-between`}>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => navigateGantt('prev')} className={`w-8 h-8 ${n.flat} flex items-center justify-center`}><ChevronLeft className="w-4 h-4" /></button>
-                                <span className={`${n.text} text-sm font-medium`}>{ganttDays[0].toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} — {ganttDays[ganttDays.length - 1].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                                <button onClick={() => navigateGantt('next')} className={`w-8 h-8 ${n.flat} flex items-center justify-center`}><ChevronRight className="w-4 h-4" /></button>
-                            </div>
-                            <button onClick={() => setGanttStartDate(() => { const d = new Date(); d.setDate(1); return d; })} className={`px-3 py-1.5 ${n.flat} text-xs ${n.secondary}`}>Today</button>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <div className="min-w-[1200px]">
-                                <div className={`flex border-b ${n.divider}`}>
-                                    <div className={`w-48 flex-shrink-0 p-3 border-r ${n.divider}`}><span className={`${n.label} text-xs`}>Project</span></div>
-                                    <div className="flex-1 flex">{ganttDays.map((day, i) => (
-                                        <div key={i} className={`flex-1 min-w-[24px] p-1 text-center border-r ${n.divider} ${day.getDay() === 0 || day.getDay() === 6 ? (isDark ? 'bg-gray-900' : 'bg-gray-200') : ''}`}>
-                                            <div className={`text-[9px] ${n.tertiary}`}>{day.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0)}</div>
-                                            <div className={`text-[10px] ${day.toDateString() === new Date().toDateString() ? 'text-blue-400 font-bold' : n.tertiary}`}>{day.getDate()}</div>
-                                        </div>
-                                    ))}</div>
-                                </div>
-                                {filteredProjects.length === 0 ? (
-                                    <div className="text-center py-16"><FolderOpen className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} /><p className={`text-sm ${n.secondary}`}>No projects found</p></div>
-                                ) : filteredProjects.map(p => {
-                                    const barStyle = getProjectBarStyle(p);
-                                    return (
-                                        <div key={p.projectId} className={`flex border-b ${n.divider} ${isDark ? 'hover:bg-gray-900' : 'hover:bg-gray-100'} transition-colors`}>
-                                            <div className={`w-48 flex-shrink-0 p-3 border-r ${n.divider} flex items-center gap-2 cursor-pointer`} onClick={() => openProjectDetails(p)}>
-                                                <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(p.status)}`} />
-                                                <span className={`${n.text} text-sm truncate`}>{p.projectName}</span>
-                                            </div>
-                                            <div className="flex-1 relative h-12 flex items-center">
-                                                <div className="absolute inset-0 flex">{ganttDays.map((day, i) => (
-                                                    <div key={i} onClick={() => updateProjectDates(p.projectId, day)} className={`flex-1 min-w-[24px] border-r ${n.divider} cursor-pointer hover:bg-blue-500/10 ${day.getDay() === 0 || day.getDay() === 6 ? (isDark ? 'bg-gray-900/50' : 'bg-gray-100') : ''} ${day.toDateString() === new Date().toDateString() ? 'bg-blue-500/10' : ''}`} />
-                                                ))}</div>
-                                                {barStyle && (
-                                                    <div className={`absolute h-6 ${getStatusColor(p.status)} rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center px-2`} style={{ left: barStyle.left, width: barStyle.width, minWidth: '60px' }} onClick={() => openProjectDetails(p)}>
-                                                        <span className="text-white text-[10px] truncate">{p.projectName}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        <div className={`p-4 border-t ${n.divider} flex items-center gap-5 flex-wrap`}>
-                            {statuses.map(st => (<div key={st.value} className="flex items-center gap-1.5"><div className={`w-2.5 h-2.5 rounded-full ${st.color}`} /><span className={`${n.tertiary} text-xs`}>{st.label}</span></div>))}
-                            <span className={`${n.tertiary} text-[10px] ml-auto`}>Click timeline to set start date</span>
-                        </div>
-                    </div>
-                )}
             </div>
 
-            {/* ═══ MODALS ═══ */}
+            {/* ══════════════════════════════════════════════
+                MODALS
+            ══════════════════════════════════════════════ */}
 
-            {/* Time Modal */}
+            {/* ── Time Modal ── */}
             {showTimeModal && selectedProject && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <div className="flex items-center gap-3">
                                 <Timer className="w-5 h-5 text-emerald-400" />
-                                <div><h2 className={`text-lg font-semibold ${n.text}`}>Log Time</h2><p className={`text-xs ${n.tertiary}`}>{selectedProject.projectName}</p></div>
+                                <div>
+                                    <h2 className={`text-lg font-semibold ${n.text}`}>Log Time</h2>
+                                    <p className={`text-xs ${n.tertiary}`}>{selectedProject.projectName}</p>
+                                </div>
                             </div>
-                            <button onClick={() => { setShowTimeModal(false); setTimeForm({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] }); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                            <button
+                                onClick={() => { setShowTimeModal(false); setTimeForm({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] }); }}
+                                className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}
+                            >
+                                <X className={`w-4 h-4 ${n.tertiary}`} />
+                            </button>
                         </div>
                         <div className="p-5 space-y-5">
                             <div className={`${n.card} p-4 space-y-4`}>
@@ -573,7 +767,7 @@ const RealEstateProjects: React.FC = () => {
                                 ) : (
                                     <div className="space-y-1.5 max-h-64 overflow-y-auto">
                                         {getProjectTimeEntries(selectedProject.projectId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(entry => (
-                                            <div key={entry.id} className={`${n.flat} p-3 flex items-center justify-between`}>
+                                            <div key={entry.id} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{entry.consultantName.split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
                                                     <div>
@@ -582,7 +776,9 @@ const RealEstateProjects: React.FC = () => {
                                                         {entry.description && <p className={`${n.secondary} text-xs mt-0.5`}>{entry.description}</p>}
                                                     </div>
                                                 </div>
-                                                {(isAdmin || entry.consultantId === (userConsultantId || userEmail)) && <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>}
+                                                {(isAdmin || entry.consultantId === (userConsultantId || userEmail)) && (
+                                                    <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -593,7 +789,7 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
-            {/* Create Modal */}
+            {/* ── Create Modal ── */}
             {showCreateModal && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
@@ -612,7 +808,7 @@ const RealEstateProjects: React.FC = () => {
                             </div>
                             {/* Assign Clients */}
                             <div>
-                                <label className={`${n.label} text-[11px] block mb-2 flex items-center gap-1.5`}><Users className="w-3.5 h-3.5" />Assign Clients {projectForm.selectedClients.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedClients.length}</span>}</label>
+                                <label className={`${n.label} text-[11px] mb-2 flex items-center gap-1.5`}><Users className="w-3.5 h-3.5" />Assign Clients {projectForm.selectedClients.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedClients.length}</span>}</label>
                                 <div className={`${n.card} p-2 max-h-36 overflow-y-auto space-y-1`}>
                                     {clients.length === 0 ? <p className={`${n.tertiary} text-xs p-2`}>No clients available</p> : clients.map(c => (
                                         <label key={c.customerId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-colors ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} ${projectForm.selectedClients.includes(c.customerId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : ''}`}>
@@ -625,7 +821,7 @@ const RealEstateProjects: React.FC = () => {
                             </div>
                             {/* Assign Consultants */}
                             <div>
-                                <label className={`${n.label} text-[11px] block mb-2 flex items-center gap-1.5`}><Users className="w-3.5 h-3.5" />Assign Consultants {projectForm.selectedConsultants.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedConsultants.length}</span>}</label>
+                                <label className={`${n.label} text-[11px] mb-2 flex items-center gap-1.5`}><Users className="w-3.5 h-3.5" />Assign Consultants {projectForm.selectedConsultants.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedConsultants.length}</span>}</label>
                                 <div className={`${n.card} p-2 max-h-36 overflow-y-auto space-y-1`}>
                                     {consultants.length === 0 ? <p className={`${n.tertiary} text-xs p-2`}>No consultants available</p> : consultants.map(c => (
                                         <label key={c.consultantId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-colors ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} ${projectForm.selectedConsultants.includes(c.consultantId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : ''}`}>
@@ -636,24 +832,24 @@ const RealEstateProjects: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                            <div><label className={`${n.label} text-[11px] block mb-1`}>Description</label><textarea rows={3} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none focus:outline-none focus:border-blue-500`} placeholder="Project description..." /></div>
+                            <div><label className={`${n.label} text-[11px] block mb-1`}>Description</label><textarea rows={3} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none focus:outline-none focus:border-blue-500`} placeholder="Project description…" /></div>
                             <div className="flex gap-3 pt-2">
                                 <button onClick={() => { setShowCreateModal(false); resetForm(); }} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>Cancel</button>
-                                <button onClick={createProject} disabled={loading} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2`}>{loading ? 'Creating...' : <><Plus className="w-4 h-4" />Create</>}</button>
+                                <button onClick={createProject} disabled={loading} className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2`}>{loading ? 'Creating…' : <><Plus className="w-4 h-4" />Create</>}</button>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Details Modal */}
+            {/* ── Details Modal ── */}
             {showDetailsModal && selectedProject && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <div className="flex items-center gap-3">
                                 <div className={`w-10 h-10 ${n.inset} rounded-xl flex items-center justify-center`}><FolderOpen className={`w-5 h-5 ${n.secondary}`} /></div>
-                                <div><h2 className={`text-lg font-semibold ${n.text}`}>{selectedProject.projectName}</h2><p className={`text-xs ${n.tertiary}`}>{selectedProject.projectCode}</p></div>
+                                <div><h2 className={`text-lg font-semibold ${n.text}`}>{selectedProject.projectName}</h2><p className={`text-xs ${n.tertiary} font-mono`}>{selectedProject.projectCode}</p></div>
                             </div>
                             <div className="flex items-center gap-1">
                                 {isAdmin && <button onClick={() => setShowDeleteConfirm(selectedProject.projectId)} className="p-2 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-4 h-4 text-red-400" /></button>}
@@ -672,21 +868,20 @@ const RealEstateProjects: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                            {/* Priority */}
                             <p className={`${getPriorityColor(selectedProject.priority || 'medium')} text-sm font-medium`}>{fmtStatus(selectedProject.priority || 'medium')} Priority</p>
                             {/* Action buttons */}
                             <div className="flex flex-wrap gap-2">
-                                {canEdit && <button onClick={() => { setShowDetailsModal(false); setShowEditModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Edit2 className="w-3.5 h-3.5" />Edit</button>}
-                                {canEdit && <button onClick={() => { setShowDetailsModal(false); setShowTimeModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-emerald-400 transition-all`}><Timer className="w-3.5 h-3.5" />Log Time</button>}
-                                {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Users className="w-3.5 h-3.5" />Consultants</button>}
-                                {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowClientsModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Users className="w-3.5 h-3.5" />Clients</button>}
+                                {canEdit && <button onClick={() => { setShowDetailsModal(false); setShowEditModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all rounded-xl`}><Edit2 className="w-3.5 h-3.5" />Edit</button>}
+                                {canEdit && <button onClick={() => { setShowDetailsModal(false); setShowTimeModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-emerald-400 transition-all rounded-xl`}><Timer className="w-3.5 h-3.5" />Log Time</button>}
+                                {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all rounded-xl`}><Users className="w-3.5 h-3.5" />Consultants</button>}
+                                {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowClientsModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all rounded-xl`}><Users className="w-3.5 h-3.5" />Clients</button>}
                             </div>
                             {/* Info cards */}
                             <div className="grid grid-cols-2 gap-3">
-                                <div className={`${n.card} p-4`}><span className={`${n.label} text-[11px]`}>Time Tracked</span><p className={`text-xl font-semibold ${n.strong} mt-1`}>{formatTime(getProjectTotalTime(selectedProject.projectId).hours, getProjectTotalTime(selectedProject.projectId).minutes)}</p><p className={`${n.tertiary} text-[11px]`}>{getProjectTimeEntries(selectedProject.projectId).length} entries</p></div>
-                                <div className={`${n.card} p-4`}><span className={`${n.label} text-[11px]`}>Budget</span><p className={`text-xl font-semibold ${n.strong} mt-1`}>{formatBudget(selectedProject.budget)}</p></div>
+                                <div className={`${n.card} p-4 rounded-2xl`}><span className={`${n.label} text-[11px]`}>Time Tracked</span><p className={`text-xl font-semibold ${n.strong} mt-1`}>{formatTime(getProjectTotalTime(selectedProject.projectId).hours, getProjectTotalTime(selectedProject.projectId).minutes)}</p><p className={`${n.tertiary} text-[11px]`}>{getProjectTimeEntries(selectedProject.projectId).length} entries</p></div>
+                                <div className={`${n.card} p-4 rounded-2xl`}><span className={`${n.label} text-[11px]`}>Budget</span><p className={`text-xl font-semibold ${n.strong} mt-1`}>{formatBudget(selectedProject.budget) || '—'}</p></div>
                             </div>
-                            <div className={`${n.card} p-4`}>
+                            <div className={`${n.card} p-4 rounded-2xl`}>
                                 <span className={`${n.label} text-[11px]`}>Timeline</span>
                                 <div className="flex gap-6 mt-2">
                                     <div><p className={`${n.tertiary} text-[10px]`}>Start</p><p className={`${n.text} text-sm`}>{formatDate(selectedProject.startDate)}</p></div>
@@ -694,22 +889,27 @@ const RealEstateProjects: React.FC = () => {
                                 </div>
                             </div>
                             {/* Consultants */}
-                            <div className={`${n.card} p-4`}>
+                            <div className={`${n.card} p-4 rounded-2xl`}>
                                 <div className="flex items-center justify-between mb-2"><span className={`${n.label} text-[11px]`}>Consultants</span>{isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`${n.link} text-xs`}>Manage</button>}</div>
                                 {getProjectConsultants(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-xs`}>None assigned</p> : <div className="flex flex-wrap gap-1.5">{getProjectConsultants(selectedProject.projectId).map(c => <span key={c.consultantId} className={`px-2.5 py-1 ${n.flat} ${n.text} text-xs rounded-lg`}>{c.firstName} {c.lastName}</span>)}</div>}
                             </div>
                             {/* Clients */}
-                            <div className={`${n.card} p-4`}>
+                            <div className={`${n.card} p-4 rounded-2xl`}>
                                 <div className="flex items-center justify-between mb-2"><span className={`${n.label} text-[11px]`}>Clients</span>{isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowClientsModal(true); }} className={`${n.link} text-xs`}>Manage</button>}</div>
                                 {getProjectClients(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-xs`}>None assigned</p> : <div className="flex flex-wrap gap-1.5">{getProjectClients(selectedProject.projectId).map(c => <span key={c.customerId} className={`px-2.5 py-1 ${n.flat} ${n.text} text-xs rounded-lg`}>{c.firstName} {c.lastName}</span>)}</div>}
                             </div>
-                            {selectedProject.description && <div className={`${n.card} p-4`}><span className={`${n.label} text-[11px]`}>Description</span><p className={`${n.text} text-sm mt-1 leading-relaxed`}>{selectedProject.description}</p></div>}
+                            {selectedProject.description && (
+                                <div className={`${n.card} p-4 rounded-2xl`}>
+                                    <span className={`${n.label} text-[11px]`}>Description</span>
+                                    <p className={`${n.text} text-sm mt-1 leading-relaxed`}>{selectedProject.description}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Edit Modal */}
+            {/* ── Edit Modal ── */}
             {showEditModal && selectedProject && canEdit && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
@@ -736,7 +936,7 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
-            {/* Consultants Modal */}
+            {/* ── Consultants Modal ── */}
             {showConsultantsModal && selectedProject && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
@@ -749,7 +949,7 @@ const RealEstateProjects: React.FC = () => {
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Assigned</span>
                                 {getProjectConsultants(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>None assigned</p> : (
                                     <div className="space-y-1.5 mt-3">{getProjectConsultants(selectedProject.projectId).map(c => (
-                                        <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between`}>
+                                        <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                                 <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div>
@@ -763,7 +963,7 @@ const RealEstateProjects: React.FC = () => {
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Available</span>
                                 {getAvailableConsultants(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>All assigned</p> : (
                                     <div className="space-y-1.5 mt-3">{getAvailableConsultants(selectedProject.projectId).map(c => (
-                                        <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between`}>
+                                        <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.tertiary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                                 <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.consultantCode}</p></div>
@@ -779,7 +979,7 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
-            {/* Clients Modal */}
+            {/* ── Clients Modal ── */}
             {showClientsModal && selectedProject && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
@@ -792,7 +992,7 @@ const RealEstateProjects: React.FC = () => {
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Assigned</span>
                                 {getProjectClients(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>None assigned</p> : (
                                     <div className="space-y-1.5 mt-3">{getProjectClients(selectedProject.projectId).map(c => (
-                                        <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between`}>
+                                        <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                                 <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div>
@@ -806,7 +1006,7 @@ const RealEstateProjects: React.FC = () => {
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Available</span>
                                 {getAvailableClients(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>All assigned</p> : (
                                     <div className="space-y-1.5 mt-3">{getAvailableClients(selectedProject.projectId).map(c => (
-                                        <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between`}>
+                                        <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.tertiary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                                 <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.clientCode}</p></div>
@@ -821,6 +1021,7 @@ const RealEstateProjects: React.FC = () => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };
