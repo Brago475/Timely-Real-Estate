@@ -1,138 +1,50 @@
-﻿html, body {
-  background-color: #0a0a0a;
-  overflow-x: hidden;
-}
-
-@import "tailwindcss";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Fade-in animation */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fadeIn {
-  animation: fadeIn 0.4s ease-out;
-}
-
-/* Shimmer */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-
-.transition-smooth {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ═══════════════════════════════════════
-   NEUMORPHIC DESIGN SYSTEM
-   Dark Black + White + Blue
-   ═══════════════════════════════════════ */
-
-/* Dark mode */
-.neu-dark {
-  background: #111111;
-  box-shadow:
-    6px 6px 14px rgba(0, 0, 0, 0.7),
-    -6px -6px 14px rgba(40, 40, 40, 0.12);
-  border-radius: 16px;
-}
-
-.neu-dark-sm {
-  background: #111111;
-  box-shadow:
-    3px 3px 8px rgba(0, 0, 0, 0.6),
-    -3px -3px 8px rgba(40, 40, 40, 0.08);
-  border-radius: 12px;
-}
-
-.neu-dark-inset {
-  background: #0a0a0a;
-  box-shadow:
-    inset 3px 3px 8px rgba(0, 0, 0, 0.7),
-    inset -3px -3px 8px rgba(40, 40, 40, 0.06);
-  border-radius: 12px;
-}
-
-.neu-dark-flat {
-  background: #111111;
-  box-shadow:
-    2px 2px 6px rgba(0, 0, 0, 0.5),
-    -2px -2px 6px rgba(40, 40, 40, 0.06);
-  border-radius: 10px;
-}
-
-.neu-dark-flat:hover {
-  background: #161616;
-  box-shadow:
-    4px 4px 10px rgba(0, 0, 0, 0.6),
-    -4px -4px 10px rgba(40, 40, 40, 0.1);
-}
-
-.neu-dark-pressed {
-  background: #0a0a0a;
-  box-shadow:
-    inset 2px 2px 6px rgba(0, 0, 0, 0.6),
-    inset -2px -2px 6px rgba(40, 40, 40, 0.05);
-  border-radius: 10px;
-}
-
-/* Light mode */
+﻿/* Light mode */
 .neu-light {
-  background: #f0f0f0;
+  background: #ffffff;
   box-shadow:
-    6px 6px 14px rgba(0, 0, 0, 0.12),
+    6px 6px 14px rgba(0, 0, 0, 0.08),
     -6px -6px 14px rgba(255, 255, 255, 1);
   border-radius: 16px;
 }
 
 .neu-light-sm {
-  background: #f0f0f0;
+  background: #ffffff;
   box-shadow:
-    3px 3px 8px rgba(0, 0, 0, 0.1),
-    -3px -3px 8px rgba(255, 255, 255, 0.95);
+    3px 3px 8px rgba(0, 0, 0, 0.06),
+    -3px -3px 8px rgba(255, 255, 255, 1);
   border-radius: 12px;
 }
 
 .neu-light-inset {
-  background: #e6e6e6;
+  background: #f0f0f0;
   box-shadow:
-    inset 3px 3px 8px rgba(0, 0, 0, 0.12),
+    inset 3px 3px 8px rgba(0, 0, 0, 0.08),
     inset -3px -3px 8px rgba(255, 255, 255, 1);
   border-radius: 12px;
 }
 
 .neu-light-flat {
-  background: #f0f0f0;
+  background: #f8f8f8;
   box-shadow:
-    2px 2px 6px rgba(0, 0, 0, 0.08),
+    2px 2px 6px rgba(0, 0, 0, 0.05),
     -2px -2px 6px rgba(255, 255, 255, 0.9);
   border-radius: 10px;
 }
 
 .neu-light-flat:hover {
-  background: #f4f4f4;
+  background: #ffffff;
   box-shadow:
-    4px 4px 10px rgba(0, 0, 0, 0.12),
+    4px 4px 10px rgba(0, 0, 0, 0.08),
     -4px -4px 10px rgba(255, 255, 255, 1);
 }
 
 .neu-light-pressed {
-  background: #e6e6e6;
+  background: #f0f0f0;
   box-shadow:
-    inset 2px 2px 6px rgba(0, 0, 0, 0.1),
-    inset -2px -2px 6px rgba(255, 255, 255, 0.95);
+    inset 2px 2px 6px rgba(0, 0, 0, 0.07),
+    inset -2px -2px 6px rgba(255, 255, 255, 0.9);
   border-radius: 10px;
 }
 
 /* Page backgrounds */
-.neu-bg-light { background: #eaeaea; }
-
+.neu-bg-light { background: #f2f2f2; }
