@@ -29,7 +29,7 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
     const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
 
     const n = {
-        header: isDark ? "bg-[#0a0a0a]/95 border-gray-800 backdrop-blur-md" : "bg-[#e0e0e0]/95 border-gray-200 backdrop-blur-md",
+        header: isDark ? "bg-[#0a0a0a]/95 border-gray-800 backdrop-blur-md" : "bg-white/95 border-gray-200 backdrop-blur-md",
         text: isDark ? "text-white" : "text-gray-900",
         secondary: isDark ? "text-gray-300" : "text-gray-600",
         tertiary: isDark ? "text-gray-500" : "text-gray-400",

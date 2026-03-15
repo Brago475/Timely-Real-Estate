@@ -122,7 +122,7 @@ function AppContent() {
     };
 
     return (
-        <div className={`min-h-screen ${isDark ? "bg-[#0a0a0a] text-white" : "bg-[#e8e8e8] text-gray-900"}`}>
+        <div className={`min-h-screen ${isDark ? "bg-[#0a0a0a] text-white" : "bg-white text-gray-900"}`}>
             <SidebarLayout sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} onBack={pageHistory.length > 1 ? handleBack : undefined} isAdmin={isAdmin} activePage={activePage} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} />
             <div className={`min-h-screen transition-all duration-300 ${!sidebarToggle ? "ml-72" : "ml-0"}`}>
                 <Navbar sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} activePage={activePage} onLogout={handleLogout} userRole={currentRole} userName={userData?.name} userEmail={userData?.email} />
