@@ -1,6 +1,6 @@
 // src/Style_Components/Sidebar.tsx
 import React from "react";
-import { Home, FolderOpen, Users, UserCheck, BarChart3, Clock, Settings, LogOut, ChevronLeft, ChevronRight, ArrowLeft, Shield, UserPlus, MessageCircle } from "lucide-react";
+import { Home, FolderOpen, Globe, Users, UserCheck, BarChart3, Clock, Settings, LogOut, ChevronLeft, ChevronRight, ArrowLeft, Shield, UserPlus, MessageCircle } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import { getGradient } from "./Navbar";
 import timelyLogo from "../assets/Timely_logo.png";
@@ -12,45 +12,53 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
     const isConsultant = userRole === "consultant";
 
     const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
-    const gb = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
+    const gb    = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
 
     const n = {
-        sidebar: isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
-        text: isDark ? "text-white" : "text-gray-900",
-        secondary: isDark ? "text-gray-200" : "text-gray-700",
-        tertiary: isDark ? "text-gray-400" : "text-gray-500",
-        label: isDark ? "text-blue-400" : "text-blue-600",
-        flat: isDark ? "neu-dark-flat" : "neu-light-flat",
-        inset: isDark ? "neu-dark-inset" : "neu-light-inset",
-        pressed: isDark ? "neu-dark-pressed" : "neu-light-pressed",
-        card: isDark ? "neu-dark" : "neu-light",
-        divider: isDark ? "border-gray-800" : "border-gray-200",
-        activeBar: "bg-blue-500",
+        sidebar:    isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
+        text:       isDark ? "text-white"       : "text-gray-900",
+        secondary:  isDark ? "text-gray-200"    : "text-gray-700",
+        tertiary:   isDark ? "text-gray-400"    : "text-gray-500",
+        label:      isDark ? "text-blue-400"    : "text-blue-600",
+        flat:       isDark ? "neu-dark-flat"    : "neu-light-flat",
+        inset:      isDark ? "neu-dark-inset"   : "neu-light-inset",
+        pressed:    isDark ? "neu-dark-pressed" : "neu-light-pressed",
+        card:       isDark ? "neu-dark"         : "neu-light",
+        divider:    isDark ? "border-gray-800"  : "border-gray-200",
+        activeBar:  "bg-blue-500",
         activeIcon: "bg-blue-600 text-white",
     };
 
-    const initials = (userName || "U").split(" ").map(x => x[0]).join("").toUpperCase().slice(0, 2);
-    const roleLabel = userRole === "admin" ? "Administrator" : userRole === "consultant" ? "Consultant" : "Client";
-    const gradient = getGradient(userName, userEmail);
+    const initials   = (userName || "U").split(" ").map(x => x[0]).join("").toUpperCase().slice(0, 2);
+    const roleLabel  = userRole === "admin" ? "Administrator" : userRole === "consultant" ? "Consultant" : "Client";
+    const gradient   = getGradient(userName, userEmail);
 
     const menuItems = [
-        { id: "dashboard", label: "Dashboard", icon: Home },
-        { id: "projects", label: "Projects", icon: FolderOpen },
-        { id: "client", label: "Clients", icon: Users },
+        { id: "dashboard",   label: "Dashboard",   icon: Home },
+        { id: "projects",    label: "Projects",    icon: FolderOpen },
+        // Listings tab — visible to admins and consultants (staff only)
+        ...(isAdmin || isConsultant ? [{ id: "listings", label: "Listings", icon: Globe }] : []),
+        { id: "client",      label: "Clients",     icon: Users },
         { id: "consultants", label: "Consultants", icon: UserCheck },
-        { id: "reports", label: "Reports", icon: BarChart3 },
-        { id: "hours", label: "Hours", icon: Clock },
+        { id: "reports",     label: "Reports",     icon: BarChart3 },
+        { id: "hours",       label: "Hours",       icon: Clock },
         ...(isConsultant ? [{ id: "messages", label: "Messages", icon: MessageCircle }] : []),
     ];
 
     const adminItems = [
-        { id: "admin", label: "Admin Panel", icon: Shield },
+        { id: "admin",         label: "Admin Panel",    icon: Shield },
         { id: "InviteMembers", label: "Invite Members", icon: UserPlus },
     ];
 
-    const NavItem = ({ id, label, icon: Icon, isActive, isLogout = false }: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; isActive: boolean; isLogout?: boolean }) => (
-        <li className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 group ${isActive ? n.pressed : isLogout ? "hover:bg-red-500/10" : hover}`}
-            onClick={() => onNavigate(id)}>
+    const NavItem = ({
+        id, label, icon: Icon, isActive, isLogout = false,
+    }: {
+        id: string; label: string; icon: React.ComponentType<{ className?: string }>; isActive: boolean; isLogout?: boolean;
+    }) => (
+        <li
+            className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 group ${isActive ? n.pressed : isLogout ? "hover:bg-red-500/10" : hover}`}
+            onClick={() => onNavigate(id)}
+        >
             {isActive && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 ${n.activeBar} rounded-r-full`} />}
             <div className={`px-3 py-2.5 flex items-center gap-3 transition-colors duration-200 ${isActive ? n.label : isLogout ? "text-red-500" : isDark ? "text-gray-300" : "text-gray-800"}`}>
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${isActive ? n.activeIcon : isLogout ? "bg-red-500/10 text-red-500" : n.inset} ${!isActive && !isLogout ? "group-hover:scale-105" : ""}`}>
@@ -64,6 +72,7 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
     return (
         <aside className={`${sidebarToggle ? "w-0 -translate-x-full" : "w-72 translate-x-0"} ${n.sidebar} fixed top-0 left-0 h-full border-r transition-all duration-300 ease-in-out z-40 overflow-hidden`}>
             <div className="h-full flex flex-col px-4 py-5">
+
                 {/* Logo */}
                 <div className="mb-8 px-2">
                     <div className="flex items-center gap-3">
@@ -87,13 +96,21 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                 <div className="flex-1 overflow-y-auto">
                     <div className="mb-6">
                         <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.label}`}>Menu</p>
-                        <ul>{menuItems.map(item => <NavItem key={item.id} id={item.id} label={item.label} icon={item.icon} isActive={activePage === item.id} />)}</ul>
+                        <ul>
+                            {menuItems.map(item => (
+                                <NavItem key={item.id} id={item.id} label={item.label} icon={item.icon} isActive={activePage === item.id} />
+                            ))}
+                        </ul>
                     </div>
 
                     {isAdmin && (
                         <div className="mb-6">
                             <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${isDark ? "text-amber-400" : "text-amber-700"}`}>Administration</p>
-                            <ul>{adminItems.map(item => <NavItem key={item.id} id={item.id} label={item.label} icon={item.icon} isActive={activePage === item.id} />)}</ul>
+                            <ul>
+                                {adminItems.map(item => (
+                                    <NavItem key={item.id} id={item.id} label={item.label} icon={item.icon} isActive={activePage === item.id} />
+                                ))}
+                            </ul>
                         </div>
                     )}
                 </div>
@@ -103,10 +120,10 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                     <div className={`h-px ${n.divider} border-t mb-3`} />
                     <ul>
                         <NavItem id="settings" label="Settings" icon={Settings} isActive={activePage === "settings"} />
-                        <NavItem id="logout" label="Logout" icon={LogOut} isActive={false} isLogout />
+                        <NavItem id="logout"   label="Logout"   icon={LogOut}   isActive={false} isLogout />
                     </ul>
 
-                    {/* User Card — gradient avatar + hover */}
+                    {/* User card */}
                     <div onClick={() => onNavigate("profile")} className={`mt-3 p-3 ${n.card} ${hover} group rounded-xl transition-all duration-200 cursor-pointer`}>
                         <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center text-xs font-semibold text-white shadow-sm`}>{initials}</div>
