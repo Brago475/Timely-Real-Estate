@@ -281,12 +281,12 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     <p className={`text-xs ${n.tertiary}`}>{selectedProject.projectName}</p>
                                 </div>
                             </div>
-                            <button onClick={() => { setShowTimeModal(false); resetTimeForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}>
+                            <button onClick={() => { setShowTimeModal(false); resetTimeForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}>
                                 <X className={`w-4 h-4 ${n.tertiary}`} />
                             </button>
                         </div>
                         <div className="p-5 space-y-5">
-                            <div className={`${n.card} p-4 space-y-4`}>
+                            <div className={`${n.flat} p-4 space-y-4`}>
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
                                         <label className={`${n.label} text-[11px] block mb-1`}>Hours</label>
@@ -353,7 +353,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>New Project</h2>
-                            <button onClick={() => { setShowCreateModal(false); resetProjectForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}>
+                            <button onClick={() => { setShowCreateModal(false); resetProjectForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}>
                                 <X className={`w-4 h-4 ${n.tertiary}`} />
                             </button>
                         </div>
@@ -398,9 +398,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     <Users className="w-3.5 h-3.5" />Assign Clients
                                     {projectForm.selectedClients.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedClients.length}</span>}
                                 </label>
-                                <div className={`${n.card} p-2 max-h-36 overflow-y-auto space-y-1`}>
+                                <div className={`${n.inset} p-2 max-h-36 overflow-y-auto space-y-1`}>
                                     {clients.length === 0 ? <p className={`${n.tertiary} text-xs p-2`}>No clients available</p> : clients.map(c => (
-                                        <label key={c.customerId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} ${projectForm.selectedClients.includes(c.customerId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : ''}`}>
+                                        <label key={c.customerId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'} ${projectForm.selectedClients.includes(c.customerId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-500/10') : ''}`}>
                                             <input type="checkbox" checked={projectForm.selectedClients.includes(c.customerId)} onChange={e => setProjectForm({ ...projectForm, selectedClients: e.target.checked ? [...projectForm.selectedClients, c.customerId] : projectForm.selectedClients.filter(id => id !== c.customerId) })} className="w-4 h-4 accent-blue-600" />
                                             <div className={`w-7 h-7 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                             <div><span className={`${n.text} text-sm`}>{c.firstName} {c.lastName}</span><span className={`${n.tertiary} text-[10px] block`}>{c.clientCode}</span></div>
@@ -415,9 +415,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     <Users className="w-3.5 h-3.5" />Assign Consultants
                                     {projectForm.selectedConsultants.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedConsultants.length}</span>}
                                 </label>
-                                <div className={`${n.card} p-2 max-h-36 overflow-y-auto space-y-1`}>
+                                <div className={`${n.inset} p-2 max-h-36 overflow-y-auto space-y-1`}>
                                     {consultants.length === 0 ? <p className={`${n.tertiary} text-xs p-2`}>No consultants available</p> : consultants.map(c => (
-                                        <label key={c.consultantId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} ${projectForm.selectedConsultants.includes(c.consultantId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : ''}`}>
+                                        <label key={c.consultantId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'} ${projectForm.selectedConsultants.includes(c.consultantId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-500/10') : ''}`}>
                                             <input type="checkbox" checked={projectForm.selectedConsultants.includes(c.consultantId)} onChange={e => setProjectForm({ ...projectForm, selectedConsultants: e.target.checked ? [...projectForm.selectedConsultants, c.consultantId] : projectForm.selectedConsultants.filter(id => id !== c.consultantId) })} className="w-4 h-4 accent-blue-600" />
                                             <div className={`w-7 h-7 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                             <div><span className={`${n.text} text-sm`}>{c.firstName} {c.lastName}</span><span className={`${n.tertiary} text-[10px] block`}>{c.consultantCode}</span></div>
@@ -465,7 +465,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                             </div>
                             <div className="flex items-center gap-1">
                                 {isAdmin && <button onClick={() => setShowDeleteConfirm(selectedProject.projectId)} className="p-2 hover:bg-red-500/20 rounded-lg"><svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>}
-                                <button onClick={() => { setShowDetailsModal(false); setSelectedProject(null); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                                <button onClick={() => { setShowDetailsModal(false); setSelectedProject(null); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                             </div>
                         </div>
 
@@ -509,17 +509,17 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                         {canEdit && <button onClick={() => { setShowDetailsModal(false); setShowTimeModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 text-emerald-400 transition-all rounded-xl`}><Timer className="w-3.5 h-3.5" />Log Time</button>}
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className={`${n.card} p-4 rounded-2xl`}>
+                                        <div className={`${n.flat} p-4 rounded-2xl`}>
                                             <span className={`${n.label} text-[11px]`}>Time Tracked</span>
                                             <p className={`text-xl font-semibold ${n.strong} mt-1`}>{formatTime(getProjectTotalTime(selectedProject.projectId).hours, getProjectTotalTime(selectedProject.projectId).minutes)}</p>
                                             <p className={`${n.tertiary} text-[11px]`}>{getProjectTimeEntries(selectedProject.projectId).length} entries</p>
                                         </div>
-                                        <div className={`${n.card} p-4 rounded-2xl`}>
+                                        <div className={`${n.flat} p-4 rounded-2xl`}>
                                             <span className={`${n.label} text-[11px]`}>Budget</span>
                                             <p className={`text-xl font-semibold ${n.strong} mt-1`}>{formatBudget(selectedProject.budget) || '—'}</p>
                                         </div>
                                     </div>
-                                    <div className={`${n.card} p-4 rounded-2xl`}>
+                                    <div className={`${n.flat} p-4 rounded-2xl`}>
                                         <span className={`${n.label} text-[11px]`}>Timeline</span>
                                         <div className="flex gap-6 mt-2">
                                             <div><p className={`${n.tertiary} text-[10px]`}>Start</p><p className={`${n.text} text-sm`}>{formatDate(selectedProject.startDate)}</p></div>
@@ -527,7 +527,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                         </div>
                                     </div>
                                     {selectedProject.description && (
-                                        <div className={`${n.card} p-4 rounded-2xl`}>
+                                        <div className={`${n.flat} p-4 rounded-2xl`}>
                                             <span className={`${n.label} text-[11px]`}>Description</span>
                                             <p className={`${n.text} text-sm mt-1 leading-relaxed`}>{selectedProject.description}</p>
                                         </div>
@@ -633,7 +633,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                             {detailTab === 'listing' && (
                                 <div className="p-5 space-y-5">
                                     {/* Publish toggle */}
-                                    <div className={`${n.card} p-5 rounded-2xl`}>
+                                    <div className={`${n.flat} p-5 rounded-2xl`}>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className={`${n.strong} font-semibold text-sm`}>Listing Visibility</p>
@@ -705,7 +705,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                             {detailTab === 'team' && (
                                 <div className="p-5 space-y-4">
                                     {/* Consultants */}
-                                    <div className={`${n.card} p-4 rounded-2xl`}>
+                                    <div className={`${n.flat} p-4 rounded-2xl`}>
                                         <div className="flex items-center justify-between mb-3">
                                             <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Consultants</span>
                                             {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`text-xs ${n.link}`}>Manage</button>}
@@ -725,7 +725,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     </div>
 
                                     {/* Clients */}
-                                    <div className={`${n.card} p-4 rounded-2xl`}>
+                                    <div className={`${n.flat} p-4 rounded-2xl`}>
                                         <div className="flex items-center justify-between mb-3">
                                             <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Clients</span>
                                             {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowClientsModal(true); }} className={`text-xs ${n.link}`}>Manage</button>}
@@ -749,7 +749,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                             {/* ── Progress ── */}
                             {detailTab === 'progress' && (
                                 <div className="p-5 space-y-4">
-                                    <div className={`${n.card} p-4 rounded-2xl flex items-center justify-between`}>
+                                    <div className={`${n.flat} p-4 rounded-2xl flex items-center justify-between`}>
                                         <div>
                                             <span className={`${n.label} text-[11px]`}>Total Time Logged</span>
                                             <p className={`text-2xl font-semibold ${n.strong} mt-1`}>{formatTime(getProjectTotalTime(selectedProject.projectId).hours, getProjectTotalTime(selectedProject.projectId).minutes)}</p>
@@ -802,7 +802,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>Edit Project</h2>
-                            <button onClick={() => { setShowEditModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                            <button onClick={() => { setShowEditModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-4">
                             <div><label className={`${n.label} text-[11px] block mb-1`}>Project Name</label><input type="text" value={projectForm.projectName} onChange={e => setProjectForm({ ...projectForm, projectName: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} /></div>
@@ -829,7 +829,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>Manage Consultants</h2>
-                            <button onClick={() => { setShowConsultantsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                            <button onClick={() => { setShowConsultantsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-5">
                             <div>
@@ -868,7 +868,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>Manage Clients</h2>
-                            <button onClick={() => { setShowClientsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                            <button onClick={() => { setShowClientsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-5">
                             <div>
