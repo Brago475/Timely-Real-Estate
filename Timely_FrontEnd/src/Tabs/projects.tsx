@@ -1,4 +1,4 @@
-﻿// src/Tabs/projects.tsx  ── PART 1 of 3
+﻿// src/Tabs/projects.tsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../Views_Layouts/ThemeContext';
 import {
@@ -300,11 +300,6 @@ const RealEstateProjects: React.FC = () => {
         if (idx !== -1) { local[idx] = updated; } else { local.push(updated); }
         localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(local));
     };
-
-// ── CONTINUED IN PART 2 ──
-
-// src/Tabs/projects.tsx  ── PART 2 of 3
-// Paste this directly after Part 1, replacing the "// ── CONTINUED IN PART 2 ──" comment
 
     // ─── Project CRUD ─────────────────────────────────────────────────────────
     const getClientNameFromSelection = () => {
@@ -724,7 +719,7 @@ const RealEstateProjects: React.FC = () => {
                     </div>
                 )}
 
-                {/* ── Card grid ── */}
+                {/* Card grid */}
                 {filteredProjects.length === 0 ? (
                     <div className={`${n.card} rounded-2xl text-center py-20`}>
                         <FolderOpen className={`w-12 h-12 ${n.tertiary} mx-auto mb-4`} strokeWidth={1.5} />
@@ -758,20 +753,14 @@ const RealEstateProjects: React.FC = () => {
                                     {/* Cover */}
                                     <div className="relative h-44 flex-shrink-0 overflow-hidden">
                                         <ProjectCover p={p} />
-
-                                        {/* Status badge */}
                                         <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white flex items-center gap-1.5 ${statusInfo?.color || 'bg-gray-600'}`}>
                                             <div className="w-1.5 h-1.5 rounded-full bg-white/70" />{fmtStatus(p.status)}
                                         </div>
-
-                                        {/* Published badge */}
                                         {p.isPublished && (
                                             <div className="absolute top-3 right-3 px-2 py-1 bg-emerald-600 rounded-lg text-[10px] font-semibold text-white flex items-center gap-1">
                                                 <Globe className="w-2.5 h-2.5" />Listed
                                             </div>
                                         )}
-
-                                        {/* Admin hover delete (only when not published) */}
                                         {isAdmin && !p.isPublished && (
                                             <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={e => { e.stopPropagation(); setShowDeleteConfirm(p.projectId); }} className="w-7 h-7 bg-black/50 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-red-500/80 transition-colors">
@@ -779,45 +768,28 @@ const RealEstateProjects: React.FC = () => {
                                                 </button>
                                             </div>
                                         )}
-
-                                        {/* Price chip */}
                                         {displayPrice && (
-                                            <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/55 backdrop-blur-sm rounded-lg text-white text-xs font-semibold">
-                                                {displayPrice}
-                                            </div>
+                                            <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/55 backdrop-blur-sm rounded-lg text-white text-xs font-semibold">{displayPrice}</div>
                                         )}
-
-                                        {/* Team + photo count chips */}
                                         <div className="absolute bottom-3 left-3 flex gap-1.5">
-                                            {teamCount > 0 && (
-                                                <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                    <Users className="w-3 h-3" />{teamCount}
-                                                </div>
-                                            )}
-                                            {hasPhotos && (
-                                                <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                    <Image className="w-3 h-3" />{p.photos!.length}
-                                                </div>
-                                            )}
+                                            {teamCount > 0 && <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1"><Users className="w-3 h-3" />{teamCount}</div>}
+                                            {hasPhotos  && <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1"><Image  className="w-3 h-3" />{p.photos!.length}</div>}
                                         </div>
-
                                         <div className="absolute bottom-0 left-0 right-0 h-6" style={{ background: isDark ? 'linear-gradient(to bottom, transparent, rgba(17,17,17,0.8))' : 'linear-gradient(to bottom, transparent, rgba(228,228,228,0.7))' }} />
                                     </div>
 
-                                    {/* Card body */}
+                                    {/* Body */}
                                     <div className="p-4 flex flex-col flex-1 gap-2.5">
                                         <div>
                                             <h3 className={`${n.strong} font-semibold text-[15px] leading-snug`}>{p.projectName}</h3>
                                             <p className={`${n.tertiary} text-[11px] mt-0.5 font-mono`}>{p.projectCode}</p>
                                         </div>
-
                                         {(p.city || p.address) && (
                                             <div className="flex items-center gap-1.5">
                                                 <MapPin className={`w-3 h-3 ${n.tertiary} flex-shrink-0`} />
                                                 <span className={`${n.secondary} text-xs truncate`}>{[p.address, p.city, p.state].filter(Boolean).join(', ')}</span>
                                             </div>
                                         )}
-
                                         {(p.bedrooms || p.bathrooms || p.sqft) && (
                                             <div className={`flex items-center gap-3 text-[11px] ${n.tertiary}`}>
                                                 {p.bedrooms  && <span className="flex items-center gap-1"><Bed      className="w-3 h-3" />{p.bedrooms} bd</span>}
@@ -825,28 +797,15 @@ const RealEstateProjects: React.FC = () => {
                                                 {p.sqft      && <span className="flex items-center gap-1"><Maximize className="w-3 h-3" />{Number(p.sqft).toLocaleString()} sqft</span>}
                                             </div>
                                         )}
-
-                                        {clientLabel && (
-                                            <div className="flex items-center gap-1.5">
-                                                <Users className={`w-3.5 h-3.5 ${n.tertiary} flex-shrink-0`} />
-                                                <span className={`${n.secondary} text-xs truncate`}>{clientLabel}</span>
-                                            </div>
-                                        )}
-
-                                        {p.description && (
-                                            <p className={`${n.secondary} text-xs leading-relaxed line-clamp-2`}>{p.description}</p>
-                                        )}
-
+                                        {clientLabel && <div className="flex items-center gap-1.5"><Users className={`w-3.5 h-3.5 ${n.tertiary} flex-shrink-0`} /><span className={`${n.secondary} text-xs truncate`}>{clientLabel}</span></div>}
+                                        {p.description && <p className={`${n.secondary} text-xs leading-relaxed line-clamp-2`}>{p.description}</p>}
                                         {(p.startDate || p.endDate) && (
                                             <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}>
                                                 <Calendar className="w-3 h-3 flex-shrink-0" />
                                                 <span>{p.startDate ? formatDate(p.startDate) : '—'}{p.endDate && ` — ${formatDate(p.endDate)}`}</span>
                                             </div>
                                         )}
-
                                         <div className="flex-1" />
-
-                                        {/* Footer */}
                                         <div className={`flex items-center justify-between pt-3 border-t ${n.divider}`}>
                                             <div className="flex items-center gap-3">
                                                 <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}>
@@ -877,24 +836,16 @@ const RealEstateProjects: React.FC = () => {
                 )}
             </div>
 
-            {/* ── CONTINUED IN PART 3 (all modals) ── */}
-
-            // src/Tabs/projects.tsx  ── PART 3 of 3
-// Paste this directly after Part 2, replacing the "// ── CONTINUED IN PART 3 ──" comment
-
             {/* ══ MODALS ═════════════════════════════════════════════════════════ */}
 
-            {/* ── Time Modal ── */}
+            {/* Time Modal */}
             {showTimeModal && selectedProject && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <div className="flex items-center gap-3">
                                 <Timer className="w-5 h-5 text-emerald-400" />
-                                <div>
-                                    <h2 className={`text-lg font-semibold ${n.text}`}>Log Time</h2>
-                                    <p className={`text-xs ${n.tertiary}`}>{selectedProject.projectName}</p>
-                                </div>
+                                <div><h2 className={`text-lg font-semibold ${n.text}`}>Log Time</h2><p className={`text-xs ${n.tertiary}`}>{selectedProject.projectName}</p></div>
                             </div>
                             <button onClick={() => { setShowTimeModal(false); setTimeForm({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] }); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}>
                                 <X className={`w-4 h-4 ${n.tertiary}`} />
@@ -907,13 +858,8 @@ const RealEstateProjects: React.FC = () => {
                                     <div><label className={`${n.label} text-[11px] block mb-1`}>Minutes</label><input type="number" min="0" max="59" value={timeForm.minutes} onChange={e => setTimeForm({ ...timeForm, minutes: parseInt(e.target.value) || 0 })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} /></div>
                                     <div><label className={`${n.label} text-[11px] block mb-1`}>Date</label><input type="date" value={timeForm.date} onChange={e => setTimeForm({ ...timeForm, date: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} /></div>
                                 </div>
-                                <div>
-                                    <label className={`${n.label} text-[11px] block mb-1`}>Description</label>
-                                    <textarea rows={2} value={timeForm.description} onChange={e => setTimeForm({ ...timeForm, description: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none focus:outline-none focus:border-blue-500`} placeholder="What did you work on?" />
-                                </div>
-                                <button onClick={addTimeEntry} className={`w-full px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}>
-                                    <Save className="w-4 h-4" />Log Time
-                                </button>
+                                <div><label className={`${n.label} text-[11px] block mb-1`}>Description</label><textarea rows={2} value={timeForm.description} onChange={e => setTimeForm({ ...timeForm, description: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none focus:outline-none focus:border-blue-500`} placeholder="What did you work on?" /></div>
+                                <button onClick={addTimeEntry} className={`w-full px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}><Save className="w-4 h-4" />Log Time</button>
                             </div>
                             <div>
                                 <div className="flex items-center justify-between mb-3">
@@ -935,9 +881,7 @@ const RealEstateProjects: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 {(isAdmin || entry.consultantId === (userConsultantId || userEmail)) && (
-                                                    <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg">
-                                                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                                                    </button>
+                                                    <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
                                                 )}
                                             </div>
                                         ))}
@@ -949,15 +893,13 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
-            {/* ── Create Modal ── */}
+            {/* Create Modal */}
             {showCreateModal && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
                         <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>New Project</h2>
-                            <button onClick={() => { setShowCreateModal(false); resetProjectForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}>
-                                <X className={`w-4 h-4 ${n.tertiary}`} />
-                            </button>
+                            <button onClick={() => { setShowCreateModal(false); resetProjectForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-4">
                             <div><label className={`${n.label} text-[11px] block mb-1`}>Project Name *</label><input type="text" value={projectForm.projectName} onChange={e => setProjectForm({ ...projectForm, projectName: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} placeholder="Enter project name" /></div>
@@ -968,7 +910,6 @@ const RealEstateProjects: React.FC = () => {
                                 <div><label className={`${n.label} text-[11px] block mb-1`}>End Date</label><input type="date" value={projectForm.endDate} onChange={e => setProjectForm({ ...projectForm, endDate: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
                                 <div className="col-span-2"><label className={`${n.label} text-[11px] block mb-1`}>Budget</label><input type="number" value={projectForm.budget} onChange={e => setProjectForm({ ...projectForm, budget: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} placeholder="Enter budget" /></div>
                             </div>
-                            {/* Assign Clients */}
                             <div>
                                 <label className={`${n.label} text-[11px] mb-2 flex items-center gap-1.5`}><Users className="w-3.5 h-3.5" />Assign Clients {projectForm.selectedClients.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedClients.length}</span>}</label>
                                 <div className={`${n.card} p-2 max-h-36 overflow-y-auto space-y-1`}>
@@ -981,7 +922,6 @@ const RealEstateProjects: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                            {/* Assign Consultants */}
                             <div>
                                 <label className={`${n.label} text-[11px] mb-2 flex items-center gap-1.5`}><Users className="w-3.5 h-3.5" />Assign Consultants {projectForm.selectedConsultants.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedConsultants.length}</span>}</label>
                                 <div className={`${n.card} p-2 max-h-36 overflow-y-auto space-y-1`}>
@@ -1058,7 +998,7 @@ const RealEstateProjects: React.FC = () => {
                         {/* Tab content */}
                         <div className="flex-1 overflow-y-auto">
 
-                            {/* ── Overview ── */}
+                            {/* Overview */}
                             {detailTab === 'overview' && (
                                 <div className="p-5 space-y-5">
                                     <div>
@@ -1088,19 +1028,13 @@ const RealEstateProjects: React.FC = () => {
                                             <div><p className={`${n.tertiary} text-[10px]`}>End</p><p className={`${n.text} text-sm`}>{formatDate(selectedProject.endDate)}</p></div>
                                         </div>
                                     </div>
-                                    {selectedProject.description && (
-                                        <div className={`${n.card} p-4 rounded-2xl`}>
-                                            <span className={`${n.label} text-[11px]`}>Description</span>
-                                            <p className={`${n.text} text-sm mt-1 leading-relaxed`}>{selectedProject.description}</p>
-                                        </div>
-                                    )}
+                                    {selectedProject.description && <div className={`${n.card} p-4 rounded-2xl`}><span className={`${n.label} text-[11px]`}>Description</span><p className={`${n.text} text-sm mt-1 leading-relaxed`}>{selectedProject.description}</p></div>}
                                 </div>
                             )}
 
-                            {/* ── Property ── */}
+                            {/* Property */}
                             {detailTab === 'property' && (
                                 <div className="p-5 space-y-6">
-
                                     {/* Photos */}
                                     <div>
                                         <div className="flex items-center justify-between mb-3">
@@ -1127,9 +1061,7 @@ const RealEstateProjects: React.FC = () => {
                                                             <button onClick={() => setCoverPhoto(i)} className={`p-1.5 rounded-lg ${(selectedProject.coverPhotoIndex || 0) === i ? 'bg-yellow-500' : 'bg-white/20 hover:bg-white/30'}`} title="Set as cover"><Star className="w-3 h-3 text-white" /></button>
                                                             <button onClick={() => removePhoto(i)} className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg" title="Remove"><Trash2 className="w-3 h-3 text-white" /></button>
                                                         </div>
-                                                        {(selectedProject.coverPhotoIndex || 0) === i && (
-                                                            <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-yellow-500 rounded text-[9px] text-white font-semibold">Cover</div>
-                                                        )}
+                                                        {(selectedProject.coverPhotoIndex || 0) === i && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-yellow-500 rounded text-[9px] text-white font-semibold">Cover</div>}
                                                     </div>
                                                 ))}
                                                 {selectedProject.photos.length < 8 && (
@@ -1140,7 +1072,6 @@ const RealEstateProjects: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-
                                     {/* Location */}
                                     <div>
                                         <span className={`${n.label} text-[11px] uppercase tracking-wider block mb-3`}>Location</span>
@@ -1153,17 +1084,11 @@ const RealEstateProjects: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-
                                     {/* Property details */}
                                     <div>
                                         <span className={`${n.label} text-[11px] uppercase tracking-wider block mb-3`}>Property Details</span>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <div className="col-span-2">
-                                                <label className={`${n.tertiary} text-[11px] block mb-1`}>Property Type</label>
-                                                <select value={propertyForm.propertyType} onChange={e => setPropertyForm(f => ({ ...f, propertyType: e.target.value }))} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}>
-                                                    {PROPERTY_TYPES.map(pt => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
-                                                </select>
-                                            </div>
+                                            <div className="col-span-2"><label className={`${n.tertiary} text-[11px] block mb-1`}>Property Type</label><select value={propertyForm.propertyType} onChange={e => setPropertyForm(f => ({ ...f, propertyType: e.target.value }))} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}>{PROPERTY_TYPES.map(pt => <option key={pt.value} value={pt.value}>{pt.label}</option>)}</select></div>
                                             <div><label className={`${n.tertiary} text-[11px] block mb-1`}>Bedrooms</label><input type="number" min="0" value={propertyForm.bedrooms} onChange={e => setPropertyForm(f => ({ ...f, bedrooms: e.target.value }))} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} placeholder="3" /></div>
                                             <div><label className={`${n.tertiary} text-[11px] block mb-1`}>Bathrooms</label><input type="number" min="0" step="0.5" value={propertyForm.bathrooms} onChange={e => setPropertyForm(f => ({ ...f, bathrooms: e.target.value }))} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} placeholder="2" /></div>
                                             <div><label className={`${n.tertiary} text-[11px] block mb-1`}>Sq. Footage</label><input type="number" min="0" value={propertyForm.sqft} onChange={e => setPropertyForm(f => ({ ...f, sqft: e.target.value }))} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} placeholder="1800" /></div>
@@ -1171,7 +1096,6 @@ const RealEstateProjects: React.FC = () => {
                                             <div><label className={`${n.tertiary} text-[11px] block mb-1`}>Year Built</label><input type="number" value={propertyForm.yearBuilt} onChange={e => setPropertyForm(f => ({ ...f, yearBuilt: e.target.value }))} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} placeholder="2005" /></div>
                                         </div>
                                     </div>
-
                                     {/* Amenities */}
                                     <div>
                                         <span className={`${n.label} text-[11px] uppercase tracking-wider block mb-3`}>Amenities</span>
@@ -1182,34 +1106,24 @@ const RealEstateProjects: React.FC = () => {
                                                     <button key={a} onClick={() => toggleAmenity(a)} className={`px-3 py-2 rounded-xl text-xs text-left flex items-center gap-2 transition-all ${checked ? 'bg-blue-600 text-white' : `${n.flat} ${n.secondary}`}`}>
                                                         <div className={`w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center ${checked ? 'bg-white/20 border-white/30' : (isDark ? 'border-gray-600' : 'border-gray-400')}`}>
                                                             {checked && <CheckCircle className="w-2.5 h-2.5 text-white" />}
-                                                        </div>
-                                                        {a}
+                                                        </div>{a}
                                                     </button>
                                                 );
                                             })}
                                         </div>
                                     </div>
-
-                                    <button onClick={savePropertyDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}>
-                                        <Save className="w-4 h-4" />Save Property Details
-                                    </button>
+                                    <button onClick={savePropertyDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}><Save className="w-4 h-4" />Save Property Details</button>
                                 </div>
                             )}
 
-                            {/* ── Listing ── */}
+                            {/* Listing */}
                             {detailTab === 'listing' && (
                                 <div className="p-5 space-y-5">
-
-                                    {/* Publish toggle */}
                                     <div className={`${n.card} p-5 rounded-2xl`}>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className={`${n.strong} font-semibold text-sm`}>Public Listing</p>
-                                                <p className={`${n.secondary} text-xs mt-0.5`}>
-                                                    {selectedProject.isPublished
-                                                        ? `Published ${new Date(selectedProject.publishedAt!).toLocaleDateString()}`
-                                                        : 'Not visible to the public'}
-                                                </p>
+                                                <p className={`${n.secondary} text-xs mt-0.5`}>{selectedProject.isPublished ? `Published ${new Date(selectedProject.publishedAt!).toLocaleDateString()}` : 'Not visible to the public'}</p>
                                             </div>
                                             {isAdmin && (
                                                 <button onClick={togglePublish} className={`relative w-12 h-6 rounded-full transition-colors ${selectedProject.isPublished ? 'bg-emerald-500' : (isDark ? 'bg-gray-700' : 'bg-gray-300')}`}>
@@ -1226,42 +1140,23 @@ const RealEstateProjects: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* Listing price + status */}
                                     <div className="space-y-3">
                                         <div>
                                             <label className={`${n.label} text-[11px] block mb-1`}>Listing Price</label>
-                                            <div className="relative">
-                                                <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${n.tertiary} text-sm`}>$</span>
-                                                <input type="number" value={propertyForm.listingPrice} onChange={e => setPropertyForm(f => ({ ...f, listingPrice: e.target.value }))} className={`w-full pl-7 pr-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} placeholder="850000" />
-                                            </div>
+                                            <div className="relative"><span className={`absolute left-3 top-1/2 -translate-y-1/2 ${n.tertiary} text-sm`}>$</span><input type="number" value={propertyForm.listingPrice} onChange={e => setPropertyForm(f => ({ ...f, listingPrice: e.target.value }))} className={`w-full pl-7 pr-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} placeholder="850000" /></div>
                                         </div>
                                         <div>
                                             <label className={`${n.label} text-[11px] block mb-2`}>Listing Status</label>
-                                            <div className="flex gap-2">
-                                                {listingStatuses.map(ls => (
-                                                    <button key={ls.value} onClick={() => setPropertyForm(f => ({ ...f, listingStatus: ls.value }))} className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${propertyForm.listingStatus === ls.value ? ls.color : `${n.flat} ${n.secondary}`}`}>
-                                                        {ls.label}
-                                                    </button>
-                                                ))}
-                                            </div>
+                                            <div className="flex gap-2">{listingStatuses.map(ls => (<button key={ls.value} onClick={() => setPropertyForm(f => ({ ...f, listingStatus: ls.value }))} className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${propertyForm.listingStatus === ls.value ? ls.color : `${n.flat} ${n.secondary}`}`}>{ls.label}</button>))}</div>
                                         </div>
                                     </div>
-
-                                    <button onClick={saveListingDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}>
-                                        <Save className="w-4 h-4" />Save Listing Details
-                                    </button>
-
+                                    <button onClick={saveListingDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}><Save className="w-4 h-4" />Save Listing Details</button>
                                     {/* Inquiries */}
                                     <div>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className={`${n.label} text-[11px] uppercase tracking-wider`}>
-                                                Inquiries ({ListingService.getTotalCount(selectedProject.projectId)})
-                                            </span>
+                                            <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Inquiries ({ListingService.getTotalCount(selectedProject.projectId)})</span>
                                             {ListingService.getUnreadCount(selectedProject.projectId) > 0 && (
-                                                <button onClick={() => { ListingService.markAllReadForProject(selectedProject.projectId); setInquiriesRefreshKey(k => k + 1); }} className={`text-xs ${n.link}`}>
-                                                    Mark all read
-                                                </button>
+                                                <button onClick={() => { ListingService.markAllReadForProject(selectedProject.projectId); setInquiriesRefreshKey(k => k + 1); }} className={`text-xs ${n.link}`}>Mark all read</button>
                                             )}
                                         </div>
                                         {ListingService.getInquiriesForProject(selectedProject.projectId).length === 0 ? (
@@ -1276,26 +1171,14 @@ const RealEstateProjects: React.FC = () => {
                                                     <div key={inq.id} className={`${n.flat} p-4 rounded-xl ${!inq.read ? 'border-l-2 border-blue-500' : ''}`}>
                                                         <div className="flex items-start justify-between gap-2">
                                                             <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className={`${n.text} text-sm font-medium`}>{inq.name}</p>
-                                                                    {!inq.read && <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
-                                                                </div>
-                                                                <div className={`flex items-center gap-3 mt-0.5 ${n.tertiary} text-[11px]`}>
-                                                                    <span>{inq.email}</span>
-                                                                    {inq.phone && <span>{inq.phone}</span>}
-                                                                </div>
+                                                                <div className="flex items-center gap-2"><p className={`${n.text} text-sm font-medium`}>{inq.name}</p>{!inq.read && <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}</div>
+                                                                <div className={`flex items-center gap-3 mt-0.5 ${n.tertiary} text-[11px]`}><span>{inq.email}</span>{inq.phone && <span>{inq.phone}</span>}</div>
                                                                 <p className={`${n.secondary} text-xs mt-2 leading-relaxed`}>{inq.message}</p>
                                                                 <p className={`${n.tertiary} text-[10px] mt-1`}>{new Date(inq.createdAt).toLocaleString()}</p>
                                                             </div>
                                                             <div className="flex flex-col gap-1 flex-shrink-0">
-                                                                {!inq.read && (
-                                                                    <button onClick={() => { ListingService.markRead(inq.id); setInquiriesRefreshKey(k => k + 1); }} className={`p-1.5 ${n.flat} rounded-lg`} title="Mark read">
-                                                                        <Eye className={`w-3.5 h-3.5 ${n.tertiary}`} />
-                                                                    </button>
-                                                                )}
-                                                                <button onClick={() => { ListingService.deleteInquiry(inq.id); setInquiriesRefreshKey(k => k + 1); }} className="p-1.5 hover:bg-red-500/20 rounded-lg" title="Delete">
-                                                                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                                                                </button>
+                                                                {!inq.read && <button onClick={() => { ListingService.markRead(inq.id); setInquiriesRefreshKey(k => k + 1); }} className={`p-1.5 ${n.flat} rounded-lg`}><Eye className={`w-3.5 h-3.5 ${n.tertiary}`} /></button>}
+                                                                <button onClick={() => { ListingService.deleteInquiry(inq.id); setInquiriesRefreshKey(k => k + 1); }} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1306,42 +1189,26 @@ const RealEstateProjects: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* ── Team ── */}
+                            {/* Team */}
                             {detailTab === 'team' && (
                                 <div className="p-5 space-y-4">
-                                    {/* Consultants */}
                                     <div className={`${n.card} p-4 rounded-2xl`}>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Consultants</span>
-                                            {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`text-xs ${n.link}`}>Manage</button>}
-                                        </div>
-                                        {getProjectConsultants(selectedProject.projectId).length === 0
-                                            ? <p className={`${n.tertiary} text-xs text-center py-3`}>None assigned</p>
-                                            : <div className="space-y-2">{getProjectConsultants(selectedProject.projectId).map(c => (
+                                        <div className="flex items-center justify-between mb-3"><span className={`${n.label} text-[11px] uppercase tracking-wider`}>Consultants</span>{isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`text-xs ${n.link}`}>Manage</button>}</div>
+                                        {getProjectConsultants(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-xs text-center py-3`}>None assigned</p> :
+                                            <div className="space-y-2">{getProjectConsultants(selectedProject.projectId).map(c => (
                                                 <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
-                                                        <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div>
-                                                    </div>
+                                                    <div className="flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div></div>
                                                     {isAdmin && <button onClick={() => removeConsultantFromProject(c.consultantId)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><UserMinus className="w-4 h-4 text-red-400" /></button>}
                                                 </div>
                                             ))}</div>
                                         }
                                     </div>
-                                    {/* Clients */}
                                     <div className={`${n.card} p-4 rounded-2xl`}>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Clients</span>
-                                            {isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowClientsModal(true); }} className={`text-xs ${n.link}`}>Manage</button>}
-                                        </div>
-                                        {getProjectClients(selectedProject.projectId).length === 0
-                                            ? <p className={`${n.tertiary} text-xs text-center py-3`}>None assigned</p>
-                                            : <div className="space-y-2">{getProjectClients(selectedProject.projectId).map(c => (
+                                        <div className="flex items-center justify-between mb-3"><span className={`${n.label} text-[11px] uppercase tracking-wider`}>Clients</span>{isAdmin && <button onClick={() => { setShowDetailsModal(false); setShowClientsModal(true); }} className={`text-xs ${n.link}`}>Manage</button>}</div>
+                                        {getProjectClients(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-xs text-center py-3`}>None assigned</p> :
+                                            <div className="space-y-2">{getProjectClients(selectedProject.projectId).map(c => (
                                                 <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
-                                                        <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div>
-                                                    </div>
+                                                    <div className="flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div></div>
                                                     {isAdmin && <button onClick={() => removeClientFromProject(c.customerId)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><UserMinus className="w-4 h-4 text-red-400" /></button>}
                                                 </div>
                                             ))}</div>
@@ -1350,43 +1217,24 @@ const RealEstateProjects: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* ── Progress ── */}
+                            {/* Progress */}
                             {detailTab === 'progress' && (
                                 <div className="p-5 space-y-4">
                                     <div className={`${n.card} p-4 rounded-2xl flex items-center justify-between`}>
-                                        <div>
-                                            <span className={`${n.label} text-[11px]`}>Total Time Logged</span>
-                                            <p className={`text-2xl font-semibold ${n.strong} mt-1`}>{formatTime(getProjectTotalTime(selectedProject.projectId).hours, getProjectTotalTime(selectedProject.projectId).minutes)}</p>
-                                            <p className={`${n.tertiary} text-[11px]`}>{getProjectTimeEntries(selectedProject.projectId).length} entries</p>
-                                        </div>
-                                        {canEdit && (
-                                            <button onClick={() => { setShowDetailsModal(false); setShowTimeModal(true); }} className={`px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2`}>
-                                                <Timer className="w-4 h-4" />Log Time
-                                            </button>
-                                        )}
+                                        <div><span className={`${n.label} text-[11px]`}>Total Time Logged</span><p className={`text-2xl font-semibold ${n.strong} mt-1`}>{formatTime(getProjectTotalTime(selectedProject.projectId).hours, getProjectTotalTime(selectedProject.projectId).minutes)}</p><p className={`${n.tertiary} text-[11px]`}>{getProjectTimeEntries(selectedProject.projectId).length} entries</p></div>
+                                        {canEdit && <button onClick={() => { setShowDetailsModal(false); setShowTimeModal(true); }} className={`px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2`}><Timer className="w-4 h-4" />Log Time</button>}
                                     </div>
                                     {getProjectTimeEntries(selectedProject.projectId).length === 0 ? (
-                                        <div className={`${n.flat} rounded-2xl p-8 text-center`}>
-                                            <Clock className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} strokeWidth={1.5} />
-                                            <p className={`${n.secondary} text-sm`}>No time logged yet</p>
-                                        </div>
+                                        <div className={`${n.flat} rounded-2xl p-8 text-center`}><Clock className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} strokeWidth={1.5} /><p className={`${n.secondary} text-sm`}>No time logged yet</p></div>
                                     ) : (
                                         <div className="space-y-2">
                                             {getProjectTimeEntries(selectedProject.projectId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(entry => (
                                                 <div key={entry.id} className={`${n.flat} p-4 flex items-center justify-between rounded-xl`}>
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-9 h-9 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{entry.consultantName.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}</div>
-                                                        <div>
-                                                            <p className={`${n.text} text-sm font-semibold`}>{formatTime(entry.hours, entry.minutes)}</p>
-                                                            <p className={`${n.tertiary} text-[11px]`}>{entry.consultantName} · {new Date(entry.date).toLocaleDateString()}</p>
-                                                            {entry.description && <p className={`${n.secondary} text-xs mt-0.5`}>{entry.description}</p>}
-                                                        </div>
+                                                        <div><p className={`${n.text} text-sm font-semibold`}>{formatTime(entry.hours, entry.minutes)}</p><p className={`${n.tertiary} text-[11px]`}>{entry.consultantName} · {new Date(entry.date).toLocaleDateString()}</p>{entry.description && <p className={`${n.secondary} text-xs mt-0.5`}>{entry.description}</p>}</div>
                                                     </div>
-                                                    {(isAdmin || entry.consultantId === (userConsultantId || userEmail)) && (
-                                                        <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg">
-                                                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                                                        </button>
-                                                    )}
+                                                    {(isAdmin || entry.consultantId === (userConsultantId || userEmail)) && <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>}
                                                 </div>
                                             ))}
                                         </div>
@@ -1398,7 +1246,7 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
-            {/* ── Edit Modal ── */}
+            {/* Edit Modal */}
             {showEditModal && selectedProject && canEdit && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
@@ -1425,7 +1273,7 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
-            {/* ── Consultants Modal ── */}
+            {/* Consultants Modal */}
             {showConsultantsModal && selectedProject && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
@@ -1436,9 +1284,8 @@ const RealEstateProjects: React.FC = () => {
                         <div className="p-5 space-y-5">
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Assigned</span>
-                                {getProjectConsultants(selectedProject.projectId).length === 0
-                                    ? <p className={`${n.tertiary} text-sm text-center py-4`}>None assigned</p>
-                                    : <div className="space-y-1.5 mt-3">{getProjectConsultants(selectedProject.projectId).map(c => (
+                                {getProjectConsultants(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>None assigned</p> :
+                                    <div className="space-y-1.5 mt-3">{getProjectConsultants(selectedProject.projectId).map(c => (
                                         <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div></div>
                                             <button onClick={() => removeConsultantFromProject(c.consultantId)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><UserMinus className="w-4 h-4 text-red-400" /></button>
@@ -1448,9 +1295,8 @@ const RealEstateProjects: React.FC = () => {
                             </div>
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Available</span>
-                                {getAvailableConsultants(selectedProject.projectId).length === 0
-                                    ? <p className={`${n.tertiary} text-sm text-center py-4`}>All assigned</p>
-                                    : <div className="space-y-1.5 mt-3">{getAvailableConsultants(selectedProject.projectId).map(c => (
+                                {getAvailableConsultants(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>All assigned</p> :
+                                    <div className="space-y-1.5 mt-3">{getAvailableConsultants(selectedProject.projectId).map(c => (
                                         <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3"><div className={`w-7 h-7 ${n.inset} rounded-full flex items-center justify-center text-[10px] ${n.tertiary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.consultantCode}</p></div></div>
                                             <button onClick={() => assignConsultantToProject(c.consultantId)} className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-xs flex items-center gap-1.5`}><Link2 className="w-3.5 h-3.5" />Assign</button>
@@ -1464,7 +1310,7 @@ const RealEstateProjects: React.FC = () => {
                 </div>
             )}
 
-            {/* ── Clients Modal ── */}
+            {/* Clients Modal */}
             {showClientsModal && selectedProject && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
@@ -1475,9 +1321,8 @@ const RealEstateProjects: React.FC = () => {
                         <div className="p-5 space-y-5">
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Assigned</span>
-                                {getProjectClients(selectedProject.projectId).length === 0
-                                    ? <p className={`${n.tertiary} text-sm text-center py-4`}>None assigned</p>
-                                    : <div className="space-y-1.5 mt-3">{getProjectClients(selectedProject.projectId).map(c => (
+                                {getProjectClients(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>None assigned</p> :
+                                    <div className="space-y-1.5 mt-3">{getProjectClients(selectedProject.projectId).map(c => (
                                         <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3"><div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div></div>
                                             <button onClick={() => removeClientFromProject(c.customerId)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><UserMinus className="w-4 h-4 text-red-400" /></button>
@@ -1487,9 +1332,8 @@ const RealEstateProjects: React.FC = () => {
                             </div>
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Available</span>
-                                {getAvailableClients(selectedProject.projectId).length === 0
-                                    ? <p className={`${n.tertiary} text-sm text-center py-4`}>All assigned</p>
-                                    : <div className="space-y-1.5 mt-3">{getAvailableClients(selectedProject.projectId).map(c => (
+                                {getAvailableClients(selectedProject.projectId).length === 0 ? <p className={`${n.tertiary} text-sm text-center py-4`}>All assigned</p> :
+                                    <div className="space-y-1.5 mt-3">{getAvailableClients(selectedProject.projectId).map(c => (
                                         <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
                                             <div className="flex items-center gap-3"><div className={`w-7 h-7 ${n.inset} rounded-full flex items-center justify-center text-[10px] ${n.tertiary}`}>{c.firstName[0]}{c.lastName[0]}</div><div><p className={`${n.text} text-sm`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.clientCode}</p></div></div>
                                             <button onClick={() => assignClientToProject(c.customerId)} className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-xs flex items-center gap-1.5`}><Link2 className="w-3.5 h-3.5" />Assign</button>

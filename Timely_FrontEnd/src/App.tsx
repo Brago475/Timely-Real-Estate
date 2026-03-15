@@ -56,13 +56,6 @@ function AppContent() {
     const isClient     = currentRole === "client";
     const isStaff      = isAdmin || isConsultant;
 
-    // ── Public listing intercept ───────────────────────────────────────────
-    // If URL is /listing/:slug, render public page immediately — skip auth
-    const listingSlug = getListingSlug();
-    if (listingSlug) {
-        return <PublicListing />;
-    }
-
     useEffect(() => {
         if (isLoggedIn && authUser) {
             setUserData({ customerId: authUser.customerId, email: authUser.email, name: authUser.name, role: normalizeRole(authUser.role) });
@@ -130,6 +123,10 @@ function AppContent() {
             return h;
         });
     };
+
+    // ── Public listing intercept — after all hooks ─────────────────────────
+    const listingSlug = getListingSlug();
+    if (listingSlug) return <PublicListing />;
 
     if (isLoading) {
         return (
