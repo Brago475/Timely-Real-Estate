@@ -143,7 +143,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             }
             const al: any[] = [];
             if (isAdmin && (cR?.data || []).length === 0) al.push({ msg: "No clients yet", page: "admin" });
-            if (isAdmin && (coR?.data || []).length === 0) al.push({ msg: "No consultants registered", page: "EmailGenerator" });
+            if (isAdmin && (coR?.data || []).length === 0) al.push({ msg: "No consultants registered", page: "InviteMembers" });
             (pR?.data || []).forEach((p: any) => {
                 if (p.dateDue && p.status !== "completed") {
                     const d = Math.ceil((new Date(p.dateDue).getTime() - Date.now()) / 86400000);
@@ -256,7 +256,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {(isAdmin ? [
                             { label: "New project", page: "projects", icon: Plus },
                             { label: "Add client", page: "admin", icon: Users },
-                            { label: "Create account", page: "EmailGenerator", icon: UserCircle },
+                            { label: "Invite member", page: "InviteMembers", icon: UserCircle },
                             { label: "Review hours", page: "hours", icon: Clock },
                             { label: "Reports", page: "reports", icon: BarChart3 },
                         ] : isConsultant ? [

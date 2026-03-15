@@ -126,7 +126,7 @@ function AppContent() {
             <SidebarLayout sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} onBack={pageHistory.length > 1 ? handleBack : undefined} isAdmin={isAdmin} activePage={activePage} userName={userData?.name} userEmail={userData?.email} userRole={currentRole} />
             <div className={`min-h-screen transition-all duration-300 ${!sidebarToggle ? "ml-72" : "ml-0"}`}>
                 <Navbar sidebarToggle={sidebarToggle} setSidebarToggle={setSidebarToggle} onNavigate={handleNavigation} activePage={activePage} onLogout={handleLogout} userRole={currentRole} userName={userData?.name} userEmail={userData?.email} />
-                <main className="pt-16 px-4 md:px-6 pb-6">{renderActivePage()}</main>
+                <main className="pt-16 px-4 md:px-6 pb-6" key={activePage}><div className="animate-fadeIn">{renderActivePage()}</div></main>
             </div>
         </div>
     );
