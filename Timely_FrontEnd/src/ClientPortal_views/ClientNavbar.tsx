@@ -24,25 +24,25 @@ interface Notification { id: string; type: "success" | "warning" | "info"; messa
 interface SearchResult { type: string; id: string; name: string; subtitle: string; }
 
 const ClientNavbar: React.FC<ClientNavbarProps> = ({
-    sidebarToggle, setSidebarToggle,
+    sidebarToggle,
     activePage, onNavigate, onLogout,
     userName = "Client", userEmail = "", customerId = "",
 }) => {
     const { isDark, toggleTheme } = useTheme();
 
     const n = {
-        navbar:   isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
-        dropdown: isDark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-200",
-        flat:     isDark ? "neu-dark-flat"  : "neu-light-flat",
-        inset:    isDark ? "neu-dark-inset" : "neu-light-inset",
-        text:     isDark ? "text-white"      : "text-gray-900",
-        secondary:isDark ? "text-gray-300"   : "text-gray-600",
-        tertiary: isDark ? "text-gray-500"   : "text-gray-400",
-        strong:   isDark ? "text-white"      : "text-black",
-        label:    isDark ? "text-blue-400"   : "text-blue-600",
-        divider:  isDark ? "border-gray-800" : "border-gray-200",
-        btnHover: isDark ? "hover:bg-gray-800" : "hover:bg-gray-100",
-        rowHover: isDark ? "hover:bg-gray-800" : "hover:bg-gray-50",
+        navbar:    isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
+        dropdown:  isDark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-200",
+        flat:      isDark ? "neu-dark-flat"  : "neu-light-flat",
+        inset:     isDark ? "neu-dark-inset" : "neu-light-inset",
+        text:      isDark ? "text-white"      : "text-gray-900",
+        secondary: isDark ? "text-gray-300"   : "text-gray-600",
+        tertiary:  isDark ? "text-gray-500"   : "text-gray-400",
+        strong:    isDark ? "text-white"      : "text-black",
+        label:     isDark ? "text-blue-400"   : "text-blue-600",
+        divider:   isDark ? "border-gray-800" : "border-gray-200",
+        btnHover:  isDark ? "hover:bg-gray-800" : "hover:bg-gray-100",
+        rowHover:  isDark ? "hover:bg-gray-800" : "hover:bg-gray-50",
     };
 
     const [showSearch,        setShowSearch]        = useState(false);
@@ -59,14 +59,14 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
     const userMenuRef        = useRef<HTMLDivElement>(null);
 
     const pageInfo: Record<string, { title: string; icon: React.ReactNode }> = {
-        dashboard: { title: "Dashboard",     icon: <Home          className="w-4 h-4" /> },
-        projects:  { title: "Projects",      icon: <FolderOpen    className="w-4 h-4" /> },
-        history:   { title: "History",       icon: <History       className="w-4 h-4" /> },
-        documents: { title: "Documents",     icon: <FileText      className="w-4 h-4" /> },
-        messages:  { title: "Messages",      icon: <MessageCircle className="w-4 h-4" /> },
-        settings:  { title: "Settings",      icon: <Settings      className="w-4 h-4" /> },
-        profile:   { title: "Profile",       icon: <User          className="w-4 h-4" /> },
-        help:      { title: "Help & Support", icon: <HelpCircle   className="w-4 h-4" /> },
+        dashboard: { title: "Dashboard",      icon: <Home          className="w-4 h-4" /> },
+        projects:  { title: "Projects",       icon: <FolderOpen    className="w-4 h-4" /> },
+        history:   { title: "History",        icon: <History       className="w-4 h-4" /> },
+        documents: { title: "Documents",      icon: <FileText      className="w-4 h-4" /> },
+        messages:  { title: "Messages",       icon: <MessageCircle className="w-4 h-4" /> },
+        settings:  { title: "Settings",       icon: <Settings      className="w-4 h-4" /> },
+        profile:   { title: "Profile",        icon: <User          className="w-4 h-4" /> },
+        help:      { title: "Help & Support", icon: <HelpCircle    className="w-4 h-4" /> },
     };
     const currentPage = pageInfo[activePage] || pageInfo.dashboard;
 
@@ -98,7 +98,9 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
         const handle = (e: MouseEvent) => {
             if (notifRef.current           && !notifRef.current.contains(e.target as Node))           setShowNotifications(false);
             if (userMenuRef.current        && !userMenuRef.current.contains(e.target as Node))        setShowUserMenu(false);
-            if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) { setShowSearch(false); setSearchQuery(""); setSearchResults([]); }
+            if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+                setShowSearch(false); setSearchQuery(""); setSearchResults([]);
+            }
         };
         document.addEventListener("mousedown", handle);
         return () => document.removeEventListener("mousedown", handle);
@@ -153,29 +155,6 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
         return <Info className="w-4 h-4 text-blue-400" />;
     };
 
-    // ── Pill toggle — matches reference image ─────────────────────────────────
-    // dark mode:  black pill, moon icon left, white knob right
-    // light mode: orange pill, sun icon left, white knob right
-    const ThemeToggle = () => (
-        <button
-            onClick={toggleTheme}
-            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            className="relative inline-flex w-14 h-7 rounded-full flex-shrink-0 focus:outline-none transition-colors duration-300"
-            style={{ backgroundColor: isDark ? "#1c1c1e" : "#f97316", border: isDark ? "1px solid #374151" : "1px solid #ea580c" }}
-        >
-            {/* icon shown on the left (always) */}
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                {isDark
-                    ? <Moon className="w-3.5 h-3.5 text-white/60" />
-                    : <Sun  className="w-3.5 h-3.5 text-white" />
-                }
-            </span>
-
-            {/* white knob: left = light mode (OFF), right = dark mode (ON) */}
-            <span className={`absolute top-0.5 bottom-0.5 aspect-square bg-white rounded-full shadow-md transition-all duration-300 ${isDark ? "right-0.5" : "left-0.5"}`} />
-        </button>
-    );
-
     return (
         <header className={`fixed top-0 right-0 z-30 h-16 border-b transition-all duration-300 ${n.navbar} ${sidebarToggle ? "left-20" : "left-64"}`}>
             <nav className="flex items-center justify-between px-6 h-full">
@@ -192,8 +171,8 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                     </span>
                 </div>
 
-                {/* Right — actions */}
-                <div className="flex items-center gap-2">
+                {/* Right */}
+                <div className="flex items-center gap-1">
 
                     {/* Search */}
                     <div className="relative" ref={searchContainerRef}>
@@ -201,8 +180,8 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                             <div className="relative">
                                 <div className={`flex items-center gap-2 px-3 py-2 ${n.inset} rounded-xl`}>
                                     <Search className={`w-4 h-4 ${n.tertiary} flex-shrink-0`} />
-                                    <input ref={searchRef} type="text" placeholder="Search projects, pages…" value={searchQuery}
-                                        onChange={e => setSearchQuery(e.target.value)}
+                                    <input ref={searchRef} type="text" placeholder="Search projects, pages…"
+                                        value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                                         className={`w-56 bg-transparent ${n.text} text-sm focus:outline-none`} />
                                     <kbd className={`hidden sm:inline-flex px-1.5 py-0.5 text-[10px] rounded ${isDark ? "bg-gray-800 text-gray-500" : "bg-gray-100 text-gray-400"}`}>ESC</kbd>
                                 </div>
@@ -240,8 +219,18 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                         )}
                     </div>
 
-                    {/* Pill toggle */}
-                    <ThemeToggle />
+                    {/* ── Theme toggle: Sun in light mode, Moon in dark mode ── */}
+                    <button
+                        type="button"
+                        onClick={() => toggleTheme()}
+                        className={`w-9 h-9 rounded-xl ${n.flat} flex items-center justify-center transition-all`}
+                        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                    >
+                        {isDark
+                            ? <Moon className={`w-4 h-4 ${n.secondary}`} />
+                            : <Sun  className={`w-4 h-4 ${n.secondary}`} />
+                        }
+                    </button>
 
                     {/* Notifications */}
                     <div className="relative" ref={notifRef}>
@@ -297,7 +286,7 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                     </div>
 
                     {/* Separator */}
-                    <div className={`w-px h-6 ${isDark ? "bg-gray-800" : "bg-gray-200"}`} />
+                    <div className={`w-px h-6 mx-1 ${isDark ? "bg-gray-800" : "bg-gray-200"}`} />
 
                     {/* User menu */}
                     <div className="relative" ref={userMenuRef}>
