@@ -4,8 +4,7 @@ import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
     Search, Bell, ChevronRight, Settings, LogOut, User,
     Home, X, FolderOpen, History, FileText, MessageCircle,
-    HelpCircle, CheckCircle, AlertTriangle, Info, Moon, Sun,
-    Clock,
+    CheckCircle, AlertTriangle, Info, Moon, Sun, Clock,
 } from "lucide-react";
 
 type ClientNavbarProps = {
@@ -59,14 +58,13 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
     const userMenuRef        = useRef<HTMLDivElement>(null);
 
     const pageInfo: Record<string, { title: string; icon: React.ReactNode }> = {
-        dashboard: { title: "Dashboard",      icon: <Home          className="w-4 h-4" /> },
-        projects:  { title: "Projects",       icon: <FolderOpen    className="w-4 h-4" /> },
-        history:   { title: "History",        icon: <History       className="w-4 h-4" /> },
-        documents: { title: "Documents",      icon: <FileText      className="w-4 h-4" /> },
-        messages:  { title: "Messages",       icon: <MessageCircle className="w-4 h-4" /> },
-        settings:  { title: "Settings",       icon: <Settings      className="w-4 h-4" /> },
-        profile:   { title: "Profile",        icon: <User          className="w-4 h-4" /> },
-        help:      { title: "Help & Support", icon: <HelpCircle    className="w-4 h-4" /> },
+        dashboard: { title: "Dashboard", icon: <Home          className="w-4 h-4" /> },
+        projects:  { title: "Projects",  icon: <FolderOpen    className="w-4 h-4" /> },
+        history:   { title: "History",   icon: <History       className="w-4 h-4" /> },
+        documents: { title: "Documents", icon: <FileText      className="w-4 h-4" /> },
+        messages:  { title: "Messages",  icon: <MessageCircle className="w-4 h-4" /> },
+        settings:  { title: "Settings",  icon: <Settings      className="w-4 h-4" /> },
+        profile:   { title: "Profile",   icon: <User          className="w-4 h-4" /> },
     };
     const currentPage = pageInfo[activePage] || pageInfo.dashboard;
 
@@ -133,7 +131,6 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
             { name: "Messages",  id: "messages",  subtitle: "Communication" },
             { name: "Settings",  id: "settings",  subtitle: "Preferences" },
             { name: "Profile",   id: "profile",   subtitle: "Your profile" },
-            { name: "Help",      id: "help",      subtitle: "Get assistance" },
         ].forEach(p => {
             if (p.name.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q))
                 results.push({ type: "page", id: p.id, name: p.name, subtitle: p.subtitle });
@@ -219,19 +216,19 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                         )}
                     </div>
 
-                    {/* ── Theme toggle: Sun in light mode, Moon in dark mode ── */}
-<button
-    type="button"
-    onClick={toggleTheme}
-    className={`relative w-14 h-7 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
->
-    <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-300 flex items-center justify-center ${isDark ? "left-7" : "left-0.5"}`}>
-        {isDark
-            ? <Moon className="w-3.5 h-3.5 text-gray-700" />
-            : <Sun  className="w-3.5 h-3.5 text-amber-500" />
-        }
-    </span>
-</button>
+                    {/* Theme toggle */}
+                    <button
+                        type="button"
+                        onClick={toggleTheme}
+                        className={`relative w-14 h-7 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
+                    >
+                        <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-300 flex items-center justify-center ${isDark ? "left-7" : "left-0.5"}`}>
+                            {isDark
+                                ? <Moon className="w-3.5 h-3.5 text-gray-700" />
+                                : <Sun  className="w-3.5 h-3.5 text-amber-500" />
+                            }
+                        </span>
+                    </button>
 
                     {/* Notifications */}
                     <div className="relative" ref={notifRef}>
@@ -320,9 +317,8 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                                 </div>
                                 <div className="py-1.5">
                                     {[
-                                        { label: "Profile",        page: "profile",  icon: User },
-                                        { label: "Settings",       page: "settings", icon: Settings },
-                                        { label: "Help & Support", page: "help",     icon: HelpCircle },
+                                        { label: "Profile",  page: "profile",  icon: User },
+                                        { label: "Settings", page: "settings", icon: Settings },
                                     ].map(item => (
                                         <button key={item.page} onClick={() => { setShowUserMenu(false); onNavigate(item.page); }}
                                             className={`w-full px-4 py-2.5 flex items-center gap-3 ${n.rowHover} transition-colors`}>
