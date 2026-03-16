@@ -2,19 +2,12 @@
 import React from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
-    Home,
-    FolderOpen,
-    History,
-    FileText,
-    MessageCircle,
-    Settings,
-    User,
-    LogOut,
-    ChevronLeft,
-    ChevronRight,
-    HelpCircle,
-    Bell,
+    Home, FolderOpen, History, FileText, MessageCircle,
+    Settings, User, LogOut, ChevronLeft, ChevronRight, HelpCircle,
 } from "lucide-react";
+import timelyLogo from "../assets/Timely_logo.png";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type ClientSidebarProps = {
     sidebarToggle: boolean;
@@ -26,6 +19,8 @@ type ClientSidebarProps = {
     userEmail?: string;
 };
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const ClientSidebar: React.FC<ClientSidebarProps> = ({
     sidebarToggle,
     setSidebarToggle,
@@ -36,193 +31,160 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
     userEmail = "",
 }) => {
     const { isDark } = useTheme();
-    const isCollapsed = sidebarToggle;
+    const collapsed = sidebarToggle;
 
-    const s = {
-        bg: isDark ? "bg-slate-900" : "bg-white",
-        border: isDark ? "border-slate-800" : "border-gray-200",
-        text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-600",
-        textSubtle: isDark ? "text-slate-500" : "text-gray-500",
-        hover: isDark ? "hover:bg-slate-800" : "hover:bg-gray-100",
-        active: isDark ? "bg-blue-600/20 text-blue-400 border-blue-500" : "bg-blue-50 text-blue-600 border-blue-500",
-        inactive: isDark ? "text-slate-400 hover:bg-slate-800 hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-        // New interactive states
-        clickable: "cursor-pointer active:scale-[0.98] transition-all duration-150",
-        hoverLift: "hover:translate-y-[-2px] hover:shadow-lg",
-        hoverGlow: isDark ? "hover:shadow-blue-500/20" : "hover:shadow-blue-500/10",
+    const n = {
+        sidebar:    isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
+        text:       isDark ? "text-white"       : "text-gray-900",
+        secondary:  isDark ? "text-gray-200"    : "text-gray-700",
+        tertiary:   isDark ? "text-gray-400"    : "text-gray-500",
+        label:      isDark ? "text-blue-400"    : "text-blue-600",
+        flat:       isDark ? "neu-dark-flat"    : "neu-light-flat",
+        inset:      isDark ? "neu-dark-inset"   : "neu-light-inset",
+        pressed:    isDark ? "neu-dark-pressed" : "neu-light-pressed",
+        card:       isDark ? "neu-dark"         : "neu-light",
+        divider:    isDark ? "border-gray-800"  : "border-gray-200",
+        activeBar:  "bg-blue-500",
+        activeIcon: "bg-blue-600 text-white",
+        hover:      isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50",
+        gb:         isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600",
     };
 
     const initials = (userName || "C")
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
+        .split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
-    // Main navigation items
     const navItems = [
         { id: "dashboard", label: "Dashboard", icon: Home },
-        { id: "projects", label: "Projects", icon: FolderOpen },
+        { id: "projects",  label: "Projects",  icon: FolderOpen },
         { id: "documents", label: "Documents", icon: FileText },
-        { id: "messages", label: "Messages", icon: MessageCircle, badge: 0 },
-        { id: "history", label: "History", icon: History },
+        { id: "messages",  label: "Messages",  icon: MessageCircle },
+        { id: "history",   label: "History",   icon: History },
     ];
 
-    // Bottom navigation items
     const bottomItems = [
-        { id: "settings", label: "Settings", icon: Settings },
-        { id: "profile", label: "Profile", icon: User },
-        { id: "help", label: "Help & Support", icon: HelpCircle },
+        { id: "settings", label: "Settings",     icon: Settings },
+        { id: "profile",  label: "Profile",      icon: User },
+        { id: "help",     label: "Help & Support", icon: HelpCircle },
     ];
+
+    const NavItem: React.FC<{ id: string; label: string; icon: React.ComponentType<{ className?: string }>; isLogout?: boolean }> = ({
+        id, label, icon: Icon, isLogout = false,
+    }) => {
+        const isActive = activePage === id;
+        return (
+            <li
+                className={`relative mb-0.5 rounded-xl cursor-pointer select-none transition-all duration-200 group
+                    ${collapsed ? "flex justify-center" : ""}
+                    ${isActive ? n.pressed : isLogout ? "hover:bg-red-500/10" : n.hover}`}
+                onClick={() => isLogout ? onLogout?.() : onNavigate(id)}
+                title={collapsed ? label : undefined}
+            >
+                {isActive && !collapsed && (
+                    <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 ${n.activeBar} rounded-r-full`} />
+                )}
+                <div className={`${collapsed ? "p-2.5" : "px-3 py-2.5"} flex items-center gap-3 transition-colors duration-200
+                    ${isActive ? n.label : isLogout ? "text-red-500" : isDark ? "text-gray-300" : "text-gray-800"}`}>
+                    <div className={`${collapsed ? "w-9 h-9" : "w-8 h-8"} rounded-lg flex items-center justify-center transition-all duration-200
+                        ${isActive ? n.activeIcon : isLogout ? "bg-red-500/10 text-red-500" : n.inset}
+                        ${!isActive && !isLogout ? "group-hover:scale-105" : ""}`}>
+                        <Icon className="w-4 h-4" />
+                    </div>
+                    {!collapsed && (
+                        <span className={`text-sm font-medium ${isActive ? n.text : ""} ${!isActive && !isLogout ? n.gb : ""} transition-colors`}>
+                            {label}
+                        </span>
+                    )}
+                </div>
+            </li>
+        );
+    };
 
     return (
-        <aside
-            className={`fixed top-0 left-0 h-full ${s.bg} border-r ${s.border} z-50 flex flex-col transition-all duration-300 ${isCollapsed ? "w-20" : "w-64"
-                }`}
-        >
-            {/* Header / Logo */}
-            <div className={`p-4 border-b ${s.border}`}>
-                <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
-                    {!isCollapsed && (
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
-                                T
-                            </div>
+        <aside className={`fixed top-0 left-0 h-full border-r z-50 flex flex-col transition-all duration-300
+            ${n.sidebar} ${collapsed ? "w-20" : "w-64"}`}>
+            <div className="h-full flex flex-col px-3 py-5">
+
+                {/* Logo */}
+                <div className="mb-6 px-1">
+                    <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
+                            ${isDark ? "bg-white/20 border border-white/10" : "bg-black/10 border border-black/5"}`}>
+                            <img src={timelyLogo} alt="Timely" className="w-8 h-8 object-contain" />
+                        </div>
+                        {!collapsed && (
                             <div>
-                                <p className={`font-bold ${s.text}`}>Timely</p>
-                                <p className={`text-xs ${s.textMuted}`}>Client Portal</p>
+                                <h1 className={`text-lg font-semibold tracking-tight ${n.text}`}>Timely</h1>
+                                <p className={`text-[10px] tracking-[0.2em] uppercase ${n.tertiary}`}>Client Portal</p>
                             </div>
-                        </div>
-                    )}
-                    {isCollapsed && (
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
-                            T
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* User Profile Card */}
-            {!isCollapsed && (
-                <div className={`p-4 border-b ${s.border}`}>
-                    <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-semibold shadow-lg shadow-purple-500/20">
-                            {initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className={`font-semibold ${s.text} truncate`}>{userName}</p>
-                            <p className={`text-xs ${s.textMuted} truncate`}>{userEmail}</p>
-                        </div>
-                    </div>
-                    <div className="mt-3 flex items-center gap-2">
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 font-medium">
-                            Client
-                        </span>
+                        )}
                     </div>
                 </div>
-            )}
 
-            {/* Collapsed User Avatar */}
-            {isCollapsed && (
-                <div className={`p-4 border-b ${s.border} flex justify-center`}>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-purple-500/20">
-                        {initials}
+                {/* Nav */}
+                <div className="flex-1 overflow-y-auto">
+                    <div className="mb-6">
+                        {!collapsed && (
+                            <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.label}`}>Menu</p>
+                        )}
+                        <ul>
+                            {navItems.map(item => (
+                                <NavItem key={item.id} {...item} />
+                            ))}
+                        </ul>
+                    </div>
+
+                    <div className="mb-6">
+                        {!collapsed && (
+                            <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.tertiary}`}>Account</p>
+                        )}
+                        <ul>
+                            {bottomItems.map(item => (
+                                <NavItem key={item.id} {...item} />
+                            ))}
+                        </ul>
                     </div>
                 </div>
-            )}
 
-            {/* Main Navigation */}
-            <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-                {!isCollapsed && (
-                    <p className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider ${s.textSubtle}`}>
-                        Menu
-                    </p>
-                )}
-                {navItems.map((item) => {
-                    const isActive = activePage === item.id;
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => onNavigate(item.id)}
-                            title={isCollapsed ? item.label : undefined}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 active:scale-[0.97] ${isCollapsed ? "justify-center" : ""
-                                } ${isActive
-                                    ? `${s.active} border-l-4 shadow-md ${isDark ? "shadow-blue-500/10" : "shadow-blue-500/20"}`
-                                    : `${s.inactive} border-l-4 border-transparent hover:border-l-4 ${isDark ? "hover:border-slate-600" : "hover:border-gray-300"}`
-                                }`}
-                        >
-                            <item.icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`} />
-                            {!isCollapsed && (
-                                <span className="text-sm font-medium flex-1 text-left">{item.label}</span>
-                            )}
-                            {!isCollapsed && item.badge !== undefined && item.badge > 0 && (
-                                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-500 text-white animate-pulse">
-                                    {item.badge}
-                                </span>
-                            )}
-                        </button>
-                    );
-                })}
-            </nav>
+                {/* Bottom */}
+                <div className="mt-auto">
+                    <div className={`h-px ${n.divider} border-t mb-3`} />
+                    <ul>
+                        {onLogout && <NavItem id="logout" label="Logout" icon={LogOut} isLogout />}
+                    </ul>
 
-            {/* Bottom Section */}
-            <div className={`p-3 border-t ${s.border} space-y-1`}>
-                {!isCollapsed && (
-                    <p className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider ${s.textSubtle}`}>
-                        Account
-                    </p>
-                )}
-                {bottomItems.map((item) => {
-                    const isActive = activePage === item.id;
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => onNavigate(item.id)}
-                            title={isCollapsed ? item.label : undefined}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 active:scale-[0.97] ${isCollapsed ? "justify-center" : ""
-                                } ${isActive
-                                    ? `${s.active} border-l-4 shadow-md ${isDark ? "shadow-blue-500/10" : "shadow-blue-500/20"}`
-                                    : `${s.inactive} border-l-4 border-transparent hover:border-l-4 ${isDark ? "hover:border-slate-600" : "hover:border-gray-300"}`
-                                }`}
-                        >
-                            <item.icon className="w-5 h-5 flex-shrink-0" />
-                            {!isCollapsed && (
-                                <span className="text-sm font-medium">{item.label}</span>
-                            )}
-                        </button>
-                    );
-                })}
-
-                {/* Logout */}
-                {onLogout && (
-                    <button
-                        onClick={onLogout}
-                        title={isCollapsed ? "Logout" : undefined}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-500/10 active:bg-red-500/20 active:scale-[0.97] transition-all duration-200 mt-2 ${isCollapsed ? "justify-center" : ""
-                            }`}
+                    {/* User card */}
+                    <div
+                        onClick={() => onNavigate("profile")}
+                        className={`mt-3 ${collapsed ? "p-2 flex justify-center" : "p-3"} ${n.card} ${n.hover} group rounded-xl transition-all duration-200 cursor-pointer`}
                     >
-                        <LogOut className="w-5 h-5 flex-shrink-0" />
-                        {!isCollapsed && <span className="text-sm font-medium">Logout</span>}
-                    </button>
-                )}
-
-                {/* Collapse Toggle */}
-                <button
-                    onClick={() => setSidebarToggle(!isCollapsed)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${s.inactive} active:scale-[0.97] transition-all duration-200 mt-2 ${isCollapsed ? "justify-center" : ""
-                        }`}
-                >
-                    {isCollapsed ? (
-                        <ChevronRight className="w-5 h-5 transition-transform hover:translate-x-1" />
-                    ) : (
-                        <>
-                            <ChevronLeft className="w-5 h-5 transition-transform hover:-translate-x-1" />
-                            <span className="text-sm font-medium">Collapse</span>
-                        </>
-                    )}
-                </button>
+                        {collapsed ? (
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-xs font-bold text-white">
+                                {initials}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-xs font-semibold text-white shadow-sm">
+                                    {initials}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-sm font-medium ${n.text} ${n.gb} truncate transition-colors`}>{userName}</p>
+                                    <p className={`text-[11px] ${n.tertiary} truncate`}>{userEmail}</p>
+                                </div>
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
+
+            {/* Collapse toggle */}
+            <button
+                onClick={() => setSidebarToggle(!collapsed)}
+                className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-12 border rounded-r-lg flex items-center justify-center transition-colors
+                    ${isDark ? "bg-[#111111] border-gray-800 text-gray-500 hover:text-white" : "bg-white border-gray-200 text-gray-400 hover:text-gray-900"}`}
+            >
+                {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+            </button>
         </aside>
     );
 };

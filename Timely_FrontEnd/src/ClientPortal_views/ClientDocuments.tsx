@@ -1,1236 +1,731 @@
 // src/ClientPortal_views/ClientDocuments.tsx
-// Client document management with admin document request integration
-// Shows pending document requests from admin and allows upload fulfillment
-
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
     FileText, Upload, Download, Trash2, FolderOpen, FolderPlus, File,
     Image, FileSpreadsheet, FileCode, Film, Music, Archive, Search,
     Grid, List, X, ChevronRight, Eye, Clock, HardDrive, CheckCircle,
-    AlertCircle, RefreshCw, Home, Edit3, Bell, Calendar, Tag, ExternalLink,
-    MoreVertical, Star, Copy, Move, Info
+    AlertCircle, RefreshCw, Home, Edit3, Bell, Calendar, Tag,
+    Star, Info,
 } from "lucide-react";
 
-const API_BASE = "/api";
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// Types from shared module (inline for simplicity)
-type DocumentRequestStatus = "pending" | "uploaded" | "approved" | "rejected";
+type ClientDocumentsProps = { userName?: string; userEmail?: string; customerId?: string; };
+type DocumentRequestStatus   = "pending" | "uploaded" | "approved" | "rejected";
 type DocumentRequestPriority = "low" | "medium" | "high" | "urgent";
+type ViewMode = "grid" | "list";
+type SortBy   = "name" | "date" | "size" | "type";
+type TabType  = "files" | "requests";
 
 interface DocumentRequest {
-    id: string;
-    clientId: string;
-    clientName: string;
-    clientEmail: string;
-    requestedBy: string;
-    requestedByName: string;
-    documentName: string;
-    description: string;
-    category: string;
-    priority: DocumentRequestPriority;
-    status: DocumentRequestStatus;
-    dueDate?: string;
-    createdAt: string;
-    updatedAt: string;
-    uploadedDocumentId?: string;
-    uploadedDocumentName?: string;
-    uploadedAt?: string;
-    uploadedBy?: string;
-    reviewedAt?: string;
-    reviewedBy?: string;
-    reviewNotes?: string;
+    id: string; clientId: string; clientName: string; clientEmail: string;
+    requestedBy: string; requestedByName: string;
+    documentName: string; description: string; category: string;
+    priority: DocumentRequestPriority; status: DocumentRequestStatus;
+    dueDate?: string; createdAt: string; updatedAt: string;
+    uploadedDocumentId?: string; uploadedDocumentName?: string;
+    uploadedAt?: string; uploadedBy?: string;
+    reviewedAt?: string; reviewedBy?: string; reviewNotes?: string;
 }
 
-const DOCUMENT_CATEGORIES = [
-    { value: "tax", label: "Tax Documents" },
-    { value: "legal", label: "Legal Documents" },
-    { value: "financial", label: "Financial Records" },
-    { value: "identity", label: "Identity Verification" },
-    { value: "contract", label: "Contracts & Agreements" },
-    { value: "report", label: "Reports" },
-    { value: "other", label: "Other" },
-];
-
-const generateId = (prefix: string): string => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-const formatDate = (dateStr: string): string => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-};
-
-const getRelativeTime = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / 86400000);
-    const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days}d ago`;
-    return formatDate(dateStr);
-};
-
-const getPriorityColor = (priority: DocumentRequestPriority): { bg: string; text: string; gradient: string } => {
-    const colors: Record<DocumentRequestPriority, { bg: string; text: string; gradient: string }> = {
-        urgent: { bg: "bg-red-500/20", text: "text-red-500", gradient: "from-red-500 to-red-600" },
-        high: { bg: "bg-orange-500/20", text: "text-orange-500", gradient: "from-orange-500 to-orange-600" },
-        medium: { bg: "bg-yellow-500/20", text: "text-yellow-500", gradient: "from-yellow-500 to-yellow-600" },
-        low: { bg: "bg-green-500/20", text: "text-green-500", gradient: "from-green-500 to-green-600" },
-    };
-    return colors[priority] || colors.medium;
-};
-
-const getStatusColor = (status: DocumentRequestStatus): { bg: string; text: string } => {
-    const colors: Record<DocumentRequestStatus, { bg: string; text: string }> = {
-        pending: { bg: "bg-amber-500/20", text: "text-amber-500" },
-        uploaded: { bg: "bg-blue-500/20", text: "text-blue-500" },
-        approved: { bg: "bg-emerald-500/20", text: "text-emerald-500" },
-        rejected: { bg: "bg-red-500/20", text: "text-red-500" },
-    };
-    return colors[status] || colors.pending;
-};
-
-// Storage helpers
-const STORAGE_KEYS = {
-    DOCUMENT_REQUESTS: "timely_document_requests",
-    DOCUMENT_UPLOADS: "timely_document_uploads",
-    CLIENT_DOCUMENTS: "timely_client_documents",
-    CLIENT_FOLDERS: "timely_client_folders",
-};
-
-const DocumentRequestAPI = {
-    getForClient: (clientId: string): DocumentRequest[] => {
-        try {
-            const all = JSON.parse(localStorage.getItem(STORAGE_KEYS.DOCUMENT_REQUESTS) || "[]");
-            return all.filter((r: DocumentRequest) => String(r.clientId) === String(clientId));
-        } catch { return []; }
-    },
-    markAsUploaded: (id: string, uploadInfo: { documentId: string; documentName: string; uploadedBy: string }) => {
-        try {
-            const all = JSON.parse(localStorage.getItem(STORAGE_KEYS.DOCUMENT_REQUESTS) || "[]");
-            const index = all.findIndex((r: DocumentRequest) => r.id === id);
-            if (index !== -1) {
-                all[index] = {
-                    ...all[index],
-                    status: "uploaded",
-                    uploadedDocumentId: uploadInfo.documentId,
-                    uploadedDocumentName: uploadInfo.documentName,
-                    uploadedAt: new Date().toISOString(),
-                    uploadedBy: uploadInfo.uploadedBy,
-                    updatedAt: new Date().toISOString(),
-                };
-                localStorage.setItem(STORAGE_KEYS.DOCUMENT_REQUESTS, JSON.stringify(all));
-            }
-        } catch { }
-    },
-};
-
-const DocumentUploadAPI = {
-    create: (upload: any) => {
-        try {
-            const all = JSON.parse(localStorage.getItem(STORAGE_KEYS.DOCUMENT_UPLOADS) || "[]");
-            const newUpload = {
-                ...upload,
-                id: generateId("docup"),
-                uploadedAt: new Date().toISOString(),
-                status: "pending_review",
-            };
-            all.push(newUpload);
-            localStorage.setItem(STORAGE_KEYS.DOCUMENT_UPLOADS, JSON.stringify(all));
-            return newUpload;
-        } catch { return null; }
-    },
-};
-
-type ClientDocumentsProps = {
-    userName?: string;
-    userEmail?: string;
-    customerId?: string;
-};
-
 interface DocumentFile {
-    id: string;
-    name: string;
-    size: number;
-    type: string;
-    folderId: string | null;
-    projectId?: string;
-    projectName?: string;
-    uploadedBy: string;
-    uploadedAt: string;
-    base64?: string;
-    requestId?: string;
+    id: string; name: string; size: number; type: string;
+    folderId: string | null; uploadedBy: string; uploadedAt: string;
+    base64?: string; requestId?: string;
     status?: "pending_review" | "approved" | "rejected";
 }
 
-interface Folder {
-    id: string;
-    name: string;
-    parentId: string | null;
-    createdAt: string;
-    color?: string;
-}
+interface Folder { id: string; name: string; parentId: string | null; createdAt: string; }
+interface Toast  { id: string; message: string; type: "success" | "error" | "info"; }
 
-interface Toast {
-    id: string;
-    message: string;
-    type: "success" | "error" | "info";
-}
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-type ViewMode = "grid" | "list";
-type SortBy = "name" | "date" | "size" | "type";
-type TabType = "files" | "requests";
+const STORAGE_KEYS = {
+    DOCUMENT_REQUESTS: "timely_document_requests",
+    DOCUMENT_UPLOADS:  "timely_document_uploads",
+    CLIENT_DOCUMENTS:  "timely_client_documents",
+    CLIENT_FOLDERS:    "timely_client_folders",
+};
+
+const DOCUMENT_CATEGORIES = [
+    { value: "tax",       label: "Tax Documents" },
+    { value: "legal",     label: "Legal Documents" },
+    { value: "financial", label: "Financial Records" },
+    { value: "identity",  label: "Identity Verification" },
+    { value: "contract",  label: "Contracts & Agreements" },
+    { value: "report",    label: "Reports" },
+    { value: "other",     label: "Other" },
+];
+
+const genId = (p: string) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+const fmtShort = (d: string) => {
+    const dt = new Date(d); const now = new Date(); const diff = now.getTime() - dt.getTime();
+    if (diff < 86400000) return dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    if (diff < 604800000) return dt.toLocaleDateString("en-US", { weekday: "short" });
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+const fmtRelative = (d: string) => {
+    const diff = Date.now() - new Date(d).getTime();
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    if (diff < 172800000) return "Yesterday";
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+    return fmtDate(d);
+};
+const fmtSize = (b: number) => { if (!b) return "0 B"; const k = 1024; const u = ["B","KB","MB","GB"]; const i = Math.floor(Math.log(b) / Math.log(k)); return `${(b / Math.pow(k, i)).toFixed(1)} ${u[i]}`; };
+
+const priorityColor = (p: DocumentRequestPriority) => ({
+    urgent: { bg: "bg-red-500/10 text-red-400",    well: "bg-red-600" },
+    high:   { bg: "bg-orange-500/10 text-orange-400", well: "bg-orange-600" },
+    medium: { bg: "bg-amber-500/10 text-amber-400",   well: "bg-amber-600" },
+    low:    { bg: "bg-emerald-500/10 text-emerald-400", well: "bg-emerald-600" },
+}[p] || { bg: "bg-amber-500/10 text-amber-400", well: "bg-amber-600" });
+
+const statusColor = (s: DocumentRequestStatus) => ({
+    pending:  "bg-amber-500/10 text-amber-400",
+    uploaded: "bg-blue-500/10 text-blue-400",
+    approved: "bg-emerald-500/10 text-emerald-400",
+    rejected: "bg-red-500/10 text-red-400",
+}[s]);
+
+const fileIcon = (type: string, name: string): { icon: React.ComponentType<{ className?: string }>; color: string } => {
+    const ext = name.split(".").pop()?.toLowerCase() || "";
+    if (type.startsWith("image/") || ["jpg","jpeg","png","gif","webp","svg"].includes(ext)) return { icon: Image,           color: "bg-pink-600" };
+    if (type.includes("spreadsheet") || ["xlsx","xls","csv"].includes(ext))                 return { icon: FileSpreadsheet, color: "bg-emerald-600" };
+    if (type.includes("pdf") || ext === "pdf")                                              return { icon: FileText,        color: "bg-red-600" };
+    if (type.includes("video") || ["mp4","mov","avi","mkv"].includes(ext))                  return { icon: Film,            color: "bg-blue-600" };
+    if (type.includes("audio") || ["mp3","wav","ogg"].includes(ext))                        return { icon: Music,           color: "bg-amber-600" };
+    if (type.includes("zip")   || ["zip","rar","7z","tar","gz"].includes(ext))              return { icon: Archive,         color: "bg-gray-600" };
+    if (["js","ts","jsx","tsx","html","css","json","py","java"].includes(ext))              return { icon: FileCode,        color: "bg-blue-600" };
+    return { icon: File, color: "bg-gray-600" };
+};
+
+// ─── Storage helpers ──────────────────────────────────────────────────────────
+
+const DocumentRequestAPI = {
+    getForClient: (clientId: string): DocumentRequest[] => {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.DOCUMENT_REQUESTS) || "[]").filter((r: DocumentRequest) => String(r.clientId) === String(clientId)); }
+        catch { return []; }
+    },
+    markAsUploaded: (id: string, info: { documentId: string; documentName: string; uploadedBy: string }) => {
+        try {
+            const all = JSON.parse(localStorage.getItem(STORAGE_KEYS.DOCUMENT_REQUESTS) || "[]");
+            const i = all.findIndex((r: DocumentRequest) => r.id === id);
+            if (i !== -1) { all[i] = { ...all[i], status: "uploaded", uploadedDocumentId: info.documentId, uploadedDocumentName: info.documentName, uploadedAt: new Date().toISOString(), uploadedBy: info.uploadedBy, updatedAt: new Date().toISOString() }; localStorage.setItem(STORAGE_KEYS.DOCUMENT_REQUESTS, JSON.stringify(all)); }
+        } catch {}
+    },
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const ClientDocuments: React.FC<ClientDocumentsProps> = ({
-    userName = "Client",
-    userEmail = "",
-    customerId = "",
+    userName = "Client", userEmail = "", customerId = "",
 }) => {
     const { isDark } = useTheme();
 
-    const s = {
-        bg: isDark ? "bg-slate-950" : "bg-gray-50",
-        card: isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200",
-        cardHover: isDark ? "hover:bg-slate-800/80" : "hover:bg-gray-50",
-        cardInner: isDark ? "bg-slate-800" : "bg-gray-100",
-        text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-600",
-        textSubtle: isDark ? "text-slate-500" : "text-gray-400",
-        divider: isDark ? "border-slate-800" : "border-gray-200",
-        button: isDark ? "bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800",
-        buttonPrimary: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white",
-        buttonDanger: "bg-red-600 hover:bg-red-700 active:bg-red-800 text-white",
-        input: isDark
-            ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500"
-            : "bg-white border-gray-300 text-gray-900 placeholder-gray-400",
-        // Interactive
-        clickable: "cursor-pointer active:scale-[0.98] transition-all duration-150",
-        hoverLift: "hover:-translate-y-1 hover:shadow-xl transition-all duration-300",
-        hoverGlow: isDark ? "hover:shadow-lg hover:shadow-blue-500/10" : "hover:shadow-lg hover:shadow-blue-500/5",
+    const n = {
+        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
+        card:         isDark ? "neu-dark"           : "neu-light",
+        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
+        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
+        pressed:      isDark ? "neu-dark-pressed"   : "neu-light-pressed",
+        text:         isDark ? "text-white"         : "text-gray-900",
+        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
+        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
+        strong:       isDark ? "text-white"         : "text-black",
+        label:        isDark ? "text-blue-400"      : "text-blue-600",
+        divider:      isDark ? "border-gray-800"    : "border-gray-200",
+        modal:        isDark ? "bg-[#111111] border-gray-800" : "bg-[#e4e4e4] border-gray-300",
+        modalHead:    isDark ? "bg-[#111111]"       : "bg-[#e4e4e4]",
+        input:        isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
+        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        btnDanger:    "bg-red-600 hover:bg-red-500 text-white",
+        rowHover:     isDark ? "hover:bg-gray-800/60" : "hover:bg-black/5",
+        edgeHover: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
     };
 
-    const [activeTab, setActiveTab] = useState<TabType>("files");
-    const [files, setFiles] = useState<DocumentFile[]>([]);
-    const [folders, setFolders] = useState<Folder[]>([]);
-    const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>("grid");
-    const [sortBy, setSortBy] = useState<SortBy>("date");
-    const [searchQuery, setSearchQuery] = useState("");
-    const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-    const [toasts, setToasts] = useState<Toast[]>([]);
+    const [activeTab,      setActiveTab]      = useState<TabType>("files");
+    const [files,          setFiles]          = useState<DocumentFile[]>([]);
+    const [folders,        setFolders]        = useState<Folder[]>([]);
+    const [docRequests,    setDocRequests]    = useState<DocumentRequest[]>([]);
+    const [loading,        setLoading]        = useState(true);
+    const [currentFolder,  setCurrentFolder]  = useState<string | null>(null);
+    const [viewMode,       setViewMode]       = useState<ViewMode>("grid");
+    const [sortBy,         setSortBy]         = useState<SortBy>("date");
+    const [searchQuery,    setSearchQuery]    = useState("");
+    const [selectedFiles,  setSelectedFiles]  = useState<Set<string>>(new Set());
+    const [toasts,         setToasts]         = useState<Toast[]>([]);
+    const [uploading,      setUploading]      = useState(false);
+    const [uploadPct,      setUploadPct]      = useState(0);
+    const [dragOver,       setDragOver]       = useState(false);
 
-    const [showNewFolderModal, setShowNewFolderModal] = useState(false);
-    const [newFolderName, setNewFolderName] = useState("");
-    const [previewFile, setPreviewFile] = useState<DocumentFile | null>(null);
-    const [renameFile, setRenameFile] = useState<DocumentFile | null>(null);
-    const [renameValue, setRenameValue] = useState("");
-    const [showUploadForRequestModal, setShowUploadForRequestModal] = useState(false);
-    const [selectedRequest, setSelectedRequest] = useState<DocumentRequest | null>(null);
+    const [showNewFolder,  setShowNewFolder]  = useState(false);
+    const [folderName,     setFolderName]     = useState("");
+    const [previewFile,    setPreviewFile]    = useState<DocumentFile | null>(null);
+    const [renameFile,     setRenameFile]     = useState<DocumentFile | null>(null);
+    const [renameVal,      setRenameVal]      = useState("");
+    const [uploadReq,      setUploadReq]      = useState<DocumentRequest | null>(null);
 
-    const [uploading, setUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [dragOver, setDragOver] = useState(false);
+    const fileRef    = useRef<HTMLInputElement>(null);
+    const reqFileRef = useRef<HTMLInputElement>(null);
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const requestFileInputRef = useRef<HTMLInputElement>(null);
-
-    const getFileIcon = (type: string, name: string) => {
-        const ext = name.split(".").pop()?.toLowerCase() || "";
-        if (type.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext))
-            return { icon: Image, color: "text-pink-500", bg: "bg-pink-500/10", gradient: "from-pink-500 to-pink-600" };
-        if (type.includes("spreadsheet") || ["xlsx", "xls", "csv"].includes(ext))
-            return { icon: FileSpreadsheet, color: "text-green-500", bg: "bg-green-500/10", gradient: "from-green-500 to-green-600" };
-        if (type.includes("pdf") || ext === "pdf")
-            return { icon: FileText, color: "text-red-500", bg: "bg-red-500/10", gradient: "from-red-500 to-red-600" };
-        if (type.includes("video") || ["mp4", "mov", "avi", "mkv"].includes(ext))
-            return { icon: Film, color: "text-purple-500", bg: "bg-purple-500/10", gradient: "from-purple-500 to-purple-600" };
-        if (type.includes("audio") || ["mp3", "wav", "ogg"].includes(ext))
-            return { icon: Music, color: "text-amber-500", bg: "bg-amber-500/10", gradient: "from-amber-500 to-amber-600" };
-        if (type.includes("zip") || ["zip", "rar", "7z", "tar", "gz"].includes(ext))
-            return { icon: Archive, color: "text-yellow-500", bg: "bg-yellow-500/10", gradient: "from-yellow-500 to-yellow-600" };
-        if (["js", "ts", "jsx", "tsx", "html", "css", "json", "py", "java"].includes(ext))
-            return { icon: FileCode, color: "text-blue-500", bg: "bg-blue-500/10", gradient: "from-blue-500 to-blue-600" };
-        return { icon: File, color: "text-gray-500", bg: "bg-gray-500/10", gradient: "from-gray-500 to-gray-600" };
-    };
-
-    const formatSize = (bytes: number) => {
-        if (bytes === 0) return "0 B";
-        const k = 1024;
-        const sizes = ["B", "KB", "MB", "GB"];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-    };
-
-    const formatDateShort = (dateStr: string) => {
-        const date = new Date(dateStr);
-        const now = new Date();
-        const diff = now.getTime() - date.getTime();
-        if (diff < 86400000) return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-        if (diff < 604800000) return date.toLocaleDateString("en-US", { weekday: "short" });
-        return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    };
-
-    const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
-        const id = `toast_${Date.now()}`;
-        setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+    const showToast = (message: string, type: Toast["type"] = "success") => {
+        const id = genId("t");
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
     };
 
     useEffect(() => {
-        loadDocuments();
-        loadDocumentRequests();
-    }, [customerId]);
-
-    const loadDocuments = async () => {
         setLoading(true);
         try {
-            const storedFiles = localStorage.getItem(`${STORAGE_KEYS.CLIENT_DOCUMENTS}_${customerId}`);
-            const storedFolders = localStorage.getItem(`${STORAGE_KEYS.CLIENT_FOLDERS}_${customerId}`);
-            if (storedFiles) setFiles(JSON.parse(storedFiles));
-            if (storedFolders) setFolders(JSON.parse(storedFolders));
-        } catch (e) {
-            console.error("Error loading documents:", e);
-        } finally {
-            setLoading(false);
-        }
-    };
+            const sf = localStorage.getItem(`${STORAGE_KEYS.CLIENT_DOCUMENTS}_${customerId}`);
+            const sd = localStorage.getItem(`${STORAGE_KEYS.CLIENT_FOLDERS}_${customerId}`);
+            if (sf) setFiles(JSON.parse(sf));
+            if (sd) setFolders(JSON.parse(sd));
+        } catch {} finally { setLoading(false); }
+        setDocRequests(DocumentRequestAPI.getForClient(customerId));
+    }, [customerId]);
 
-    const loadDocumentRequests = () => {
-        const requests = DocumentRequestAPI.getForClient(customerId);
-        setDocumentRequests(requests);
-    };
+    const saveFiles   = (f: DocumentFile[]) => { setFiles(f);   localStorage.setItem(`${STORAGE_KEYS.CLIENT_DOCUMENTS}_${customerId}`, JSON.stringify(f)); };
+    const saveFolders = (f: Folder[])       => { setFolders(f); localStorage.setItem(`${STORAGE_KEYS.CLIENT_FOLDERS}_${customerId}`,   JSON.stringify(f)); };
 
-    const saveFiles = (newFiles: DocumentFile[]) => {
-        setFiles(newFiles);
-        localStorage.setItem(`${STORAGE_KEYS.CLIENT_DOCUMENTS}_${customerId}`, JSON.stringify(newFiles));
-    };
-
-    const saveFolders = (newFolders: Folder[]) => {
-        setFolders(newFolders);
-        localStorage.setItem(`${STORAGE_KEYS.CLIENT_FOLDERS}_${customerId}`, JSON.stringify(newFolders));
-    };
-
-    const handleFileUpload = async (uploadedFiles: FileList | null, requestId?: string) => {
-        if (!uploadedFiles || uploadedFiles.length === 0) return;
-
-        setUploading(true);
-        setUploadProgress(0);
-
+    const handleUpload = async (fileList: FileList | null, requestId?: string) => {
+        if (!fileList?.length) return;
+        setUploading(true); setUploadPct(0);
         const newFiles: DocumentFile[] = [];
-        const totalFiles = uploadedFiles.length;
-
-        for (let i = 0; i < uploadedFiles.length; i++) {
-            const file = uploadedFiles[i];
-            if (file.size > 10 * 1024 * 1024) {
-                showToast(`${file.name} is too large (max 10MB)`, "error");
-                continue;
-            }
-
-            const base64 = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(file);
-            });
-
-            const newFile: DocumentFile = {
-                id: `file_${Date.now()}_${i}`,
-                name: file.name,
-                size: file.size,
-                type: file.type || "application/octet-stream",
-                folderId: currentFolderId,
-                uploadedBy: userName,
-                uploadedAt: new Date().toISOString(),
-                base64,
-                requestId,
-                status: requestId ? "pending_review" : undefined,
-            };
-
-            newFiles.push(newFile);
-
-            // Save to DocumentUploadAPI for admin visibility
-            DocumentUploadAPI.create({
-                requestId,
-                clientId: customerId,
-                fileName: file.name,
-                fileSize: file.size,
-                fileType: file.type || "application/octet-stream",
-                uploadedBy: userName,
-                base64,
-                category: selectedRequest?.category,
-            });
-
-            setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            if (file.size > 10 * 1024 * 1024) { showToast(`${file.name} exceeds 10MB`, "error"); continue; }
+            const base64 = await new Promise<string>(res => { const r = new FileReader(); r.onloadend = () => res(r.result as string); r.readAsDataURL(file); });
+            newFiles.push({ id: genId("file"), name: file.name, size: file.size, type: file.type || "application/octet-stream", folderId: currentFolder, uploadedBy: userName, uploadedAt: new Date().toISOString(), base64, requestId, status: requestId ? "pending_review" : undefined });
+            const uploads = JSON.parse(localStorage.getItem(STORAGE_KEYS.DOCUMENT_UPLOADS) || "[]");
+            uploads.push({ id: genId("docup"), requestId, clientId: customerId, fileName: file.name, fileSize: file.size, fileType: file.type, uploadedBy: userName, base64, uploadedAt: new Date().toISOString(), status: "pending_review" });
+            localStorage.setItem(STORAGE_KEYS.DOCUMENT_UPLOADS, JSON.stringify(uploads));
+            setUploadPct(Math.round(((i + 1) / fileList.length) * 100));
         }
-
         if (newFiles.length > 0) {
             saveFiles([...files, ...newFiles]);
-
-            if (requestId && selectedRequest) {
-                DocumentRequestAPI.markAsUploaded(requestId, {
-                    documentId: newFiles[0].id,
-                    documentName: newFiles[0].name,
-                    uploadedBy: userName,
-                });
-
-                // Notify admin
-                const adminNotifs = JSON.parse(localStorage.getItem("timely_admin_notifications") || "[]");
-                adminNotifs.push({
-                    id: generateId("notif"),
-                    type: "document_uploaded",
-                    clientId: customerId,
-                    clientName: userName,
-                    requestId: requestId,
-                    documentName: newFiles[0].name,
-                    requestedDocument: selectedRequest.documentName,
-                    timestamp: new Date().toISOString(),
-                    read: false,
-                });
-                localStorage.setItem("timely_admin_notifications", JSON.stringify(adminNotifs));
-
-                loadDocumentRequests();
-                setShowUploadForRequestModal(false);
-                setSelectedRequest(null);
-                showToast(`Document uploaded for "${selectedRequest.documentName}"`, "success");
+            if (requestId && uploadReq) {
+                DocumentRequestAPI.markAsUploaded(requestId, { documentId: newFiles[0].id, documentName: newFiles[0].name, uploadedBy: userName });
+                const notifs = JSON.parse(localStorage.getItem("timely_admin_notifications") || "[]");
+                notifs.push({ id: genId("notif"), type: "document_uploaded", clientId: customerId, clientName: userName, requestId, documentName: newFiles[0].name, requestedDocument: uploadReq.documentName, timestamp: new Date().toISOString(), read: false });
+                localStorage.setItem("timely_admin_notifications", JSON.stringify(notifs));
+                setDocRequests(DocumentRequestAPI.getForClient(customerId));
+                setUploadReq(null);
+                showToast(`Uploaded for "${uploadReq.documentName}"`, "success");
             } else {
-                showToast(`${newFiles.length} file(s) uploaded successfully`, "success");
+                showToast(`${newFiles.length} file${newFiles.length > 1 ? "s" : ""} uploaded`, "success");
             }
         }
-
-        setUploading(false);
-        setUploadProgress(0);
-    };
-
-    const handleUploadForRequest = (request: DocumentRequest) => {
-        setSelectedRequest(request);
-        setShowUploadForRequestModal(true);
-    };
-
-    const handleRequestFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (selectedRequest) {
-            handleFileUpload(e.target.files, selectedRequest.id);
-        }
+        setUploading(false); setUploadPct(0);
     };
 
     const handleDownload = (file: DocumentFile) => {
-        if (file.base64) {
-            const link = document.createElement("a");
-            link.href = file.base64;
-            link.download = file.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast(`Downloading ${file.name}`, "info");
-        } else {
-            showToast("File not available for download", "error");
-        }
+        if (file.base64) { const a = document.createElement("a"); a.href = file.base64; a.download = file.name; a.click(); showToast(`Downloading ${file.name}`, "info"); }
+        else showToast("File not available for download", "error");
     };
 
     const handleDelete = (file: DocumentFile) => {
-        if (confirm(`Delete "${file.name}"?`)) {
-            saveFiles(files.filter((f) => f.id !== file.id));
-            showToast(`${file.name} deleted`, "success");
-            setSelectedFiles((prev) => { const next = new Set(prev); next.delete(file.id); return next; });
-        }
+        if (!confirm(`Delete "${file.name}"?`)) return;
+        saveFiles(files.filter(f => f.id !== file.id));
+        setSelectedFiles(p => { const n = new Set(p); n.delete(file.id); return n; });
+        showToast(`${file.name} deleted`, "success");
     };
 
     const handleBulkDelete = () => {
-        if (selectedFiles.size === 0) return;
-        if (confirm(`Delete ${selectedFiles.size} selected file(s)?`)) {
-            saveFiles(files.filter((f) => !selectedFiles.has(f.id)));
-            showToast(`${selectedFiles.size} file(s) deleted`, "success");
-            setSelectedFiles(new Set());
-        }
+        if (!selectedFiles.size || !confirm(`Delete ${selectedFiles.size} file(s)?`)) return;
+        saveFiles(files.filter(f => !selectedFiles.has(f.id)));
+        showToast(`${selectedFiles.size} file(s) deleted`, "success");
+        setSelectedFiles(new Set());
     };
 
     const handleCreateFolder = () => {
-        if (!newFolderName.trim()) return;
-        const newFolder: Folder = {
-            id: `folder_${Date.now()}`,
-            name: newFolderName.trim(),
-            parentId: currentFolderId,
-            createdAt: new Date().toISOString(),
-            color: ["blue", "green", "purple", "amber", "pink"][Math.floor(Math.random() * 5)],
-        };
-        saveFolders([...folders, newFolder]);
-        setNewFolderName("");
-        setShowNewFolderModal(false);
-        showToast(`Folder "${newFolder.name}" created`, "success");
+        if (!folderName.trim()) return;
+        const f: Folder = { id: genId("folder"), name: folderName.trim(), parentId: currentFolder, createdAt: new Date().toISOString() };
+        saveFolders([...folders, f]);
+        setFolderName(""); setShowNewFolder(false);
+        showToast(`Folder "${f.name}" created`, "success");
     };
 
     const handleRename = () => {
-        if (!renameFile || !renameValue.trim()) return;
-        saveFiles(files.map((f) => (f.id === renameFile.id ? { ...f, name: renameValue.trim() } : f)));
-        showToast(`Renamed to "${renameValue.trim()}"`, "success");
-        setRenameFile(null);
-        setRenameValue("");
+        if (!renameFile || !renameVal.trim()) return;
+        saveFiles(files.map(f => f.id === renameFile.id ? { ...f, name: renameVal.trim() } : f));
+        showToast(`Renamed to "${renameVal.trim()}"`, "success");
+        setRenameFile(null); setRenameVal("");
     };
 
-    const getBreadcrumbs = () => {
+    const breadcrumbs = useMemo(() => {
         const path: { id: string | null; name: string }[] = [{ id: null, name: "All Files" }];
-        let current = currentFolderId;
-        while (current) {
-            const folder = folders.find((f) => f.id === current);
-            if (folder) {
-                path.splice(1, 0, { id: folder.id, name: folder.name });
-                current = folder.parentId;
-            } else break;
-        }
+        let cur = currentFolder;
+        while (cur) { const f = folders.find(x => x.id === cur); if (f) { path.splice(1, 0, { id: f.id, name: f.name }); cur = f.parentId; } else break; }
         return path;
-    };
+    }, [folders, currentFolder]);
 
-    const displayedItems = useMemo(() => {
-        const currentFolders = folders.filter((f) => f.parentId === currentFolderId);
-        let currentFiles = files.filter((f) => f.folderId === currentFolderId);
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            currentFiles = currentFiles.filter((f) => f.name.toLowerCase().includes(query));
-        }
-        currentFiles.sort((a, b) => {
-            switch (sortBy) {
-                case "name": return a.name.localeCompare(b.name);
-                case "date": return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
-                case "size": return b.size - a.size;
-                case "type": return a.type.localeCompare(b.type);
-                default: return 0;
-            }
-        });
-        return { folders: currentFolders, files: currentFiles };
-    }, [files, folders, currentFolderId, searchQuery, sortBy]);
+    const items = useMemo(() => {
+        const curFolders = folders.filter(f => f.parentId === currentFolder);
+        let curFiles = files.filter(f => f.folderId === currentFolder);
+        if (searchQuery.trim()) { const q = searchQuery.toLowerCase(); curFiles = curFiles.filter(f => f.name.toLowerCase().includes(q)); }
+        curFiles.sort((a, b) => ({
+            name: () => a.name.localeCompare(b.name),
+            date: () => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
+            size: () => b.size - a.size,
+            type: () => a.type.localeCompare(b.type),
+        }[sortBy] || (() => 0))());
+        return { folders: curFolders, files: curFiles };
+    }, [files, folders, currentFolder, searchQuery, sortBy]);
 
     const stats = useMemo(() => ({
         totalFiles: files.length,
-        totalSize: files.reduce((sum, f) => sum + f.size, 0),
+        totalSize:  files.reduce((s, f) => s + f.size, 0),
         totalFolders: folders.length,
-        pendingRequests: documentRequests.filter(r => r.status === "pending").length,
-    }), [files, folders, documentRequests]);
+        pendingReqs: docRequests.filter(r => r.status === "pending").length,
+    }), [files, folders, docRequests]);
 
     const pendingRequests = useMemo(() =>
-        documentRequests.filter(r => r.status === "pending").sort((a, b) => {
-            const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
-            return priorityOrder[a.priority] - priorityOrder[b.priority];
-        }),
-        [documentRequests]
+        docRequests.filter(r => r.status === "pending").sort((a, b) =>
+            ({ urgent: 0, high: 1, medium: 2, low: 3 }[a.priority] || 2) - ({ urgent: 0, high: 1, medium: 2, low: 3 }[b.priority] || 2)
+        ), [docRequests]);
+
+    const Modal: React.FC<{ title: string; icon: React.ComponentType<{ className?: string }>; iconColor: string; onClose: () => void; children: React.ReactNode; footer: React.ReactNode }> =
+        ({ title, icon: Icon, iconColor, onClose, children, footer }) => (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
+            <div className={`${n.modal} border rounded-2xl max-w-md w-full overflow-hidden`}>
+                <div className={`px-5 py-4 border-b ${n.divider} flex items-center justify-between ${n.modalHead}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 ${iconColor} rounded-xl flex items-center justify-center`}><Icon className="w-4 h-4 text-white" /></div>
+                        <span className={`font-semibold ${n.text}`}>{title}</span>
+                    </div>
+                    <button onClick={onClose} className={`p-2 rounded-lg ${isDark ? "hover:bg-gray-800" : "hover:bg-black/10"}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                </div>
+                <div className="p-5">{children}</div>
+                <div className={`px-5 py-4 border-t ${n.divider} flex justify-end gap-2 ${n.modalHead}`}>{footer}</div>
+            </div>
+        </div>
     );
 
-    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
-    const handleDragLeave = () => { setDragOver(false); };
-    const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files); };
-
+    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className={`${s.bg} min-h-full`}>
-            {/* Toast Notifications */}
-            <div className="fixed top-20 right-4 z-[10000] space-y-2">
-                {toasts.map((toast, index) => (
-                    <div
-                        key={toast.id}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border ${s.card} animate-in slide-in-from-right duration-300`}
-                    >
-                        {toast.type === "success" && <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                        {toast.type === "error" && <AlertCircle className="w-5 h-5 text-red-500" />}
-                        {toast.type === "info" && <Info className="w-5 h-5 text-blue-500" />}
-                        <span className={s.text}>{toast.message}</span>
-                        <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className={`ml-2 ${s.textMuted} hover:${s.text}`}>
-                            <X className="w-4 h-4" />
-                        </button>
+        <div className="space-y-6">
+
+            {/* Toasts */}
+            <div className="fixed top-4 right-4 z-[10000] space-y-2">
+                {toasts.map(t => (
+                    <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm`}>
+                        {t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === "error" ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}
+                        <span className={n.text}>{t.message}</span>
+                        <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
                     </div>
                 ))}
             </div>
 
+            {/* Hidden inputs */}
+            <input ref={fileRef}    type="file" multiple onChange={e => handleUpload(e.target.files)} className="hidden" />
+            <input ref={reqFileRef} type="file"          onChange={e => uploadReq && handleUpload(e.target.files, uploadReq.id)} className="hidden" />
+
             {/* New Folder Modal */}
-            {showNewFolderModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className={`${s.card} border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200`}>
-                        <div className={`px-6 py-4 border-b ${s.divider} flex items-center justify-between`}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                    <FolderPlus className="w-5 h-5 text-white" />
-                                </div>
-                                <h3 className={`text-lg font-bold ${s.text}`}>New Folder</h3>
-                            </div>
-                            <button onClick={() => setShowNewFolderModal(false)} className={`p-2 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}>
-                                <X className={`w-5 h-5 ${s.textMuted}`} />
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <input
-                                type="text"
-                                value={newFolderName}
-                                onChange={(e) => setNewFolderName(e.target.value)}
-                                placeholder="Folder name"
-                                className={`w-full px-4 py-3 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200`}
-                                autoFocus
-                                onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
-                            />
-                        </div>
-                        <div className={`px-6 py-4 border-t ${s.divider} flex justify-end gap-3`}>
-                            <button onClick={() => setShowNewFolderModal(false)} className={`${s.button} px-5 py-2.5 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95`}>Cancel</button>
-                            <button onClick={handleCreateFolder} className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}>Create Folder</button>
-                        </div>
-                    </div>
-                </div>
+            {showNewFolder && (
+                <Modal title="New Folder" icon={FolderPlus} iconColor="bg-blue-600" onClose={() => setShowNewFolder(false)}
+                    footer={<><button onClick={() => setShowNewFolder(false)} className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary}`}>Cancel</button><button onClick={handleCreateFolder} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm`}>Create</button></>}>
+                    <input type="text" value={folderName} onChange={e => setFolderName(e.target.value)} placeholder="Folder name"
+                        className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} autoFocus onKeyDown={e => e.key === "Enter" && handleCreateFolder()} />
+                </Modal>
             )}
 
             {/* Rename Modal */}
             {renameFile && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className={`${s.card} border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200`}>
-                        <div className={`px-6 py-4 border-b ${s.divider} flex items-center justify-between`}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                                    <Edit3 className="w-5 h-5 text-white" />
-                                </div>
-                                <h3 className={`text-lg font-bold ${s.text}`}>Rename File</h3>
-                            </div>
-                            <button onClick={() => setRenameFile(null)} className={`p-2 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}>
-                                <X className={`w-5 h-5 ${s.textMuted}`} />
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <input
-                                type="text"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                className={`w-full px-4 py-3 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200`}
-                                autoFocus
-                                onKeyDown={(e) => e.key === "Enter" && handleRename()}
-                            />
-                        </div>
-                        <div className={`px-6 py-4 border-t ${s.divider} flex justify-end gap-3`}>
-                            <button onClick={() => setRenameFile(null)} className={`${s.button} px-5 py-2.5 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95`}>Cancel</button>
-                            <button onClick={handleRename} className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}>Rename</button>
-                        </div>
-                    </div>
-                </div>
+                <Modal title="Rename File" icon={Edit3} iconColor="bg-amber-600" onClose={() => setRenameFile(null)}
+                    footer={<><button onClick={() => setRenameFile(null)} className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary}`}>Cancel</button><button onClick={handleRename} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm`}>Rename</button></>}>
+                    <input type="text" value={renameVal} onChange={e => setRenameVal(e.target.value)}
+                        className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} autoFocus onKeyDown={e => e.key === "Enter" && handleRename()} />
+                </Modal>
             )}
 
-            {/* Upload for Request Modal */}
-            {showUploadForRequestModal && selectedRequest && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className={`${s.card} border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200`}>
-                        <div className={`px-6 py-4 border-b ${s.divider} flex items-center justify-between`}>
-                            <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getPriorityColor(selectedRequest.priority).gradient} flex items-center justify-center shadow-lg`}>
-                                    <Upload className="w-5 h-5 text-white" />
-                                </div>
-                                <h3 className={`text-lg font-bold ${s.text}`}>Upload Document</h3>
+            {/* Upload for request modal */}
+            {uploadReq && (
+                <Modal title="Upload Document" icon={Upload} iconColor={priorityColor(uploadReq.priority).well} onClose={() => setUploadReq(null)}
+                    footer={<button onClick={() => setUploadReq(null)} className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary}`}>Cancel</button>}>
+                    <div className={`${n.flat} p-4 rounded-xl mb-4`}>
+                        <div className="flex items-start gap-3">
+                            <div className={`w-9 h-9 ${priorityColor(uploadReq.priority).well} rounded-xl flex items-center justify-center flex-shrink-0`}><FileText className="w-4 h-4 text-white" /></div>
+                            <div>
+                                <p className={`font-medium ${n.text} text-sm`}>{uploadReq.documentName}</p>
+                                {uploadReq.description && <p className={`text-xs ${n.secondary} mt-0.5`}>{uploadReq.description}</p>}
+                                {uploadReq.dueDate && <p className={`text-xs ${n.tertiary} mt-1 flex items-center gap-1`}><Calendar className="w-3 h-3" />Due: {fmtDate(uploadReq.dueDate)}</p>}
                             </div>
-                            <button onClick={() => { setShowUploadForRequestModal(false); setSelectedRequest(null); }} className={`p-2 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}>
-                                <X className={`w-5 h-5 ${s.textMuted}`} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className={`p-4 rounded-xl ${s.cardInner} border ${s.divider}`}>
-                                <div className="flex items-start gap-3">
-                                    <div className={`w-12 h-12 rounded-xl ${getPriorityColor(selectedRequest.priority).bg} flex items-center justify-center`}>
-                                        <FileText className={`w-6 h-6 ${getPriorityColor(selectedRequest.priority).text}`} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className={`font-semibold ${s.text}`}>{selectedRequest.documentName}</p>
-                                        <p className={`text-sm ${s.textMuted} mt-1`}>{selectedRequest.description || "No description"}</p>
-                                        {selectedRequest.dueDate && (
-                                            <p className={`text-xs ${s.textMuted} mt-2 flex items-center gap-1`}>
-                                                <Calendar className="w-3 h-3" /> Due: {formatDate(selectedRequest.dueDate)}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <input ref={requestFileInputRef} type="file" onChange={handleRequestFileSelect} className="hidden" />
-                            <button
-                                onClick={() => requestFileInputRef.current?.click()}
-                                disabled={uploading}
-                                className={`w-full ${s.buttonPrimary} px-4 py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0`}
-                            >
-                                {uploading ? (
-                                    <><RefreshCw className="w-5 h-5 animate-spin" /> Uploading... {uploadProgress}%</>
-                                ) : (
-                                    <><Upload className="w-5 h-5" /> Select File to Upload</>
-                                )}
-                            </button>
-                            <p className={`text-xs ${s.textMuted} text-center`}>Maximum file size: 10MB</p>
                         </div>
                     </div>
-                </div>
+                    <button onClick={() => reqFileRef.current?.click()} disabled={uploading}
+                        className={`w-full py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50`}>
+                        {uploading ? <><RefreshCw className="w-4 h-4 animate-spin" />{uploadPct}%</> : <><Upload className="w-4 h-4" />Select File</>}
+                    </button>
+                    <p className={`text-xs ${n.tertiary} text-center mt-2`}>Maximum 10MB</p>
+                </Modal>
             )}
 
             {/* Preview Modal */}
             {previewFile && (
-                <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="absolute top-4 right-4 flex items-center gap-2">
-                        <button onClick={() => handleDownload(previewFile)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-200 hover:scale-105 active:scale-95">
-                            <Download className="w-5 h-5 text-white" />
-                        </button>
-                        <button onClick={() => setPreviewFile(null)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-200 hover:scale-105 active:scale-95">
-                            <X className="w-5 h-5 text-white" />
-                        </button>
+                <div className="fixed inset-0 bg-black/90 z-[10001] flex items-center justify-center p-4">
+                    <div className="absolute top-4 right-4 flex gap-2">
+                        <button onClick={() => handleDownload(previewFile)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors"><Download className="w-4 h-4 text-white" /></button>
+                        <button onClick={() => setPreviewFile(null)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors"><X className="w-4 h-4 text-white" /></button>
                     </div>
-                    <div className="max-w-4xl max-h-[80vh] overflow-auto animate-in zoom-in-95 duration-300">
+                    <div className="max-w-3xl max-h-[80vh] overflow-auto">
                         {previewFile.type.startsWith("image/") && previewFile.base64 ? (
-                            <img src={previewFile.base64} alt={previewFile.name} className="max-w-full rounded-2xl shadow-2xl" />
+                            <img src={previewFile.base64} alt={previewFile.name} className="max-w-full rounded-2xl" />
                         ) : (
-                            <div className={`${s.card} border rounded-2xl p-10 text-center min-w-[300px]`}>
-                                {(() => {
-                                    const { icon: Icon, gradient } = getFileIcon(previewFile.type, previewFile.name);
-                                    return (
-                                        <div className={`w-24 h-24 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl`}>
-                                            <Icon className="w-12 h-12 text-white" />
-                                        </div>
-                                    );
-                                })()}
-                                <p className={`text-xl font-bold ${s.text} mb-2`}>{previewFile.name}</p>
-                                <p className={s.textMuted}>{formatSize(previewFile.size)} � {previewFile.type.split('/')[1]?.toUpperCase() || 'FILE'}</p>
-                                <button
-                                    onClick={() => handleDownload(previewFile)}
-                                    className={`${s.buttonPrimary} px-6 py-3 rounded-xl mt-6 inline-flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}
-                                >
-                                    <Download className="w-5 h-5" /> Download File
-                                </button>
+                            <div className={`${n.card} rounded-2xl p-10 text-center min-w-64`}>
+                                {(() => { const { icon: I, color: c } = fileIcon(previewFile.type, previewFile.name); return (<div className={`w-20 h-20 ${c} rounded-2xl flex items-center justify-center mx-auto mb-5`}><I className="w-10 h-10 text-white" /></div>); })()}
+                                <p className={`font-semibold ${n.strong} mb-1`}>{previewFile.name}</p>
+                                <p className={`text-sm ${n.tertiary} mb-5`}>{fmtSize(previewFile.size)} · {previewFile.type.split("/")[1]?.toUpperCase() || "FILE"}</p>
+                                <button onClick={() => handleDownload(previewFile)} className={`px-5 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2 mx-auto`}><Download className="w-4 h-4" />Download</button>
                             </div>
                         )}
                     </div>
                 </div>
             )}
 
-            <input ref={fileInputRef} type="file" multiple onChange={(e) => handleFileUpload(e.target.files)} className="hidden" />
-
-            <div className="max-w-6xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className={`text-2xl font-bold ${s.text}`}>Documents</h1>
-                        <p className={`text-sm ${s.textMuted} mt-1`}>Manage your files and respond to document requests</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setShowNewFolderModal(true)}
-                            className={`${s.button} px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-200 hover:shadow-md active:scale-95`}
-                        >
-                            <FolderPlus className="w-4 h-4" /> New Folder
-                        </button>
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className={`${s.buttonPrimary} px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}
-                        >
-                            <Upload className="w-4 h-4" /> Upload
-                        </button>
-                    </div>
+            {/* Header */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className={`text-xl font-semibold ${n.strong}`}>Documents</h1>
+                    <p className={`text-sm ${n.secondary} mt-0.5`}>Manage your files and respond to document requests</p>
                 </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setShowNewFolder(true)} className={`px-3 py-2 ${n.flat} rounded-xl text-sm ${n.secondary} flex items-center gap-1.5`}>
+                        <FolderPlus className="w-3.5 h-3.5" />New Folder
+                    </button>
+                    <button onClick={() => fileRef.current?.click()} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-1.5`}>
+                        <Upload className="w-3.5 h-3.5" />Upload
+                    </button>
+                </div>
+            </div>
 
-                {/* Pending Requests Alert Banner */}
-                {pendingRequests.length > 0 && (
-                    <div className={`${s.card} border-2 border-amber-500/50 rounded-2xl p-5 animate-in slide-in-from-top duration-300`}>
-                        <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20 animate-pulse">
-                                <Bell className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className={`font-bold ${s.text}`}>
-                                    {pendingRequests.length} Document Request{pendingRequests.length > 1 ? "s" : ""} Pending
-                                </h3>
-                                <p className={`text-sm ${s.textMuted} mt-1`}>
-                                    Your consultant has requested documents. Please upload them soon.
-                                </p>
-                                <div className="mt-4 space-y-2">
-                                    {pendingRequests.slice(0, 3).map((req, index) => {
-                                        const priorityColors = getPriorityColor(req.priority);
-                                        return (
-                                            <div
-                                                key={req.id}
-                                                style={{ animationDelay: `${index * 100}ms` }}
-                                                className={`flex items-center justify-between p-3 rounded-xl ${s.cardInner} transition-all duration-200 hover:shadow-md group animate-in slide-in-from-left`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${priorityColors.gradient} flex items-center justify-center shadow-md`}>
-                                                        <FileText className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <div>
-                                                        <p className={`font-semibold ${s.text}`}>{req.documentName}</p>
-                                                        <p className={`text-xs ${s.textMuted}`}>{req.dueDate ? `Due: ${formatDate(req.dueDate)}` : "No deadline"}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${priorityColors.bg} ${priorityColors.text}`}>{req.priority}</span>
-                                                    <button
-                                                        onClick={() => handleUploadForRequest(req)}
-                                                        className={`${s.buttonPrimary} px-4 py-2 rounded-lg text-sm flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0`}
-                                                    >
-                                                        <Upload className="w-4 h-4" /> Upload
-                                                    </button>
-                                                </div>
+            {/* Pending requests banner */}
+            {pendingRequests.length > 0 && (
+                <div className={`${n.card} rounded-2xl p-5 border border-amber-500/20`}>
+                    <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 bg-amber-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <Bell className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                            <p className={`font-semibold ${n.text}`}>{pendingRequests.length} document request{pendingRequests.length > 1 ? "s" : ""} pending</p>
+                            <p className={`text-xs ${n.secondary} mt-0.5 mb-4`}>Your consultant has requested documents. Please upload them soon.</p>
+                            <div className="space-y-2">
+                                {pendingRequests.slice(0, 3).map(req => (
+                                    <div key={req.id} className={`${n.flat} p-3 flex items-center justify-between rounded-xl gap-3`}>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`w-8 h-8 ${priorityColor(req.priority).well} rounded-lg flex items-center justify-center flex-shrink-0`}><FileText className="w-3.5 h-3.5 text-white" /></div>
+                                            <div className="min-w-0">
+                                                <p className={`text-sm font-medium ${n.text} truncate`}>{req.documentName}</p>
+                                                {req.dueDate && <p className={`text-xs ${n.tertiary}`}>Due {fmtDate(req.dueDate)}</p>}
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                                {pendingRequests.length > 3 && (
-                                    <button
-                                        onClick={() => setActiveTab("requests")}
-                                        className={`mt-4 text-sm font-medium text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors`}
-                                    >
-                                        View all {pendingRequests.length} requests <ExternalLink className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-lg font-semibold ${priorityColor(req.priority).bg}`}>{req.priority}</span>
+                                            <button onClick={() => setUploadReq(req)} className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-xs flex items-center gap-1`}><Upload className="w-3 h-3" />Upload</button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
+                            {pendingRequests.length > 3 && (
+                                <button onClick={() => setActiveTab("requests")} className={`mt-3 text-xs ${n.label}`}>View all {pendingRequests.length} requests →</button>
+                            )}
                         </div>
                     </div>
-                )}
-
-                {/* Tabs */}
-                <div className="flex gap-2">
-                    {[
-                        { id: "files", label: "My Files", icon: FolderOpen },
-                        { id: "requests", label: "Document Requests", icon: Bell, badge: stats.pendingRequests },
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as TabType)}
-                            className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === tab.id
-                                    ? `${s.buttonPrimary} shadow-lg shadow-blue-500/20`
-                                    : `${s.button}`
-                                } hover:shadow-md active:scale-[0.98]`}
-                        >
-                            <tab.icon className="w-4 h-4" />
-                            {tab.label}
-                            {tab.badge && tab.badge > 0 && (
-                                <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-red-500 text-white"} font-bold`}>
-                                    {tab.badge}
-                                </span>
-                            )}
-                        </button>
-                    ))}
                 </div>
+            )}
 
-                {/* Tab Content */}
-                {activeTab === "files" ? (
-                    <>
-                        {/* Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {[
-                                { label: "Total Files", value: stats.totalFiles, icon: FileText, color: "blue", gradient: "from-blue-500 to-blue-600" },
-                                { label: "Folders", value: stats.totalFolders, icon: FolderOpen, color: "purple", gradient: "from-purple-500 to-purple-600" },
-                                { label: "Storage Used", value: formatSize(stats.totalSize), icon: HardDrive, color: "emerald", gradient: "from-emerald-500 to-emerald-600" },
-                            ].map((stat, index) => (
-                                <div
-                                    key={stat.label}
-                                    style={{ animationDelay: `${index * 100}ms` }}
-                                    className={`${s.card} border rounded-2xl p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group animate-in fade-in slide-in-from-bottom`}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg shadow-${stat.color}-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300`}>
-                                            <stat.icon className="w-6 h-6 text-white" />
-                                        </div>
-                                        <span className={`text-2xl font-bold ${s.text}`}>{stat.value}</span>
-                                    </div>
-                                    <p className={`text-sm ${s.textMuted} mt-3`}>{stat.label}</p>
+            {/* Tabs */}
+            <div className="flex gap-2">
+                {([
+                    { id: "files",    label: "My Files",           icon: FolderOpen },
+                    { id: "requests", label: "Document Requests",  icon: Bell, badge: stats.pendingReqs },
+                ] as { id: TabType; label: string; icon: any; badge?: number }[]).map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === tab.id ? n.btnPrimary : `${n.flat} ${n.secondary}`}`}>
+                        <tab.icon className="w-4 h-4" />
+                        {tab.label}
+                        {tab.badge !== undefined && tab.badge > 0 && (
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-red-500 text-white"}`}>{tab.badge}</span>
+                        )}
+                    </button>
+                ))}
+            </div>
+
+            {/* ── FILES TAB ── */}
+            {activeTab === "files" && (
+                <div className="space-y-5">
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-3">
+                        {[
+                            { label: "Files",   value: stats.totalFiles,           icon: FileText,  dot: "bg-blue-500" },
+                            { label: "Folders", value: stats.totalFolders,         icon: FolderOpen,dot: "bg-blue-500" },
+                            { label: "Storage", value: fmtSize(stats.totalSize),   icon: HardDrive, dot: "bg-emerald-500" },
+                        ].map((st, i) => (
+                            <div key={i} className={`${n.card} ${n.edgeHover} p-4 rounded-2xl transition-all`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                                    <span className={`text-[11px] uppercase tracking-widest ${n.tertiary}`}>{st.label}</span>
                                 </div>
-                            ))}
+                                <div className={`text-xl font-semibold ${n.strong} tabular-nums`}>{st.value}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Toolbar */}
+                    <div className={`${n.card} rounded-2xl p-4`}>
+                        <div className="flex flex-wrap gap-3 items-center">
+                            {/* Breadcrumbs */}
+                            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+                                {breadcrumbs.map((item, i, arr) => (
+                                    <React.Fragment key={item.id || "root"}>
+                                        <button onClick={() => setCurrentFolder(item.id)}
+                                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all ${n.rowHover} ${i === arr.length - 1 ? `font-semibold ${n.text}` : n.tertiary}`}>
+                                            {i === 0 && <Home className="w-3.5 h-3.5" />}
+                                            <span className="whitespace-nowrap">{item.name}</span>
+                                        </button>
+                                        {i < arr.length - 1 && <ChevronRight className={`w-3 h-3 ${n.tertiary} flex-shrink-0`} />}
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                            {/* Search */}
+                            <div className={`flex items-center gap-2 px-3 py-2 ${n.inset} rounded-xl`}>
+                                <Search className={`w-3.5 h-3.5 ${n.tertiary}`} />
+                                <input type="text" placeholder="Search…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                                    className={`w-36 bg-transparent ${n.text} text-xs focus:outline-none`} />
+                                {searchQuery && <button onClick={() => setSearchQuery("")}><X className={`w-3 h-3 ${n.tertiary}`} /></button>}
+                            </div>
+                            {/* Sort */}
+                            <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
+                                className={`px-3 py-2 ${n.input} border rounded-xl text-xs focus:outline-none focus:border-blue-500`}>
+                                <option value="date">Date</option>
+                                <option value="name">Name</option>
+                                <option value="size">Size</option>
+                                <option value="type">Type</option>
+                            </select>
+                            {/* View toggle */}
+                            <div className={`flex items-center ${n.inset} rounded-xl overflow-hidden`}>
+                                <button onClick={() => setViewMode("grid")} className={`w-9 h-9 flex items-center justify-center transition-all ${viewMode === "grid" ? "bg-blue-600 text-white" : `${n.tertiary}`}`}><Grid className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setViewMode("list")} className={`w-9 h-9 flex items-center justify-center transition-all ${viewMode === "list" ? "bg-blue-600 text-white" : `${n.tertiary}`}`}><List className="w-3.5 h-3.5" /></button>
+                            </div>
                         </div>
 
-                        {/* Toolbar */}
-                        <div className={`${s.card} border rounded-2xl p-4`}>
-                            <div className="flex flex-col md:flex-row gap-4">
-                                {/* Breadcrumbs */}
-                                <div className="flex items-center gap-1 flex-1 overflow-x-auto">
-                                    {getBreadcrumbs().map((item, index, arr) => (
-                                        <React.Fragment key={item.id || "root"}>
-                                            <button
-                                                onClick={() => setCurrentFolderId(item.id)}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${s.cardHover} active:scale-95 ${index === arr.length - 1 ? `font-semibold ${s.text}` : s.textMuted}`}
-                                            >
-                                                {index === 0 && <Home className="w-4 h-4" />}
-                                                <span className="whitespace-nowrap">{item.name}</span>
-                                            </button>
-                                            {index < arr.length - 1 && <ChevronRight className={`w-4 h-4 ${s.textSubtle} shrink-0`} />}
-                                        </React.Fragment>
-                                    ))}
+                        {/* Bulk actions */}
+                        {selectedFiles.size > 0 && (
+                            <div className={`mt-3 pt-3 border-t ${n.divider} flex items-center gap-3`}>
+                                <span className={`text-sm ${n.secondary}`}>{selectedFiles.size} selected</span>
+                                <button onClick={handleBulkDelete} className={`px-3 py-1.5 ${n.btnDanger} rounded-lg text-xs flex items-center gap-1`}><Trash2 className="w-3 h-3" />Delete</button>
+                                <button onClick={() => setSelectedFiles(new Set())} className={`px-3 py-1.5 ${n.flat} rounded-lg text-xs ${n.secondary}`}>Clear</button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Upload progress */}
+                    {uploading && (
+                        <div className={`${n.card} rounded-2xl p-4 flex items-center gap-4`}>
+                            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0"><RefreshCw className="w-4 h-4 text-white animate-spin" /></div>
+                            <div className="flex-1">
+                                <div className="flex justify-between mb-1.5">
+                                    <span className={`text-sm ${n.text}`}>Uploading…</span>
+                                    <span className={`text-sm font-semibold ${n.text}`}>{uploadPct}%</span>
                                 </div>
-
-                                {/* Search */}
-                                <div className="relative group">
-                                    <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${s.textMuted} group-focus-within:text-blue-500 transition-colors`} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search files..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className={`pl-10 pr-4 py-2.5 rounded-xl border ${s.input} w-48 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200`}
-                                    />
-                                </div>
-
-                                {/* Sort */}
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value as SortBy)}
-                                    className={`px-4 py-2.5 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 cursor-pointer`}
-                                >
-                                    <option value="date">Sort by Date</option>
-                                    <option value="name">Sort by Name</option>
-                                    <option value="size">Sort by Size</option>
-                                    <option value="type">Sort by Type</option>
-                                </select>
-
-                                {/* View Mode */}
-                                <div className={`flex items-center rounded-xl overflow-hidden border ${s.divider}`}>
-                                    <button
-                                        onClick={() => setViewMode("grid")}
-                                        className={`p-2.5 transition-all duration-200 ${viewMode === "grid" ? s.buttonPrimary : `${s.button} border-0`}`}
-                                    >
-                                        <Grid className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode("list")}
-                                        className={`p-2.5 transition-all duration-200 ${viewMode === "list" ? s.buttonPrimary : `${s.button} border-0`}`}
-                                    >
-                                        <List className="w-4 h-4" />
-                                    </button>
+                                <div className={`h-1.5 ${n.inset} rounded-full overflow-hidden`}>
+                                    <div className="h-full bg-blue-600 transition-all duration-300 rounded-full" style={{ width: `${uploadPct}%` }} />
                                 </div>
                             </div>
-
-                            {/* Bulk Actions */}
-                            {selectedFiles.size > 0 && (
-                                <div className={`mt-4 pt-4 border-t ${s.divider} flex items-center gap-4 animate-in slide-in-from-top duration-200`}>
-                                    <span className={`text-sm font-medium ${s.text}`}>{selectedFiles.size} selected</span>
-                                    <button
-                                        onClick={handleBulkDelete}
-                                        className={`${s.buttonDanger} px-4 py-2 rounded-xl text-sm flex items-center gap-1.5 shadow-lg shadow-red-500/20 transition-all duration-200 hover:shadow-xl active:scale-95`}
-                                    >
-                                        <Trash2 className="w-4 h-4" /> Delete
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedFiles(new Set())}
-                                        className={`${s.button} px-4 py-2 rounded-xl text-sm transition-all duration-200 hover:shadow-md active:scale-95`}
-                                    >
-                                        Clear Selection
-                                    </button>
-                                </div>
-                            )}
                         </div>
+                    )}
 
-                        {/* Upload Progress */}
-                        {uploading && (
-                            <div className={`${s.card} border rounded-2xl p-4 animate-in slide-in-from-top duration-200`}>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                        <RefreshCw className="w-5 h-5 text-white animate-spin" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between mb-2">
-                                            <span className={`text-sm font-medium ${s.text}`}>Uploading files...</span>
-                                            <span className={`text-sm font-bold ${s.text}`}>{uploadProgress}%</span>
-                                        </div>
-                                        <div className={`h-2 ${s.cardInner} rounded-full overflow-hidden`}>
-                                            <div
-                                                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300 rounded-full"
-                                                style={{ width: `${uploadProgress}%` }}
-                                            />
-                                        </div>
-                                    </div>
+                    {/* Drop zone + content */}
+                    <div onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
+                        onDrop={e => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
+                        className={`relative transition-all ${dragOver ? "ring-2 ring-blue-500 ring-dashed rounded-2xl" : ""}`}>
+                        {dragOver && (
+                            <div className="absolute inset-0 bg-blue-500/10 rounded-2xl flex items-center justify-center z-10">
+                                <div className="text-center">
+                                    <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 animate-bounce"><Upload className="w-7 h-7 text-white" /></div>
+                                    <p className={`font-semibold ${n.text} text-sm`}>Drop to upload</p>
                                 </div>
                             </div>
                         )}
 
-                        {/* Files Area */}
-                        <div
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            className={`relative transition-all duration-200 ${dragOver ? "ring-2 ring-blue-500 ring-dashed rounded-2xl" : ""}`}
-                        >
-                            {dragOver && (
-                                <div className="absolute inset-0 bg-blue-500/10 rounded-2xl flex items-center justify-center z-10 animate-in fade-in duration-200">
-                                    <div className="text-center">
-                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 shadow-xl animate-bounce">
-                                            <Upload className="w-8 h-8 text-white" />
+                        {loading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <RefreshCw className={`w-7 h-7 ${n.label} animate-spin`} />
+                            </div>
+                        ) : items.folders.length === 0 && items.files.length === 0 ? (
+                            <div className={`${n.card} rounded-2xl text-center py-16`}>
+                                <FolderOpen className={`w-12 h-12 ${n.tertiary} mx-auto mb-4`} strokeWidth={1.5} />
+                                <p className={`${n.secondary} text-sm font-medium mb-1`}>No files yet</p>
+                                <p className={`${n.tertiary} text-xs mb-5`}>Upload files or drag them here</p>
+                                <button onClick={() => fileRef.current?.click()} className={`px-5 py-2.5 ${n.btnPrimary} rounded-xl text-sm inline-flex items-center gap-2 mx-auto`}><Upload className="w-4 h-4" />Upload Files</button>
+                            </div>
+                        ) : viewMode === "grid" ? (
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {/* Folder cards */}
+                                {items.folders.map(folder => (
+                                    <div key={folder.id} onClick={() => setCurrentFolder(folder.id)}
+                                        className={`${n.card} ${n.edgeHover} rounded-2xl p-4 cursor-pointer transition-all group`}>
+                                        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                                            <FolderOpen className="w-6 h-6 text-white" />
                                         </div>
-                                        <p className={`text-lg font-bold ${s.text}`}>Drop files here to upload</p>
+                                        <p className={`font-medium ${n.text} truncate text-sm`}>{folder.name}</p>
+                                        <p className={`text-[10px] ${n.tertiary} mt-0.5`}>Folder</p>
                                     </div>
-                                </div>
-                            )}
-
-                            {loading ? (
-                                <div className="flex flex-col items-center justify-center py-16">
-                                    <RefreshCw className="w-10 h-10 text-blue-500 animate-spin mb-4" />
-                                    <p className={s.textMuted}>Loading documents...</p>
-                                </div>
-                            ) : displayedItems.folders.length === 0 && displayedItems.files.length === 0 ? (
-                                <div className={`${s.card} border-2 border-dashed rounded-2xl p-16 text-center`}>
-                                    <div className={`w-20 h-20 rounded-2xl ${isDark ? "bg-slate-800" : "bg-gray-100"} flex items-center justify-center mx-auto mb-6`}>
-                                        <FolderOpen className={`w-10 h-10 ${s.textSubtle}`} />
-                                    </div>
-                                    <p className={`text-xl font-bold ${s.text} mb-2`}>No files yet</p>
-                                    <p className={`${s.textMuted} mb-6`}>Upload files or create folders to get started</p>
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className={`${s.buttonPrimary} px-6 py-3 rounded-xl inline-flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}
-                                    >
-                                        <Upload className="w-5 h-5" /> Upload Files
-                                    </button>
-                                </div>
-                            ) : viewMode === "grid" ? (
-                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                    {/* Folders */}
-                                    {displayedItems.folders.map((folder, index) => (
-                                        <div
-                                            key={folder.id}
-                                            onClick={() => setCurrentFolderId(folder.id)}
-                                            style={{ animationDelay: `${index * 50}ms` }}
-                                            className={`${s.card} border rounded-2xl p-4 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group animate-in fade-in slide-in-from-bottom`}
-                                        >
-                                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                                                <FolderOpen className="w-7 h-7 text-white" />
-                                            </div>
-                                            <p className={`font-semibold ${s.text} truncate`}>{folder.name}</p>
-                                            <p className={`text-xs ${s.textMuted} mt-1`}>Folder</p>
+                                ))}
+                                {/* File cards */}
+                                {items.files.map(file => {
+                                    const { icon: Icon, color } = fileIcon(file.type, file.name);
+                                    return (
+                                        <div key={file.id} onClick={() => setPreviewFile(file)}
+                                            className={`${n.card} ${n.edgeHover} rounded-2xl p-4 cursor-pointer transition-all relative group ${selectedFiles.has(file.id) ? "ring-2 ring-blue-500" : ""}`}>
+                                            <input type="checkbox" checked={selectedFiles.has(file.id)} onClick={e => e.stopPropagation()}
+                                                onChange={e => { e.stopPropagation(); setSelectedFiles(p => { const s = new Set(p); s.has(file.id) ? s.delete(file.id) : s.add(file.id); return s; }); }}
+                                                className="absolute top-3 left-3 w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <button onClick={e => { e.stopPropagation(); handleDownload(file); }}
+                                                className="absolute top-3 right-3 w-7 h-7 bg-black/30 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600">
+                                                <Download className="w-3 h-3 text-white" />
+                                            </button>
+                                            {file.type.startsWith("image/") && file.base64 ? (
+                                                <div className="w-full h-20 rounded-xl overflow-hidden mb-3"><img src={file.base64} alt={file.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /></div>
+                                            ) : (
+                                                <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform`}><Icon className="w-6 h-6 text-white" /></div>
+                                            )}
+                                            <p className={`font-medium ${n.text} truncate text-xs`}>{file.name}</p>
+                                            <p className={`text-[10px] ${n.tertiary} mt-0.5`}>{fmtSize(file.size)}</p>
+                                            {file.requestId && (
+                                                <span className={`mt-1.5 inline-block text-[10px] px-2 py-0.5 rounded-lg font-medium ${file.status === "approved" ? "bg-emerald-500/10 text-emerald-400" : file.status === "rejected" ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"}`}>
+                                                    {file.status === "pending_review" ? "Pending Review" : file.status}
+                                                </span>
+                                            )}
                                         </div>
-                                    ))}
-
-                                    {/* Files */}
-                                    {displayedItems.files.map((file, index) => {
-                                        const { icon: Icon, gradient } = getFileIcon(file.type, file.name);
-                                        return (
-                                            <div
-                                                key={file.id}
-                                                onClick={() => setPreviewFile(file)}
-                                                style={{ animationDelay: `${(displayedItems.folders.length + index) * 50}ms` }}
-                                                className={`${s.card} border rounded-2xl p-4 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative group animate-in fade-in slide-in-from-bottom ${selectedFiles.has(file.id) ? "ring-2 ring-blue-500" : ""}`}
-                                            >
-                                                {/* Checkbox */}
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedFiles.has(file.id)}
-                                                    onChange={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedFiles((prev) => {
-                                                            const next = new Set(prev);
-                                                            if (next.has(file.id)) next.delete(file.id);
-                                                            else next.add(file.id);
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    className="absolute top-3 left-3 w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                />
-
-                                                {/* Quick Actions */}
-                                                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
-                                                        className={`p-1.5 rounded-lg ${s.cardInner} hover:bg-blue-500 hover:text-white transition-colors`}
-                                                    >
-                                                        <Download className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-
-                                                {/* Thumbnail or Icon */}
-                                                {file.type.startsWith("image/") && file.base64 ? (
-                                                    <div className="w-full h-24 rounded-xl overflow-hidden mb-3 bg-black/10">
-                                                        <img src={file.base64} alt={file.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                                                    </div>
-                                                ) : (
-                                                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300`}>
-                                                        <Icon className="w-7 h-7 text-white" />
-                                                    </div>
-                                                )}
-
-                                                <p className={`font-semibold ${s.text} truncate text-sm group-hover:text-blue-500 transition-colors`}>{file.name}</p>
-                                                <p className={`text-xs ${s.textMuted} mt-1`}>{formatSize(file.size)}</p>
-
-                                                {/* Request Status Badge */}
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            /* List view */
+                            <div className={`${n.card} rounded-2xl overflow-hidden`}>
+                                <div className={`grid grid-cols-12 gap-3 px-4 py-3 border-b ${n.divider} ${n.flat}`}>
+                                    <div className="col-span-6 flex items-center gap-3">
+                                        <input type="checkbox" className="w-3.5 h-3.5"
+                                            onChange={e => e.target.checked ? setSelectedFiles(new Set(items.files.map(f => f.id))) : setSelectedFiles(new Set())} />
+                                        <span className={`text-[11px] uppercase tracking-wider ${n.tertiary}`}>Name</span>
+                                    </div>
+                                    <div className={`col-span-2 text-[11px] uppercase tracking-wider ${n.tertiary}`}>Size</div>
+                                    <div className={`col-span-2 text-[11px] uppercase tracking-wider ${n.tertiary}`}>Modified</div>
+                                    <div className={`col-span-2 text-[11px] uppercase tracking-wider ${n.tertiary}`}>Actions</div>
+                                </div>
+                                {items.folders.map(folder => (
+                                    <div key={folder.id} onClick={() => setCurrentFolder(folder.id)}
+                                        className={`grid grid-cols-12 gap-3 px-4 py-3 border-b ${n.divider} cursor-pointer ${n.rowHover} group transition-all`}>
+                                        <div className="col-span-6 flex items-center gap-3">
+                                            <div className="w-4" />
+                                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0"><FolderOpen className="w-4 h-4 text-white" /></div>
+                                            <span className={`text-sm font-medium ${n.text} truncate`}>{folder.name}</span>
+                                        </div>
+                                        <div className={`col-span-2 text-xs ${n.tertiary} flex items-center`}>—</div>
+                                        <div className={`col-span-2 text-xs ${n.tertiary} flex items-center`}>{fmtShort(folder.createdAt)}</div>
+                                        <div className="col-span-2" />
+                                    </div>
+                                ))}
+                                {items.files.map(file => {
+                                    const { icon: Icon, color } = fileIcon(file.type, file.name);
+                                    return (
+                                        <div key={file.id}
+                                            className={`grid grid-cols-12 gap-3 px-4 py-3 border-b ${n.divider} ${n.rowHover} group transition-all ${selectedFiles.has(file.id) ? "bg-blue-500/5" : ""}`}>
+                                            <div className="col-span-6 flex items-center gap-3 min-w-0">
+                                                <input type="checkbox" checked={selectedFiles.has(file.id)} className="w-3.5 h-3.5 flex-shrink-0"
+                                                    onChange={() => setSelectedFiles(p => { const s = new Set(p); s.has(file.id) ? s.delete(file.id) : s.add(file.id); return s; })} />
+                                                <div className={`w-8 h-8 ${color} rounded-lg flex items-center justify-center flex-shrink-0`}><Icon className="w-4 h-4 text-white" /></div>
+                                                <span className={`text-sm ${n.text} truncate cursor-pointer hover:text-blue-400 transition-colors`} onClick={() => setPreviewFile(file)}>{file.name}</span>
                                                 {file.requestId && (
-                                                    <span className={`mt-2 inline-block text-xs px-2 py-1 rounded-lg font-medium ${file.status === "approved" ? "bg-emerald-500/20 text-emerald-500" :
-                                                            file.status === "rejected" ? "bg-red-500/20 text-red-500" :
-                                                                "bg-amber-500/20 text-amber-500"
-                                                        }`}>
-                                                        {file.status === "pending_review" ? "Pending Review" : file.status}
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-lg flex-shrink-0 ${file.status === "approved" ? "bg-emerald-500/10 text-emerald-400" : file.status === "rejected" ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"}`}>
+                                                        {file.status === "pending_review" ? "Review" : file.status}
                                                     </span>
                                                 )}
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                /* List View */
-                                <div className={`${s.card} border rounded-2xl overflow-hidden`}>
-                                    <div className={`grid grid-cols-12 gap-4 p-4 border-b ${s.divider} ${s.cardInner}`}>
-                                        <div className="col-span-6 text-sm font-semibold flex items-center gap-3">
-                                            <input
-                                                type="checkbox"
-                                                onChange={(e) => {
-                                                    if (e.target.checked) setSelectedFiles(new Set(displayedItems.files.map(f => f.id)));
-                                                    else setSelectedFiles(new Set());
-                                                }}
-                                                className="w-4 h-4"
-                                            />
-                                            <span className={s.textMuted}>Name</span>
+                                            <div className={`col-span-2 text-xs ${n.tertiary} flex items-center`}>{fmtSize(file.size)}</div>
+                                            <div className={`col-span-2 text-xs ${n.tertiary} flex items-center`}>{fmtShort(file.uploadedAt)}</div>
+                                            <div className="col-span-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleDownload(file)} className={`w-7 h-7 ${n.flat} rounded-lg flex items-center justify-center ${n.tertiary} hover:text-blue-400`}><Download className="w-3.5 h-3.5" /></button>
+                                                <button onClick={() => { setRenameFile(file); setRenameVal(file.name); }} className={`w-7 h-7 ${n.flat} rounded-lg flex items-center justify-center ${n.tertiary} hover:text-amber-400`}><Edit3 className="w-3.5 h-3.5" /></button>
+                                                <button onClick={() => handleDelete(file)} className={`w-7 h-7 ${n.flat} rounded-lg flex items-center justify-center ${n.tertiary} hover:text-red-400`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                            </div>
                                         </div>
-                                        <div className={`col-span-2 text-sm font-semibold ${s.textMuted}`}>Size</div>
-                                        <div className={`col-span-2 text-sm font-semibold ${s.textMuted}`}>Modified</div>
-                                        <div className={`col-span-2 text-sm font-semibold ${s.textMuted}`}>Actions</div>
-                                    </div>
-
-                                    {/* Folder Rows */}
-                                    {displayedItems.folders.map((folder, index) => (
-                                        <div
-                                            key={folder.id}
-                                            onClick={() => setCurrentFolderId(folder.id)}
-                                            style={{ animationDelay: `${index * 30}ms` }}
-                                            className={`grid grid-cols-12 gap-4 p-4 border-b ${s.divider} ${s.cardHover} cursor-pointer transition-all duration-200 group animate-in fade-in slide-in-from-left`}
-                                        >
-                                            <div className="col-span-6 flex items-center gap-3">
-                                                <div className="w-4" />
-                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                                                    <FolderOpen className="w-5 h-5 text-white" />
-                                                </div>
-                                                <span className={`font-medium ${s.text} group-hover:text-blue-500 transition-colors`}>{folder.name}</span>
-                                            </div>
-                                            <div className={`col-span-2 ${s.textMuted} flex items-center`}>�</div>
-                                            <div className={`col-span-2 ${s.textMuted} flex items-center`}>{formatDateShort(folder.createdAt)}</div>
-                                            <div className="col-span-2" />
-                                        </div>
-                                    ))}
-
-                                    {/* File Rows */}
-                                    {displayedItems.files.map((file, index) => {
-                                        const { icon: Icon, color, gradient } = getFileIcon(file.type, file.name);
-                                        return (
-                                            <div
-                                                key={file.id}
-                                                style={{ animationDelay: `${(displayedItems.folders.length + index) * 30}ms` }}
-                                                className={`grid grid-cols-12 gap-4 p-4 border-b ${s.divider} ${s.cardHover} transition-all duration-200 group animate-in fade-in slide-in-from-left ${selectedFiles.has(file.id) ? "bg-blue-500/5" : ""}`}
-                                            >
-                                                <div className="col-span-6 flex items-center gap-3">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedFiles.has(file.id)}
-                                                        onChange={() => {
-                                                            setSelectedFiles((prev) => {
-                                                                const next = new Set(prev);
-                                                                if (next.has(file.id)) next.delete(file.id);
-                                                                else next.add(file.id);
-                                                                return next;
-                                                            });
-                                                        }}
-                                                        className="w-4 h-4"
-                                                    />
-                                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
-                                                        <Icon className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <span className={`${s.text} truncate cursor-pointer hover:text-blue-500 transition-colors font-medium`} onClick={() => setPreviewFile(file)}>{file.name}</span>
-                                                    {file.requestId && (
-                                                        <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${file.status === "approved" ? "bg-emerald-500/20 text-emerald-500" :
-                                                                file.status === "rejected" ? "bg-red-500/20 text-red-500" :
-                                                                    "bg-amber-500/20 text-amber-500"
-                                                            }`}>
-                                                            {file.status === "pending_review" ? "Review" : file.status}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className={`col-span-2 ${s.textMuted} flex items-center`}>{formatSize(file.size)}</div>
-                                                <div className={`col-span-2 ${s.textMuted} flex items-center`}>{formatDateShort(file.uploadedAt)}</div>
-                                                <div className="col-span-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                    <button onClick={() => handleDownload(file)} className={`p-2 rounded-lg ${s.cardHover} transition-colors hover:text-blue-500`}><Download className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setRenameFile(file); setRenameValue(file.name); }} className={`p-2 rounded-lg ${s.cardHover} transition-colors hover:text-amber-500`}><Edit3 className="w-4 h-4" /></button>
-                                                    <button onClick={() => handleDelete(file)} className={`p-2 rounded-lg ${s.cardHover} transition-colors hover:text-red-500`}><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </>
-                ) : (
-                    /* Document Requests Tab */
-                    <div className="space-y-4">
-                        <div className={`${s.card} border rounded-2xl overflow-hidden`}>
-                            {documentRequests.length === 0 ? (
-                                <div className="p-16 text-center">
-                                    <div className={`w-20 h-20 rounded-2xl ${isDark ? "bg-slate-800" : "bg-gray-100"} flex items-center justify-center mx-auto mb-6`}>
-                                        <CheckCircle className={`w-10 h-10 text-emerald-500`} />
-                                    </div>
-                                    <p className={`text-xl font-bold ${s.text} mb-2`}>All caught up!</p>
-                                    <p className={s.textMuted}>No document requests at the moment</p>
-                                </div>
-                            ) : (
-                                <div className={`divide-y ${s.divider}`}>
-                                    {documentRequests.map((request, index) => {
-                                        const priorityColors = getPriorityColor(request.priority);
-                                        const statusColors = getStatusColor(request.status);
-                                        return (
-                                            <div
-                                                key={request.id}
-                                                style={{ animationDelay: `${index * 50}ms` }}
-                                                className={`p-5 ${s.cardHover} transition-all duration-200 group animate-in fade-in slide-in-from-left`}
-                                            >
-                                                <div className="flex items-start gap-4">
-                                                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${priorityColors.gradient} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 group-hover:rotate-2 transition-transform duration-300`}>
-                                                        <FileText className="w-7 h-7 text-white" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-start justify-between gap-3">
-                                                            <div>
-                                                                <h3 className={`font-bold ${s.text} group-hover:text-blue-500 transition-colors`}>{request.documentName}</h3>
-                                                                <p className={`text-sm ${s.textMuted} mt-1`}>{request.description || "No description"}</p>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 shrink-0">
-                                                                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${priorityColors.bg} ${priorityColors.text}`}>{request.priority}</span>
-                                                                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${statusColors.bg} ${statusColors.text} capitalize`}>{request.status}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className={`flex items-center gap-4 mt-3 text-xs ${s.textMuted}`}>
-                                                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {getRelativeTime(request.createdAt)}</span>
-                                                            {request.dueDate && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Due {formatDate(request.dueDate)}</span>}
-                                                            <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {DOCUMENT_CATEGORIES.find(c => c.value === request.category)?.label || request.category}</span>
-                                                            <span>From: {request.requestedByName}</span>
-                                                        </div>
-                                                        {request.uploadedDocumentName && (
-                                                            <div className={`mt-4 p-3 rounded-xl ${s.cardInner} flex items-center gap-3`}>
-                                                                <CheckCircle className="w-5 h-5 text-emerald-500" />
-                                                                <span className={`text-sm font-medium ${s.text}`}>Uploaded: {request.uploadedDocumentName}</span>
-                                                                <span className={`text-xs ${s.textMuted}`}>({getRelativeTime(request.uploadedAt || "")})</span>
-                                                            </div>
-                                                        )}
-                                                        {request.status === "rejected" && request.reviewNotes && (
-                                                            <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30">
-                                                                <p className="text-sm text-red-500 flex items-center gap-2">
-                                                                    <AlertCircle className="w-4 h-4" />
-                                                                    <span>Rejection reason: {request.reviewNotes}</span>
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {request.status === "pending" && (
-                                                        <button
-                                                            onClick={() => handleUploadForRequest(request)}
-                                                            className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl flex items-center gap-2 shrink-0 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}
-                                                        >
-                                                            <Upload className="w-4 h-4" /> Upload
-                                                        </button>
-                                                    )}
-                                                    {request.status === "rejected" && (
-                                                        <button
-                                                            onClick={() => handleUploadForRequest(request)}
-                                                            className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shrink-0 shadow-lg shadow-amber-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
-                                                        >
-                                                            <Upload className="w-4 h-4" /> Re-upload
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* ── REQUESTS TAB ── */}
+            {activeTab === "requests" && (
+                <div className={`${n.card} rounded-2xl overflow-hidden`}>
+                    {docRequests.length === 0 ? (
+                        <div className="text-center py-16">
+                            <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-4" strokeWidth={1.5} />
+                            <p className={`${n.secondary} text-sm font-medium`}>All caught up!</p>
+                            <p className={`${n.tertiary} text-xs mt-1`}>No document requests at this time</p>
+                        </div>
+                    ) : docRequests.map((req, i) => {
+                        const pc = priorityColor(req.priority);
+                        return (
+                            <div key={req.id} className={`p-5 ${n.rowHover} transition-all ${i < docRequests.length - 1 ? `border-b ${n.divider}` : ""}`}>
+                                <div className="flex items-start gap-4">
+                                    <div className={`w-11 h-11 ${pc.well} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                                        <FileText className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-3 mb-1">
+                                            <div className="min-w-0">
+                                                <p className={`font-semibold ${n.text} text-sm`}>{req.documentName}</p>
+                                                {req.description && <p className={`text-xs ${n.secondary} mt-0.5`}>{req.description}</p>}
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-lg font-semibold ${pc.bg}`}>{req.priority}</span>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-lg font-semibold ${statusColor(req.status)} capitalize`}>{req.status}</span>
+                                            </div>
+                                        </div>
+                                        <div className={`flex flex-wrap items-center gap-3 text-[11px] ${n.tertiary} mt-1`}>
+                                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{fmtRelative(req.createdAt)}</span>
+                                            {req.dueDate && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Due {fmtDate(req.dueDate)}</span>}
+                                            <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{DOCUMENT_CATEGORIES.find(c => c.value === req.category)?.label || req.category}</span>
+                                        </div>
+                                        {req.uploadedDocumentName && (
+                                            <div className={`mt-3 px-3 py-2 ${n.flat} rounded-xl flex items-center gap-2`}>
+                                                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                                <span className={`text-xs ${n.secondary}`}>Uploaded: {req.uploadedDocumentName}</span>
+                                                {req.uploadedAt && <span className={`text-[10px] ${n.tertiary}`}>({fmtRelative(req.uploadedAt)})</span>}
+                                            </div>
+                                        )}
+                                        {req.status === "rejected" && req.reviewNotes && (
+                                            <div className="mt-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2">
+                                                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                                                <p className="text-xs text-red-400">{req.reviewNotes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {(req.status === "pending" || req.status === "rejected") && (
+                                        <button onClick={() => setUploadReq(req)}
+                                            className={`px-4 py-2 ${req.status === "rejected" ? "bg-amber-600 hover:bg-amber-500" : "bg-blue-600 hover:bg-blue-500"} text-white rounded-xl text-xs flex items-center gap-1.5 flex-shrink-0`}>
+                                            <Upload className="w-3 h-3" />{req.status === "rejected" ? "Re-upload" : "Upload"}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

@@ -1,1080 +1,609 @@
 // src/ClientPortal_views/ClientMessages.tsx
-// Client messaging system - send/receive messages with assigned consultants and admins
-// Messages are stored in localStorage and visible to both parties
-
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
-    MessageCircle, Send, Search, Inbox, Star, Trash2, Archive,
-    Paperclip, X, ChevronLeft, RefreshCw, CheckCheck, Mail, Reply,
-    AlertCircle, CheckCircle, Plus, Users, Shield, Briefcase, Info,
-    MoreVertical, Clock, Smile
+    MessageCircle, Send, Search, Star, Trash2, Archive, X,
+    RefreshCw, CheckCheck, Reply, AlertCircle, CheckCircle,
+    Plus, Users, Shield, Briefcase, Info, Clock, Inbox,
+    ChevronLeft, Mail,
 } from "lucide-react";
 
 const API_BASE = "/api";
+const STORAGE_KEY = "timely_client_messages";
+const genId = (p: string) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-type ClientMessagesProps = {
-    userName?: string;
-    userEmail?: string;
-    customerId?: string;
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ClientMessagesProps = { userName?: string; userEmail?: string; customerId?: string; };
+type ViewType = "inbox" | "starred" | "archived" | "trash";
+
+interface MsgFrom { name: string; email: string; role: "client" | "consultant" | "admin" | "system" | "support"; id?: string; }
+interface MsgTo   { name: string; email: string; role?: string; id?: string; }
 
 interface Message {
-    id: string;
-    threadId: string;
-    from: {
-        name: string;
-        email: string;
-        role: "client" | "consultant" | "admin" | "system";
-        id?: string;
-    };
-    to: {
-        name: string;
-        email: string;
-        role?: string;
-        id?: string;
-    };
-    subject: string;
-    body: string;
-    timestamp: string;
-    read: boolean;
-    starred: boolean;
-    archived: boolean;
-    deleted: boolean;
-    attachments?: { name: string; size: number; base64?: string }[];
+    id: string; threadId: string;
+    from: MsgFrom; to: MsgTo;
+    subject: string; body: string; timestamp: string;
+    read: boolean; starred: boolean; archived: boolean; deleted: boolean;
     replyTo?: string;
 }
 
 interface Thread {
-    id: string;
-    subject: string;
-    participants: { name: string; email: string; role: string }[];
-    lastMessage: string;
-    lastMessageTime: string;
-    unreadCount: number;
-    starred: boolean;
-    archived: boolean;
+    id: string; subject: string;
+    lastMessage: string; lastMessageTime: string;
+    unreadCount: number; starred: boolean; archived: boolean;
+    otherParticipant: { name: string; email: string; role: string };
 }
 
-interface Contact {
-    id: string;
-    name: string;
-    email: string;
-    role: "consultant" | "admin" | "support";
-}
+interface Contact { id: string; name: string; email: string; role: "consultant" | "admin" | "support"; }
+interface Toast   { id: string; message: string; type: "success" | "error" | "info"; }
 
-interface Toast {
-    id: string;
-    message: string;
-    type: "success" | "error" | "info";
-}
+// ─── Role helpers ─────────────────────────────────────────────────────────────
 
-type ViewType = "inbox" | "starred" | "archived" | "trash";
+const roleColor = (role: string) => ({
+    consultant: "bg-blue-600",
+    admin:      "bg-blue-600",
+    system:     "bg-emerald-600",
+    support:    "bg-emerald-600",
+    client:     "bg-blue-600",
+}[role] || "bg-gray-600");
 
-const STORAGE_KEY = "timely_client_messages";
+const roleLabel = (role: string) => ({
+    consultant: "Consultant",
+    admin:      "Admin",
+    support:    "Support",
+    client:     "You",
+    system:     "System",
+}[role] || role);
 
-// Generate unique ID
-const generateId = (prefix: string): string => {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const ClientMessages: React.FC<ClientMessagesProps> = ({
-    userName = "Client",
-    userEmail = "",
-    customerId = "",
+    userName = "Client", userEmail = "", customerId = "",
 }) => {
     const { isDark } = useTheme();
 
-    const s = {
-        bg: isDark ? "bg-slate-950" : "bg-gray-50",
-        card: isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200",
-        cardHover: isDark ? "hover:bg-slate-800/80" : "hover:bg-gray-50",
-        cardInner: isDark ? "bg-slate-800" : "bg-gray-100",
-        cardActive: isDark ? "bg-blue-600/20" : "bg-blue-50",
-        text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-600",
-        textSubtle: isDark ? "text-slate-500" : "text-gray-400",
-        divider: isDark ? "border-slate-800" : "border-gray-200",
-        button: isDark ? "bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800",
-        buttonPrimary: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white",
-        buttonDanger: "bg-red-600 hover:bg-red-700 active:bg-red-800 text-white",
-        input: isDark
-            ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500"
-            : "bg-white border-gray-300 text-gray-900 placeholder-gray-400",
-        // Interactive
-        clickable: "cursor-pointer active:scale-[0.98] transition-all duration-150",
-        hoverLift: "hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200",
+    const n = {
+        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
+        card:         isDark ? "neu-dark"           : "neu-light",
+        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
+        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
+        pressed:      isDark ? "neu-dark-pressed"   : "neu-light-pressed",
+        text:         isDark ? "text-white"         : "text-gray-900",
+        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
+        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
+        strong:       isDark ? "text-white"         : "text-black",
+        label:        isDark ? "text-blue-400"      : "text-blue-600",
+        link:         isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
+        divider:      isDark ? "border-gray-800"    : "border-gray-200",
+        modal:        isDark ? "bg-[#111111] border-gray-800" : "bg-[#e4e4e4] border-gray-300",
+        modalHead:    isDark ? "bg-[#111111]"       : "bg-[#e4e4e4]",
+        input:        isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
+        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        rowHover:     isDark ? "hover:bg-gray-800/60" : "hover:bg-black/5",
+        activeRow:    isDark ? "bg-blue-600/10 border-l-blue-500" : "bg-blue-50 border-l-blue-500",
     };
 
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentView, setCurrentView] = useState<ViewType>("inbox");
+    const [messages,       setMessages]       = useState<Message[]>([]);
+    const [contacts,       setContacts]       = useState<Contact[]>([]);
+    const [loading,        setLoading]        = useState(true);
+    const [loadingContacts,setLoadingContacts]= useState(true);
+    const [currentView,    setCurrentView]    = useState<ViewType>("inbox");
     const [selectedThread, setSelectedThread] = useState<string | null>(null);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [toasts, setToasts] = useState<Toast[]>([]);
-    const [showCompose, setShowCompose] = useState(false);
-    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+    const [searchQuery,    setSearchQuery]    = useState("");
+    const [toasts,         setToasts]         = useState<Toast[]>([]);
+    const [showCompose,    setShowCompose]    = useState(false);
+    const [replyingTo,     setReplyingTo]     = useState<Message | null>(null);
 
-    // Compose state
-    const [composeTo, setComposeTo] = useState("");
+    const [composeTo,      setComposeTo]      = useState("");
     const [composeSubject, setComposeSubject] = useState("");
-    const [composeBody, setComposeBody] = useState("");
-    const [sending, setSending] = useState(false);
+    const [composeBody,    setComposeBody]    = useState("");
+    const [sending,        setSending]        = useState(false);
 
-    // Contacts - consultants and admins
-    const [contacts, setContacts] = useState<Contact[]>([]);
-    const [loadingContacts, setLoadingContacts] = useState(true);
+    const msgEndRef = useRef<HTMLDivElement>(null);
 
-    const messageEndRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // Toast notification
-    const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
-        const id = generateId("toast");
-        setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+    const showToast = (message: string, type: Toast["type"] = "success") => {
+        const id = genId("t");
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
     };
 
-    // Load messages and contacts
-    useEffect(() => {
-        loadMessages();
-        loadContacts();
-    }, [customerId]);
+    useEffect(() => { loadMessages(); loadContacts(); }, [customerId]);
 
     const loadMessages = async () => {
         setLoading(true);
         try {
             const stored = localStorage.getItem(`${STORAGE_KEY}_${customerId}`);
-            if (stored) {
-                setMessages(JSON.parse(stored));
-            } else {
-                // Welcome message
-                const welcomeMessage: Message = {
-                    id: generateId("msg"),
-                    threadId: "thread_welcome",
-                    from: {
-                        name: "Timely Support",
-                        email: "support@timely.com",
-                        role: "system",
-                    },
-                    to: {
-                        name: userName,
-                        email: userEmail,
-                    },
-                    subject: "Welcome to Timely Client Portal",
-                    body: `Hi ${userName.split(" ")[0]},\n\nWelcome to the Timely Client Portal! This is your secure messaging center where you can communicate directly with your assigned consultant and our admin team.\n\nHow to use Messages:\n� Click "Compose" to start a new conversation\n� Select a consultant or admin from your contacts\n� All messages are securely stored and visible to both parties\n\nFeel free to reach out if you have any questions about your projects or documents.\n\nBest regards,\nThe Timely Team`,
+            if (stored) { setMessages(JSON.parse(stored)); }
+            else {
+                const welcome: Message = {
+                    id: genId("msg"), threadId: "thread_welcome",
+                    from: { name: "Timely Support", email: "support@timely.com", role: "system" },
+                    to:   { name: userName, email: userEmail },
+                    subject: "Welcome to Timely",
+                    body: `Hi ${userName.split(" ")[0]},\n\nWelcome to the Timely Client Portal. This is your secure messaging center where you can communicate directly with your consultant and our team.\n\nTo get started, click "Compose" to send your first message.\n\nBest regards,\nThe Timely Team`,
                     timestamp: new Date().toISOString(),
-                    read: false,
-                    starred: false,
-                    archived: false,
-                    deleted: false,
+                    read: false, starred: false, archived: false, deleted: false,
                 };
-                setMessages([welcomeMessage]);
-                saveMessages([welcomeMessage]);
+                saveMessages([welcome]);
             }
-        } catch (e) {
-            console.error("Error loading messages:", e);
-        } finally {
-            setLoading(false);
-        }
+        } catch {} finally { setLoading(false); }
     };
 
     const loadContacts = async () => {
         setLoadingContacts(true);
-        const contactsList: Contact[] = [];
-
+        const list: Contact[] = [];
         try {
-            // 1. Get assigned consultants for this client
-            const clientConsultantsRes = await fetch(`${API_BASE}/client-consultants?clientId=${customerId}`);
-            if (clientConsultantsRes.ok) {
-                const ccData = await clientConsultantsRes.json();
-                const assignedConsultantIds = new Set((ccData.data || []).map((cc: any) => String(cc.consultantId)));
-
-                // Get consultant details
-                if (assignedConsultantIds.size > 0) {
-                    const consultantsRes = await fetch(`${API_BASE}/consultants`);
-                    if (consultantsRes.ok) {
-                        const consultantsData = await consultantsRes.json();
-                        (consultantsData.data || []).forEach((c: any) => {
-                            if (assignedConsultantIds.has(String(c.consultantId))) {
-                                contactsList.push({
-                                    id: c.consultantId,
-                                    name: `${c.firstName} ${c.lastName}`,
-                                    email: c.email,
-                                    role: "consultant",
-                                });
-                            }
+            const ccRes = await fetch(`${API_BASE}/client-consultants?clientId=${customerId}`);
+            if (ccRes.ok) {
+                const ccData = await ccRes.json();
+                const assignedIds = new Set((ccData.data || []).map((x: any) => String(x.consultantId)));
+                if (assignedIds.size > 0) {
+                    const cRes = await fetch(`${API_BASE}/consultants`);
+                    if (cRes.ok) {
+                        const cData = await cRes.json();
+                        (cData.data || []).forEach((c: any) => {
+                            if (assignedIds.has(String(c.consultantId)))
+                                list.push({ id: c.consultantId, name: `${c.firstName} ${c.lastName}`, email: c.email, role: "consultant" });
                         });
                     }
                 }
             }
-
-            // 2. Get all admins from users-report (role = admin)
-            const usersRes = await fetch(`${API_BASE}/users-report`);
-            if (usersRes.ok) {
-                const usersData = await usersRes.json();
-                (usersData.data || []).forEach((u: any) => {
-                    if (u.role === "admin") {
-                        contactsList.push({
-                            id: u.customerId,
-                            name: `${u.firstName} ${u.lastName}`,
-                            email: u.email,
-                            role: "admin",
-                        });
-                    }
+            const uRes = await fetch(`${API_BASE}/users-report`);
+            if (uRes.ok) {
+                const uData = await uRes.json();
+                (uData.data || []).forEach((u: any) => {
+                    if (u.role === "admin")
+                        list.push({ id: u.customerId, name: `${u.firstName} ${u.lastName}`, email: u.email, role: "admin" });
                 });
             }
-
-            // 3. Also check consultants with admin role
-            const consultantsRes = await fetch(`${API_BASE}/consultants`);
-            if (consultantsRes.ok) {
-                const consultantsData = await consultantsRes.json();
-                (consultantsData.data || []).forEach((c: any) => {
-                    if (c.role === "admin" || c.role === "Admin") {
-                        // Check if already added
-                        const exists = contactsList.some(contact => contact.email === c.email);
-                        if (!exists) {
-                            contactsList.push({
-                                id: c.consultantId,
-                                name: `${c.firstName} ${c.lastName}`,
-                                email: c.email,
-                                role: "admin",
-                            });
-                        }
-                    }
-                });
-            }
-
-        } catch (e) {
-            console.error("Error loading contacts:", e);
-        }
-
-        // Always add support as fallback
-        contactsList.push({
-            id: "support",
-            name: "Timely Support",
-            email: "support@timely.com",
-            role: "support" as any,
-        });
-
-        setContacts(contactsList);
+        } catch {}
+        list.push({ id: "support", name: "Timely Support", email: "support@timely.com", role: "support" });
+        setContacts(list);
         setLoadingContacts(false);
     };
 
-    const saveMessages = (newMessages: Message[]) => {
-        setMessages(newMessages);
-        localStorage.setItem(`${STORAGE_KEY}_${customerId}`, JSON.stringify(newMessages));
+    const saveMessages = (msgs: Message[]) => {
+        setMessages(msgs);
+        localStorage.setItem(`${STORAGE_KEY}_${customerId}`, JSON.stringify(msgs));
     };
 
-    // Also save to recipient's inbox (for admin/consultant to see)
-    const saveToRecipientInbox = (message: Message, recipientId: string, recipientRole: string) => {
-        // For admins, save to admin notifications
-        if (recipientRole === "admin") {
-            const adminNotifs = JSON.parse(localStorage.getItem("timely_admin_messages") || "[]");
-            adminNotifs.push({
-                ...message,
-                clientId: customerId,
-                clientName: userName,
-                recipientId,
-            });
-            localStorage.setItem("timely_admin_messages", JSON.stringify(adminNotifs));
-        }
-
-        // For consultants, save to consultant messages
-        if (recipientRole === "consultant") {
-            const consultantMsgs = JSON.parse(localStorage.getItem(`timely_consultant_messages_${recipientId}`) || "[]");
-            consultantMsgs.push({
-                ...message,
-                clientId: customerId,
-                clientName: userName,
-            });
-            localStorage.setItem(`timely_consultant_messages_${recipientId}`, JSON.stringify(consultantMsgs));
-        }
-
-        // Also save to a global inbox for easy admin viewing
-        const globalInbox = JSON.parse(localStorage.getItem("timely_global_messages") || "[]");
-        globalInbox.push({
-            ...message,
-            clientId: customerId,
-            clientName: userName,
-            recipientId,
-            recipientRole,
-        });
-        localStorage.setItem("timely_global_messages", JSON.stringify(globalInbox));
+    const saveToRecipient = (msg: Message, contact: Contact) => {
+        const key = contact.role === "admin"
+            ? "timely_admin_messages"
+            : `timely_consultant_messages_${contact.id}`;
+        const existing = JSON.parse(localStorage.getItem(key) || "[]");
+        localStorage.setItem(key, JSON.stringify([...existing, { ...msg, clientId: customerId, clientName: userName }]));
+        const global = JSON.parse(localStorage.getItem("timely_global_messages") || "[]");
+        localStorage.setItem("timely_global_messages", JSON.stringify([...global, { ...msg, clientId: customerId, clientName: userName }]));
     };
 
-    // Get threads from messages
-    const threads = useMemo(() => {
-        const threadMap = new Map<string, Thread>();
+    // ── Derived state ─────────────────────────────────────────────────────────
 
-        messages.forEach((msg) => {
+    const threads = useMemo((): Thread[] => {
+        const map = new Map<string, Thread>();
+        messages.forEach(msg => {
             if (msg.deleted && currentView !== "trash") return;
             if (msg.archived && currentView !== "archived" && currentView !== "trash") return;
-
-            const existing = threadMap.get(msg.threadId);
+            const other = msg.from.email === userEmail ? msg.to : msg.from;
+            const existing = map.get(msg.threadId);
             if (!existing) {
-                threadMap.set(msg.threadId, {
-                    id: msg.threadId,
-                    subject: msg.subject,
-                    participants: [msg.from, msg.to],
-                    lastMessage: msg.body.substring(0, 100),
+                map.set(msg.threadId, {
+                    id: msg.threadId, subject: msg.subject,
+                    lastMessage: msg.body.slice(0, 120),
                     lastMessageTime: msg.timestamp,
                     unreadCount: msg.read ? 0 : 1,
-                    starred: msg.starred,
-                    archived: msg.archived,
+                    starred: msg.starred, archived: msg.archived,
+                    otherParticipant: { name: other.name || "Unknown", email: other.email || "", role: (other as any).role || "system" },
                 });
             } else {
                 if (new Date(msg.timestamp) > new Date(existing.lastMessageTime)) {
-                    existing.lastMessage = msg.body.substring(0, 100);
+                    existing.lastMessage = msg.body.slice(0, 120);
                     existing.lastMessageTime = msg.timestamp;
                 }
                 if (!msg.read) existing.unreadCount++;
                 if (msg.starred) existing.starred = true;
             }
         });
+        return Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+    }, [messages, currentView, userEmail]);
 
-        return Array.from(threadMap.values()).sort(
-            (a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
-        );
-    }, [messages, currentView]);
-
-    // Filter threads
     const filteredThreads = useMemo(() => {
-        let result = threads;
-
-        switch (currentView) {
-            case "starred":
-                result = result.filter((t) => t.starred);
-                break;
-            case "archived":
-                result = result.filter((t) => messages.some((m) => m.threadId === t.id && m.archived && !m.deleted));
-                break;
-            case "trash":
-                result = threads.filter((t) => messages.some((m) => m.threadId === t.id && m.deleted));
-                break;
-            case "inbox":
-            default:
-                result = result.filter((t) => !t.archived);
-                break;
-        }
-
+        let res = threads;
+        if (currentView === "starred")  res = res.filter(t => t.starred);
+        if (currentView === "archived") res = res.filter(t => messages.some(m => m.threadId === t.id && m.archived && !m.deleted));
+        if (currentView === "trash")    res = threads.filter(t => messages.some(m => m.threadId === t.id && m.deleted));
+        if (currentView === "inbox")    res = res.filter(t => !t.archived);
         if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            result = result.filter(
-                (t) =>
-                    t.subject.toLowerCase().includes(query) ||
-                    t.lastMessage.toLowerCase().includes(query) ||
-                    t.participants.some((p) => p.name.toLowerCase().includes(query))
-            );
+            const q = searchQuery.toLowerCase();
+            res = res.filter(t => t.subject.toLowerCase().includes(q) || t.lastMessage.toLowerCase().includes(q) || t.otherParticipant.name.toLowerCase().includes(q));
         }
-
-        return result;
+        return res;
     }, [threads, currentView, searchQuery, messages]);
 
-    // Get messages for selected thread
-    const threadMessages = useMemo(() => {
-        if (!selectedThread) return [];
-        return messages
-            .filter((m) => m.threadId === selectedThread)
-            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    }, [messages, selectedThread]);
+    const threadMessages = useMemo(() =>
+        messages.filter(m => m.threadId === selectedThread).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+        [messages, selectedThread]);
 
-    // Mark thread as read
-    const markThreadAsRead = (threadId: string) => {
-        const updated = messages.map((m) => (m.threadId === threadId ? { ...m, read: true } : m));
-        saveMessages(updated);
-    };
+    const stats = useMemo(() => ({
+        unread:  messages.filter(m => !m.read && !m.archived && !m.deleted).length,
+        starred: threads.filter(t => t.starred).length,
+    }), [messages, threads]);
 
-    // Toggle star
-    const toggleStar = (threadId: string) => {
-        const updated = messages.map((m) => (m.threadId === threadId ? { ...m, starred: !m.starred } : m));
-        saveMessages(updated);
-    };
+    useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [threadMessages]);
+    useEffect(() => {
+        if (selectedThread) saveMessages(messages.map(m => m.threadId === selectedThread ? { ...m, read: true } : m));
+    }, [selectedThread]);
 
-    // Archive thread
-    const archiveThread = (threadId: string) => {
-        const updated = messages.map((m) => (m.threadId === threadId ? { ...m, archived: true } : m));
-        saveMessages(updated);
-        showToast("Thread archived", "success");
-        setSelectedThread(null);
-    };
+    // ── Actions ───────────────────────────────────────────────────────────────
 
-    // Delete thread
-    const deleteThread = (threadId: string) => {
-        const updated = messages.map((m) => (m.threadId === threadId ? { ...m, deleted: true } : m));
-        saveMessages(updated);
-        showToast("Thread moved to trash", "success");
-        setSelectedThread(null);
-    };
+    const toggleStar    = (tid: string) => saveMessages(messages.map(m => m.threadId === tid ? { ...m, starred: !m.starred } : m));
+    const archiveThread = (tid: string) => { saveMessages(messages.map(m => m.threadId === tid ? { ...m, archived: true } : m)); showToast("Archived", "info"); setSelectedThread(null); };
+    const deleteThread  = (tid: string) => { saveMessages(messages.map(m => m.threadId === tid ? { ...m, deleted: true } : m)); showToast("Moved to trash", "info"); setSelectedThread(null); };
+    const restoreThread = (tid: string) => { saveMessages(messages.map(m => m.threadId === tid ? { ...m, deleted: false, archived: false } : m)); showToast("Restored", "success"); };
+    const permDelete    = (tid: string) => { if (confirm("Permanently delete this conversation?")) { saveMessages(messages.filter(m => m.threadId !== tid)); showToast("Deleted", "success"); setSelectedThread(null); } };
 
-    // Permanently delete
-    const permanentlyDelete = (threadId: string) => {
-        if (confirm("Permanently delete this conversation? This cannot be undone.")) {
-            const updated = messages.filter((m) => m.threadId !== threadId);
-            saveMessages(updated);
-            showToast("Thread permanently deleted", "success");
-            setSelectedThread(null);
-        }
-    };
-
-    // Restore from trash
-    const restoreThread = (threadId: string) => {
-        const updated = messages.map((m) => (m.threadId === threadId ? { ...m, deleted: false, archived: false } : m));
-        saveMessages(updated);
-        showToast("Thread restored", "success");
-    };
-
-    // Send message
     const handleSend = () => {
-        if (!composeTo || !composeSubject.trim() || !composeBody.trim()) {
-            showToast("Please fill in all fields", "error");
-            return;
-        }
-
+        if (!composeTo || !composeSubject.trim() || !composeBody.trim()) { showToast("Please fill all fields", "error"); return; }
+        const contact = contacts.find(c => c.email === composeTo);
+        if (!contact) { showToast("Invalid recipient", "error"); return; }
         setSending(true);
-
-        const contact = contacts.find((c) => c.email === composeTo);
-        if (!contact) {
-            showToast("Invalid recipient", "error");
-            setSending(false);
-            return;
-        }
-
-        const threadId = replyingTo?.threadId || generateId("thread");
-
-        const newMessage: Message = {
-            id: generateId("msg"),
-            threadId,
-            from: {
-                name: userName,
-                email: userEmail,
-                role: "client",
-                id: customerId,
-            },
-            to: {
-                name: contact.name,
-                email: contact.email,
-                role: contact.role,
-                id: contact.id,
-            },
+        const threadId = replyingTo?.threadId || genId("thread");
+        const msg: Message = {
+            id: genId("msg"), threadId,
+            from: { name: userName, email: userEmail, role: "client", id: customerId },
+            to:   { name: contact.name, email: contact.email, role: contact.role, id: contact.id },
             subject: replyingTo ? `Re: ${replyingTo.subject.replace(/^Re: /, "")}` : composeSubject,
-            body: composeBody,
-            timestamp: new Date().toISOString(),
-            read: true,
-            starred: false,
-            archived: false,
-            deleted: false,
+            body: composeBody, timestamp: new Date().toISOString(),
+            read: true, starred: false, archived: false, deleted: false,
             replyTo: replyingTo?.id,
         };
-
-        // Save to client's messages
-        saveMessages([...messages, newMessage]);
-
-        // Save to recipient's inbox
-        saveToRecipientInbox(newMessage, contact.id, contact.role);
-
-        // Create notification for recipient
-        const notifKey = contact.role === "admin" ? "timely_admin_notifications" : `timely_consultant_notifications_${contact.id}`;
-        const notifs = JSON.parse(localStorage.getItem(notifKey) || "[]");
-        notifs.push({
-            id: generateId("notif"),
-            type: "new_message",
-            from: userName,
-            fromEmail: userEmail,
-            clientId: customerId,
-            subject: newMessage.subject,
-            preview: composeBody.substring(0, 100),
-            threadId: newMessage.threadId,
-            timestamp: new Date().toISOString(),
-            read: false,
-        });
-        localStorage.setItem(notifKey, JSON.stringify(notifs));
-
-        showToast("Message sent!", "success");
-
-        // Reset compose
-        setComposeTo("");
-        setComposeSubject("");
-        setComposeBody("");
-        setShowCompose(false);
-        setReplyingTo(null);
-        setSending(false);
+        saveMessages([...messages, msg]);
+        saveToRecipient(msg, contact);
+        showToast("Message sent", "success");
+        setComposeTo(""); setComposeSubject(""); setComposeBody("");
+        setShowCompose(false); setReplyingTo(null); setSending(false);
         setSelectedThread(threadId);
     };
 
-    // Open reply
-    const handleReply = (message: Message) => {
-        setReplyingTo(message);
-        setComposeTo(message.from.email === userEmail ? message.to.email : message.from.email);
-        setComposeSubject(`Re: ${message.subject.replace(/^Re: /, "")}`);
-        setComposeBody("");
-        setShowCompose(true);
+    const openReply = (msg: Message) => {
+        setReplyingTo(msg);
+        setComposeTo(msg.from.email === userEmail ? msg.to.email : msg.from.email);
+        setComposeSubject(`Re: ${msg.subject.replace(/^Re: /, "")}`);
+        setComposeBody(""); setShowCompose(true);
     };
 
-    // Format time
-    const formatTime = (ts: string) => {
-        const date = new Date(ts);
-        const now = new Date();
-        const diff = now.getTime() - date.getTime();
-        if (diff < 86400000) return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-        if (diff < 604800000) return date.toLocaleDateString("en-US", { weekday: "short" });
-        return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const fmtTime = (ts: string) => {
+        const d = new Date(ts); const now = new Date();
+        const diff = now.getTime() - d.getTime();
+        if (diff < 86400000) return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        if (diff < 604800000) return d.toLocaleDateString("en-US", { weekday: "short" });
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     };
 
-    // Get avatar gradient based on role
-    const getAvatarGradient = (role: string) => {
-        switch (role) {
-            case "consultant": return "from-blue-500 to-blue-600";
-            case "admin": return "from-purple-500 to-purple-600";
-            case "system": return "from-emerald-500 to-emerald-600";
-            case "support": return "from-emerald-500 to-emerald-600";
-            case "client": return "from-amber-500 to-amber-600";
-            default: return "from-gray-500 to-gray-600";
-        }
-    };
-
-    // Get avatar shadow based on role
-    const getAvatarShadow = (role: string) => {
-        switch (role) {
-            case "consultant": return "shadow-blue-500/30";
-            case "admin": return "shadow-purple-500/30";
-            case "system": return "shadow-emerald-500/30";
-            case "support": return "shadow-emerald-500/30";
-            case "client": return "shadow-amber-500/30";
-            default: return "shadow-gray-500/30";
-        }
-    };
-
-    // Get role icon
-    const getRoleIcon = (role: string) => {
-        switch (role) {
-            case "consultant": return Briefcase;
-            case "admin": return Shield;
-            default: return Users;
-        }
-    };
-
-    // Stats
-    const stats = useMemo(() => ({
-        unread: messages.filter((m) => !m.read && !m.archived && !m.deleted).length,
-        starred: threads.filter((t) => t.starred).length,
-        total: threads.length,
-    }), [messages, threads]);
-
-    // Scroll to bottom
-    useEffect(() => {
-        if (messageEndRef.current) {
-            messageEndRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-    }, [threadMessages]);
-
-    // Mark as read when opening
-    useEffect(() => {
-        if (selectedThread) {
-            markThreadAsRead(selectedThread);
-        }
-    }, [selectedThread]);
-
-    // Group contacts by role
     const consultants = contacts.filter(c => c.role === "consultant");
-    const admins = contacts.filter(c => c.role === "admin");
-    const support = contacts.filter(c => c.role === "support");
+    const admins      = contacts.filter(c => c.role === "admin");
+    const support     = contacts.filter(c => c.role === "support");
 
+    const Avatar: React.FC<{ name: string; role: string; size?: "sm" | "md" }> = ({ name, role, size = "md" }) => (
+        <div className={`${size === "sm" ? "w-8 h-8 text-[10px]" : "w-10 h-10 text-xs"} ${roleColor(role)} rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0`}>
+            {name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+        </div>
+    );
+
+    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className={`${s.bg} min-h-full`}>
-            {/* Toast Notifications */}
-            <div className="fixed top-20 right-4 z-[10000] space-y-2">
-                {toasts.map((toast, index) => (
-                    <div
-                        key={toast.id}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border ${s.card} animate-in slide-in-from-right duration-300`}
-                    >
-                        {toast.type === "success" && <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                        {toast.type === "error" && <AlertCircle className="w-5 h-5 text-red-500" />}
-                        {toast.type === "info" && <Info className="w-5 h-5 text-blue-500" />}
-                        <span className={s.text}>{toast.message}</span>
-                        <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className={`ml-2 ${s.textMuted} hover:${s.text}`}>
-                            <X className="w-4 h-4" />
-                        </button>
+        <div className="space-y-5">
+
+            {/* Toasts */}
+            <div className="fixed top-4 right-4 z-[10000] space-y-2">
+                {toasts.map(t => (
+                    <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm`}>
+                        {t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === "error" ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}
+                        <span className={n.text}>{t.message}</span>
+                        <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
                     </div>
                 ))}
             </div>
 
-            {/* Compose Modal */}
+            {/* ── Compose Modal ── */}
             {showCompose && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className={`${s.card} border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200`}>
-                        <div className={`px-6 py-4 border-b ${s.divider} flex items-center justify-between`}>
+                <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[9999] p-4">
+                    <div className={`${n.modal} border rounded-2xl w-full max-w-2xl overflow-hidden`}>
+                        <div className={`px-5 py-4 border-b ${n.divider} flex items-center justify-between ${n.modalHead}`}>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                    {replyingTo ? <Reply className="w-5 h-5 text-white" /> : <Mail className="w-5 h-5 text-white" />}
+                                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                                    {replyingTo ? <Reply className="w-4 h-4 text-white" /> : <Mail className="w-4 h-4 text-white" />}
                                 </div>
-                                <h3 className={`text-lg font-bold ${s.text}`}>
-                                    {replyingTo ? "Reply to Message" : "New Message"}
-                                </h3>
+                                <h3 className={`font-semibold ${n.text}`}>{replyingTo ? "Reply" : "New Message"}</h3>
                             </div>
-                            <button
-                                onClick={() => { setShowCompose(false); setReplyingTo(null); }}
-                                className={`p-2 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}
-                            >
-                                <X className={`w-5 h-5 ${s.textMuted}`} />
+                            <button onClick={() => { setShowCompose(false); setReplyingTo(null); }} className={`p-2 rounded-lg ${isDark ? "hover:bg-gray-800" : "hover:bg-black/10"}`}>
+                                <X className={`w-4 h-4 ${n.tertiary}`} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-5 space-y-4">
                             {/* To */}
                             <div>
-                                <label className={`block text-sm font-semibold ${s.textMuted} mb-2`}>To *</label>
-                                <select
-                                    value={composeTo}
-                                    onChange={(e) => setComposeTo(e.target.value)}
-                                    disabled={!!replyingTo}
-                                    className={`w-full px-4 py-3 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 ${replyingTo ? "opacity-60" : ""}`}
-                                >
-                                    <option value="">Select recipient...</option>
-                                    {consultants.length > 0 && (
-                                        <optgroup label="Your Consultants">
-                                            {consultants.map((c) => (
-                                                <option key={c.id} value={c.email}>
-                                                    {c.name} (Consultant)
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                    )}
-                                    {admins.length > 0 && (
-                                        <optgroup label="Admins">
-                                            {admins.map((c) => (
-                                                <option key={c.id} value={c.email}>
-                                                    {c.name} (Admin)
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                    )}
-                                    {support.length > 0 && (
-                                        <optgroup label="Support">
-                                            {support.map((c) => (
-                                                <option key={c.id} value={c.email}>
-                                                    {c.name}
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                    )}
+                                <label className={`text-[11px] uppercase tracking-wider ${n.label} block mb-1.5`}>To</label>
+                                <select value={composeTo} onChange={e => setComposeTo(e.target.value)} disabled={!!replyingTo}
+                                    className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50`}>
+                                    <option value="">Select recipient…</option>
+                                    {consultants.length > 0 && <optgroup label="Your Consultants">{consultants.map(c => <option key={c.id} value={c.email}>{c.name} — Consultant</option>)}</optgroup>}
+                                    {admins.length > 0    && <optgroup label="Admins">{admins.map(c => <option key={c.id} value={c.email}>{c.name} — Admin</option>)}</optgroup>}
+                                    {support.length > 0   && <optgroup label="Support">{support.map(c => <option key={c.id} value={c.email}>{c.name}</option>)}</optgroup>}
                                 </select>
-                                {contacts.length === 1 && contacts[0].role === "support" && (
-                                    <p className={`text-xs ${s.textMuted} mt-2`}>
-                                        No consultants assigned yet. Contact support for assistance.
-                                    </p>
-                                )}
                             </div>
-
                             {/* Subject */}
-                            <div>
-                                <label className={`block text-sm font-semibold ${s.textMuted} mb-2`}>Subject *</label>
-                                <input
-                                    type="text"
-                                    value={composeSubject}
-                                    onChange={(e) => setComposeSubject(e.target.value)}
-                                    placeholder="Enter subject..."
-                                    disabled={!!replyingTo}
-                                    className={`w-full px-4 py-3 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 ${replyingTo ? "opacity-60" : ""}`}
-                                />
-                            </div>
-
+                            {!replyingTo && (
+                                <div>
+                                    <label className={`text-[11px] uppercase tracking-wider ${n.label} block mb-1.5`}>Subject</label>
+                                    <input type="text" value={composeSubject} onChange={e => setComposeSubject(e.target.value)} placeholder="Subject…"
+                                        className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} />
+                                </div>
+                            )}
                             {/* Body */}
                             <div>
-                                <label className={`block text-sm font-semibold ${s.textMuted} mb-2`}>Message *</label>
-                                <textarea
-                                    value={composeBody}
-                                    onChange={(e) => setComposeBody(e.target.value)}
-                                    placeholder="Type your message..."
-                                    rows={8}
-                                    className={`w-full px-4 py-3 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none transition-all duration-200`}
-                                />
+                                <label className={`text-[11px] uppercase tracking-wider ${n.label} block mb-1.5`}>Message</label>
+                                <textarea value={composeBody} onChange={e => setComposeBody(e.target.value)} rows={7} placeholder="Type your message…"
+                                    className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none focus:outline-none focus:border-blue-500`} />
                             </div>
                         </div>
-                        <div className={`px-6 py-4 border-t ${s.divider} flex justify-end gap-3`}>
-                            <button
-                                onClick={() => { setShowCompose(false); setReplyingTo(null); }}
-                                className={`${s.button} px-5 py-2.5 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95`}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSend}
-                                disabled={sending || !composeTo || !composeSubject.trim() || !composeBody.trim()}
-                                className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0`}
-                            >
-                                {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                {sending ? "Sending..." : "Send Message"}
+                        <div className={`px-5 py-4 border-t ${n.divider} flex justify-end gap-2 ${n.modalHead}`}>
+                            <button onClick={() => { setShowCompose(false); setReplyingTo(null); }} className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary}`}>Cancel</button>
+                            <button onClick={handleSend} disabled={sending || !composeTo || !composeBody.trim()}
+                                className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2 disabled:opacity-50`}>
+                                {sending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                {sending ? "Sending…" : "Send"}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="max-w-6xl mx-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h1 className={`text-2xl font-bold ${s.text}`}>Messages</h1>
-                        <p className={`text-sm ${s.textMuted} mt-1`}>
-                            {stats.unread > 0 ? `${stats.unread} unread message${stats.unread > 1 ? 's' : ''}` : "All caught up!"}
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => setShowCompose(true)}
-                        className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}
-                    >
-                        <Plus className="w-4 h-4" /> Compose
-                    </button>
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className={`text-xl font-semibold ${n.strong}`}>Messages</h1>
+                    <p className={`text-sm ${n.secondary} mt-0.5`}>
+                        {stats.unread > 0 ? `${stats.unread} unread` : "All caught up"}
+                    </p>
                 </div>
+                <button onClick={() => setShowCompose(true)} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2`}>
+                    <Plus className="w-4 h-4" />Compose
+                </button>
+            </div>
 
-                <div className={`${s.card} border rounded-2xl overflow-hidden shadow-xl`}>
-                    <div className="flex h-[600px]">
-                        {/* Sidebar */}
-                        <div className={`w-64 border-r ${s.divider} flex flex-col`}>
-                            {/* Navigation */}
-                            <nav className="p-3 space-y-1">
-                                {[
-                                    { id: "inbox", label: "Inbox", icon: Inbox, count: stats.unread, color: "blue" },
-                                    { id: "starred", label: "Starred", icon: Star, count: stats.starred, color: "amber" },
-                                    { id: "archived", label: "Archived", icon: Archive, color: "gray" },
-                                    { id: "trash", label: "Trash", icon: Trash2, color: "red" },
-                                ].map((item) => {
-                                    const isActive = currentView === item.id;
-                                    return (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => { setCurrentView(item.id as ViewType); setSelectedThread(null); }}
-                                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 active:scale-[0.98] group ${isActive
-                                                    ? `${s.cardActive} shadow-md`
-                                                    : s.cardHover
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${isActive
-                                                        ? "bg-blue-500 shadow-lg shadow-blue-500/30"
-                                                        : `${isDark ? "bg-slate-700" : "bg-gray-100"} group-hover:scale-105`
-                                                    }`}>
-                                                    <item.icon className={`w-4 h-4 ${isActive ? "text-white" : s.textMuted}`} />
-                                                </div>
-                                                <span className={`font-medium ${isActive ? s.text : s.textMuted}`}>{item.label}</span>
-                                            </div>
-                                            {item.count !== undefined && item.count > 0 && (
-                                                <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isActive
-                                                        ? "bg-blue-500 text-white"
-                                                        : "bg-red-500 text-white"
-                                                    }`}>
-                                                    {item.count}
-                                                </span>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </nav>
+            {/* ── Main panel ── */}
+            <div className={`${n.card} rounded-2xl overflow-hidden`} style={{ height: 640 }}>
+                <div className="flex h-full">
 
-                            {/* Contacts */}
-                            <div className={`p-3 border-t ${s.divider} flex-1 overflow-y-auto`}>
-                                <p className={`text-xs font-bold ${s.textMuted} uppercase tracking-wider mb-3`}>Contacts</p>
-                                {loadingContacts ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1">
-                                        {/* Consultants */}
-                                        {consultants.length > 0 && (
-                                            <>
-                                                <p className={`text-xs ${s.textSubtle} mt-2 mb-2 flex items-center gap-1.5 font-medium`}>
-                                                    <Briefcase className="w-3 h-3" /> Your Consultants
-                                                </p>
-                                                {consultants.map((contact, index) => (
-                                                    <button
-                                                        key={contact.id}
-                                                        onClick={() => { setComposeTo(contact.email); setShowCompose(true); }}
-                                                        style={{ animationDelay: `${index * 50}ms` }}
-                                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-[0.98] group animate-in fade-in slide-in-from-left`}
-                                                    >
-                                                        <div className={`w-9 h-9 bg-gradient-to-br ${getAvatarGradient(contact.role)} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-lg ${getAvatarShadow(contact.role)} group-hover:scale-105 transition-transform`}>
-                                                            {contact.name.split(" ").map((n) => n[0]).join("").substring(0, 2)}
-                                                        </div>
-                                                        <div className="text-left min-w-0">
-                                                            <p className={`text-sm font-medium ${s.text} truncate group-hover:text-blue-500 transition-colors`}>{contact.name}</p>
-                                                            <p className={`text-xs ${s.textMuted}`}>Consultant</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </>
+                    {/* ── Left sidebar: nav + contacts ── */}
+                    <div className={`w-56 border-r ${n.divider} flex flex-col flex-shrink-0`}>
+                        {/* Nav */}
+                        <div className="p-3 space-y-0.5">
+                            {([
+                                { id: "inbox",    label: "Inbox",    icon: Inbox,   count: stats.unread },
+                                { id: "starred",  label: "Starred",  icon: Star,    count: stats.starred },
+                                { id: "archived", label: "Archived", icon: Archive  },
+                                { id: "trash",    label: "Trash",    icon: Trash2   },
+                            ] as { id: ViewType; label: string; icon: any; count?: number }[]).map(item => {
+                                const active = currentView === item.id;
+                                return (
+                                    <button key={item.id} onClick={() => { setCurrentView(item.id); setSelectedThread(null); }}
+                                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-sm
+                                            ${active ? `${n.pressed} ${n.label}` : `${n.rowHover} ${n.secondary}`}`}>
+                                        <div className="flex items-center gap-2.5">
+                                            <item.icon className="w-4 h-4" />
+                                            <span className="font-medium">{item.label}</span>
+                                        </div>
+                                        {item.count !== undefined && item.count > 0 && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-600 text-white font-bold">{item.count}</span>
                                         )}
-
-                                        {/* Admins */}
-                                        {admins.length > 0 && (
-                                            <>
-                                                <p className={`text-xs ${s.textSubtle} mt-4 mb-2 flex items-center gap-1.5 font-medium`}>
-                                                    <Shield className="w-3 h-3" /> Admins
-                                                </p>
-                                                {admins.map((contact, index) => (
-                                                    <button
-                                                        key={contact.id}
-                                                        onClick={() => { setComposeTo(contact.email); setShowCompose(true); }}
-                                                        style={{ animationDelay: `${(consultants.length + index) * 50}ms` }}
-                                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-[0.98] group animate-in fade-in slide-in-from-left`}
-                                                    >
-                                                        <div className={`w-9 h-9 bg-gradient-to-br ${getAvatarGradient(contact.role)} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-lg ${getAvatarShadow(contact.role)} group-hover:scale-105 transition-transform`}>
-                                                            {contact.name.split(" ").map((n) => n[0]).join("").substring(0, 2)}
-                                                        </div>
-                                                        <div className="text-left min-w-0">
-                                                            <p className={`text-sm font-medium ${s.text} truncate group-hover:text-purple-500 transition-colors`}>{contact.name}</p>
-                                                            <p className={`text-xs ${s.textMuted}`}>Admin</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </>
-                                        )}
-
-                                        {/* Support */}
-                                        {support.map((contact, index) => (
-                                            <button
-                                                key={contact.id}
-                                                onClick={() => { setComposeTo(contact.email); setShowCompose(true); }}
-                                                style={{ animationDelay: `${(consultants.length + admins.length + index) * 50}ms` }}
-                                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${s.cardHover} mt-4 transition-all duration-200 hover:shadow-md active:scale-[0.98] group animate-in fade-in slide-in-from-left`}
-                                            >
-                                                <div className={`w-9 h-9 bg-gradient-to-br ${getAvatarGradient(contact.role)} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-lg ${getAvatarShadow(contact.role)} group-hover:scale-105 transition-transform`}>
-                                                    TS
-                                                </div>
-                                                <div className="text-left min-w-0">
-                                                    <p className={`text-sm font-medium ${s.text} truncate group-hover:text-emerald-500 transition-colors`}>{contact.name}</p>
-                                                    <p className={`text-xs ${s.textMuted}`}>Support</p>
-                                                </div>
-                                            </button>
-                                        ))}
-
-                                        {consultants.length === 0 && admins.length === 0 && (
-                                            <div className={`text-center py-6 ${s.cardInner} rounded-xl`}>
-                                                <Users className={`w-8 h-8 ${s.textSubtle} mx-auto mb-2`} />
-                                                <p className={`text-xs ${s.textMuted}`}>
-                                                    No consultants assigned yet
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        {/* Thread List / Message View */}
-                        <div className="flex-1 flex">
-                            {/* Thread List */}
-                            <div className={`w-80 border-r ${s.divider} flex flex-col`}>
-                                {/* Search */}
-                                <div className="p-3">
-                                    <div className="relative group">
-                                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${s.textMuted} group-focus-within:text-blue-500 transition-colors`} />
-                                        <input
-                                            type="text"
-                                            placeholder="Search messages..."
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm transition-all duration-200`}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Thread List */}
-                                <div className="flex-1 overflow-y-auto">
-                                    {loading ? (
-                                        <div className="flex flex-col items-center justify-center py-12">
-                                            <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
-                                            <p className={s.textMuted}>Loading messages...</p>
-                                        </div>
-                                    ) : filteredThreads.length === 0 ? (
-                                        <div className="text-center py-12">
-                                            <div className={`w-16 h-16 rounded-2xl ${isDark ? "bg-slate-800" : "bg-gray-100"} flex items-center justify-center mx-auto mb-4`}>
-                                                <MessageCircle className={`w-8 h-8 ${s.textSubtle}`} />
-                                            </div>
-                                            <p className={`font-semibold ${s.text} mb-1`}>No messages</p>
-                                            <p className={`text-sm ${s.textMuted}`}>Start a conversation!</p>
-                                        </div>
-                                    ) : (
-                                        <div className={`divide-y ${s.divider}`}>
-                                            {filteredThreads.map((thread, index) => {
-                                                const isSelected = selectedThread === thread.id;
-                                                const participant = thread.participants.find((p) => p.email !== userEmail);
-                                                return (
-                                                    <div
-                                                        key={thread.id}
-                                                        onClick={() => setSelectedThread(thread.id)}
-                                                        style={{ animationDelay: `${index * 30}ms` }}
-                                                        className={`p-4 cursor-pointer transition-all duration-200 group animate-in fade-in slide-in-from-left ${isSelected
-                                                                ? `${s.cardActive} border-l-4 border-l-blue-500`
-                                                                : `${s.cardHover} border-l-4 border-l-transparent hover:border-l-blue-500/50`
-                                                            } ${thread.unreadCount > 0 ? "bg-blue-500/5" : ""}`}
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`w-10 h-10 bg-gradient-to-br ${getAvatarGradient(participant?.role || 'system')} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-lg ${getAvatarShadow(participant?.role || 'system')} group-hover:scale-105 transition-transform shrink-0`}>
-                                                                {participant?.name[0] || "?"}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center justify-between mb-0.5">
-                                                                    <p className={`font-semibold ${s.text} text-sm truncate`}>
-                                                                        {participant?.name || "Unknown"}
-                                                                    </p>
-                                                                    <span className={`text-xs ${s.textSubtle} ml-2 shrink-0`}>{formatTime(thread.lastMessageTime)}</span>
-                                                                </div>
-                                                                <p className={`text-sm ${thread.unreadCount > 0 ? `font-semibold ${s.text}` : s.textMuted} truncate`}>
-                                                                    {thread.subject}
-                                                                </p>
-                                                                <p className={`text-xs ${s.textMuted} truncate mt-0.5`}>{thread.lastMessage}</p>
-                                                                <div className="flex items-center gap-2 mt-2">
-                                                                    {thread.starred && (
-                                                                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                                                                    )}
-                                                                    {thread.unreadCount > 0 && (
-                                                                        <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-500 text-white animate-pulse">
-                                                                            {thread.unreadCount}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                        {/* Contacts */}
+                        <div className={`border-t ${n.divider} flex-1 overflow-y-auto p-3`}>
+                            <p className={`text-[10px] uppercase tracking-widest ${n.tertiary} mb-3 px-1`}>Contacts</p>
+                            {loadingContacts ? (
+                                <div className="flex justify-center py-6"><RefreshCw className={`w-5 h-5 ${n.label} animate-spin`} /></div>
+                            ) : (
+                                <div className="space-y-0.5">
+                                    {consultants.length > 0 && (
+                                        <>
+                                            <p className={`text-[10px] uppercase tracking-wider ${n.tertiary} mb-1.5 mt-1 px-1 flex items-center gap-1`}><Briefcase className="w-3 h-3" />Consultants</p>
+                                            {consultants.map(c => (
+                                                <button key={c.id} onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
+                                                    className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-xl ${n.rowHover} transition-all group`}>
+                                                    <Avatar name={c.name} role={c.role} size="sm" />
+                                                    <div className="text-left min-w-0">
+                                                        <p className={`text-xs font-medium ${n.text} truncate`}>{c.name}</p>
                                                     </div>
-                                                );
-                                            })}
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
+                                    {admins.length > 0 && (
+                                        <>
+                                            <p className={`text-[10px] uppercase tracking-wider ${n.tertiary} mb-1.5 mt-3 px-1 flex items-center gap-1`}><Shield className="w-3 h-3" />Admin</p>
+                                            {admins.map(c => (
+                                                <button key={c.id} onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
+                                                    className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-xl ${n.rowHover} transition-all`}>
+                                                    <Avatar name={c.name} role={c.role} size="sm" />
+                                                    <p className={`text-xs font-medium ${n.text} truncate`}>{c.name}</p>
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
+                                    {support.map(c => (
+                                        <button key={c.id} onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
+                                            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-xl ${n.rowHover} transition-all mt-3`}>
+                                            <Avatar name={c.name} role={c.role} size="sm" />
+                                            <p className={`text-xs font-medium ${n.text} truncate`}>{c.name}</p>
+                                        </button>
+                                    ))}
+                                    {consultants.length === 0 && admins.length === 0 && (
+                                        <div className="text-center py-6">
+                                            <Users className={`w-8 h-8 ${n.tertiary} mx-auto mb-2`} strokeWidth={1.5} />
+                                            <p className={`text-xs ${n.tertiary}`}>No contacts yet</p>
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            )}
+                        </div>
+                    </div>
 
-                            {/* Message View */}
-                            <div className="flex-1 flex flex-col">
-                                {!selectedThread ? (
-                                    <div className="flex-1 flex items-center justify-center">
-                                        <div className="text-center">
-                                            <div className={`w-20 h-20 rounded-2xl ${isDark ? "bg-slate-800" : "bg-gray-100"} flex items-center justify-center mx-auto mb-4`}>
-                                                <Mail className={`w-10 h-10 ${s.textSubtle}`} />
-                                            </div>
-                                            <p className={`font-semibold ${s.text} mb-2`}>Select a conversation</p>
-                                            <p className={`text-sm ${s.textMuted} mb-4`}>Choose a message to read or start a new one</p>
-                                            <button
-                                                onClick={() => setShowCompose(true)}
-                                                className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl inline-flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}
-                                            >
-                                                <Plus className="w-4 h-4" /> Start New Conversation
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        {/* Thread Header */}
-                                        <div className={`p-4 border-b ${s.divider} flex items-center justify-between`}>
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <button onClick={() => setSelectedThread(null)} className={`p-2 rounded-xl ${s.cardHover} md:hidden transition-all duration-200 active:scale-95`}>
-                                                    <ChevronLeft className={`w-5 h-5 ${s.textMuted}`} />
-                                                </button>
-                                                <div className="min-w-0">
-                                                    <h3 className={`font-bold ${s.text} truncate`}>{threadMessages[0]?.subject || "No Subject"}</h3>
-                                                    <p className={`text-xs ${s.textMuted} flex items-center gap-1`}>
-                                                        <Clock className="w-3 h-3" />
-                                                        {threadMessages.length} message{threadMessages.length !== 1 ? "s" : ""}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => toggleStar(selectedThread)}
-                                                    className={`p-2.5 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95 ${threads.find((t) => t.id === selectedThread)?.starred ? "bg-amber-500/20" : s.cardHover
-                                                        }`}
-                                                >
-                                                    <Star className={`w-4 h-4 ${threads.find((t) => t.id === selectedThread)?.starred ? "text-amber-500 fill-amber-500" : s.textMuted}`} />
-                                                </button>
-                                                <button
-                                                    onClick={() => archiveThread(selectedThread)}
-                                                    className={`p-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}
-                                                >
-                                                    <Archive className={`w-4 h-4 ${s.textMuted}`} />
-                                                </button>
-                                                {currentView === "trash" ? (
-                                                    <>
-                                                        <button
-                                                            onClick={() => restoreThread(selectedThread)}
-                                                            className={`p-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}
-                                                        >
-                                                            <RefreshCw className={`w-4 h-4 ${s.textMuted}`} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => permanentlyDelete(selectedThread)}
-                                                            className={`p-2.5 rounded-xl hover:bg-red-500/20 transition-all duration-200 hover:shadow-md active:scale-95`}
-                                                        >
-                                                            <Trash2 className="w-4 h-4 text-red-500" />
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => deleteThread(selectedThread)}
-                                                        className={`p-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95 hover:text-red-500`}
-                                                    >
-                                                        <Trash2 className={`w-4 h-4 ${s.textMuted}`} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Messages */}
-                                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                            {threadMessages.map((msg, index) => {
-                                                const isOwn = msg.from.email === userEmail;
-                                                return (
-                                                    <div
-                                                        key={msg.id}
-                                                        style={{ animationDelay: `${index * 50}ms` }}
-                                                        className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom duration-300`}
-                                                    >
-                                                        <div className={`max-w-[80%] ${isOwn ? "order-2" : ""}`}>
-                                                            {!isOwn && (
-                                                                <div className="flex items-center gap-2 mb-2">
-                                                                    <div className={`w-8 h-8 bg-gradient-to-br ${getAvatarGradient(msg.from.role)} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-lg ${getAvatarShadow(msg.from.role)}`}>
-                                                                        {msg.from.name[0]}
-                                                                    </div>
-                                                                    <span className={`text-sm font-semibold ${s.text}`}>{msg.from.name}</span>
-                                                                    <span className={`text-xs ${s.textSubtle}`}>{formatTime(msg.timestamp)}</span>
-                                                                </div>
-                                                            )}
-                                                            <div className={`p-4 rounded-2xl transition-all duration-200 hover:shadow-md ${isOwn
-                                                                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 rounded-br-md"
-                                                                    : `${s.cardInner} border ${s.divider} rounded-bl-md`
-                                                                }`}>
-                                                                <p className={`text-sm whitespace-pre-wrap leading-relaxed ${isOwn ? "text-white" : s.text}`}>{msg.body}</p>
-                                                            </div>
-                                                            {isOwn && (
-                                                                <div className="flex items-center justify-end gap-1.5 mt-1.5">
-                                                                    <span className={`text-xs ${s.textSubtle}`}>{formatTime(msg.timestamp)}</span>
-                                                                    <CheckCheck className="w-4 h-4 text-blue-500" />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            <div ref={messageEndRef} />
-                                        </div>
-
-                                        {/* Reply Box */}
-                                        <div className={`p-4 border-t ${s.divider}`}>
-                                            <button
-                                                onClick={() => handleReply(threadMessages[threadMessages.length - 1])}
-                                                className={`w-full ${s.cardInner} border ${s.divider} rounded-xl px-4 py-4 text-left transition-all duration-200 hover:shadow-md hover:border-blue-500/50 active:scale-[0.99] flex items-center gap-3 group`}
-                                            >
-                                                <div className={`w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform`}>
-                                                    <Reply className="w-5 h-5 text-white" />
-                                                </div>
-                                                <span className={`${s.textMuted} group-hover:${s.text} transition-colors`}>Click to reply to this conversation...</span>
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                    {/* ── Thread list ── */}
+                    <div className={`w-72 border-r ${n.divider} flex flex-col flex-shrink-0`}>
+                        {/* Search */}
+                        <div className="p-3">
+                            <div className={`flex items-center gap-2 px-3 py-2 ${n.inset} rounded-xl`}>
+                                <Search className={`w-3.5 h-3.5 ${n.tertiary} flex-shrink-0`} />
+                                <input type="text" placeholder="Search…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                                    className={`w-full bg-transparent ${n.text} text-xs focus:outline-none`} />
+                                {searchQuery && <button onClick={() => setSearchQuery("")}><X className={`w-3 h-3 ${n.tertiary}`} /></button>}
                             </div>
                         </div>
+
+                        {/* Threads */}
+                        <div className="flex-1 overflow-y-auto">
+                            {loading ? (
+                                <div className="flex justify-center py-10"><RefreshCw className={`w-6 h-6 ${n.label} animate-spin`} /></div>
+                            ) : filteredThreads.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <MessageCircle className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} strokeWidth={1.5} />
+                                    <p className={`${n.secondary} text-sm`}>No messages</p>
+                                    <button onClick={() => setShowCompose(true)} className={`mt-3 text-xs ${n.link}`}>Compose one</button>
+                                </div>
+                            ) : filteredThreads.map(thread => {
+                                const active = selectedThread === thread.id;
+                                return (
+                                    <div key={thread.id} onClick={() => setSelectedThread(thread.id)}
+                                        className={`px-3 py-3.5 cursor-pointer transition-all border-l-2
+                                            ${active ? n.activeRow : `border-transparent ${n.rowHover}`}
+                                            ${thread.unreadCount > 0 ? (isDark ? "bg-blue-500/5" : "bg-blue-50/40") : ""}`}>
+                                        <div className="flex items-start gap-2.5">
+                                            <Avatar name={thread.otherParticipant.name} role={thread.otherParticipant.role} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-0.5">
+                                                    <p className={`text-sm font-semibold ${n.text} truncate`}>{thread.otherParticipant.name}</p>
+                                                    <span className={`text-[10px] ${n.tertiary} flex-shrink-0 ml-1`}>{fmtTime(thread.lastMessageTime)}</span>
+                                                </div>
+                                                <p className={`text-xs font-medium ${thread.unreadCount > 0 ? n.text : n.secondary} truncate`}>{thread.subject}</p>
+                                                <p className={`text-[11px] ${n.tertiary} truncate mt-0.5`}>{thread.lastMessage}</p>
+                                                <div className="flex items-center gap-1.5 mt-1.5">
+                                                    {thread.starred    && <Star    className="w-3 h-3 text-amber-400 fill-amber-400" />}
+                                                    {thread.unreadCount > 0 && <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-600 text-white font-bold">{thread.unreadCount}</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ── Message pane ── */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        {!selectedThread ? (
+                            <div className="flex-1 flex items-center justify-center">
+                                <div className="text-center">
+                                    <div className={`w-16 h-16 ${n.flat} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+                                        <Mail className={`w-8 h-8 ${n.tertiary}`} strokeWidth={1.5} />
+                                    </div>
+                                    <p className={`font-semibold ${n.secondary} text-sm`}>Select a conversation</p>
+                                    <p className={`text-xs ${n.tertiary} mt-1 mb-4`}>or start a new one</p>
+                                    <button onClick={() => setShowCompose(true)} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2 mx-auto`}>
+                                        <Plus className="w-3.5 h-3.5" />New Message
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Thread header */}
+                                <div className={`px-4 py-3 border-b ${n.divider} flex items-center justify-between flex-shrink-0`}>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="min-w-0">
+                                            <p className={`font-semibold ${n.text} text-sm truncate`}>{threadMessages[0]?.subject || "No Subject"}</p>
+                                            <p className={`text-xs ${n.tertiary}`}>{threadMessages.length} message{threadMessages.length !== 1 ? "s" : ""}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                                        <button onClick={() => toggleStar(selectedThread)} className={`w-8 h-8 flex items-center justify-center rounded-lg ${isDark ? "hover:bg-gray-800" : "hover:bg-black/10"}`}>
+                                            <Star className={`w-4 h-4 ${threads.find(t => t.id === selectedThread)?.starred ? "text-amber-400 fill-amber-400" : n.tertiary}`} />
+                                        </button>
+                                        <button onClick={() => archiveThread(selectedThread)} className={`w-8 h-8 flex items-center justify-center rounded-lg ${isDark ? "hover:bg-gray-800" : "hover:bg-black/10"}`}>
+                                            <Archive className={`w-4 h-4 ${n.tertiary}`} />
+                                        </button>
+                                        {currentView === "trash" ? (
+                                            <>
+                                                <button onClick={() => restoreThread(selectedThread)} className={`w-8 h-8 flex items-center justify-center rounded-lg ${isDark ? "hover:bg-gray-800" : "hover:bg-black/10"}`}>
+                                                    <RefreshCw className={`w-4 h-4 ${n.tertiary}`} />
+                                                </button>
+                                                <button onClick={() => permDelete(selectedThread)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/10">
+                                                    <Trash2 className="w-4 h-4 text-red-400" />
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button onClick={() => deleteThread(selectedThread)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/10">
+                                                <Trash2 className={`w-4 h-4 ${n.tertiary}`} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Messages */}
+                                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+                                    {threadMessages.map(msg => {
+                                        const isOwn = msg.from.email === userEmail;
+                                        return (
+                                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} gap-3`}>
+                                                {!isOwn && <Avatar name={msg.from.name} role={msg.from.role} />}
+                                                <div className={`max-w-[72%]`}>
+                                                    {!isOwn && (
+                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                            <span className={`text-xs font-semibold ${n.text}`}>{msg.from.name}</span>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? "bg-gray-800 text-gray-500" : "bg-black/10 text-gray-500"}`}>{roleLabel(msg.from.role)}</span>
+                                                            <span className={`text-[10px] ${n.tertiary}`}>{fmtTime(msg.timestamp)}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
+                                                        ${isOwn
+                                                            ? "bg-blue-600 text-white rounded-br-sm"
+                                                            : `${n.flat} ${n.text} rounded-bl-sm`}`}>
+                                                        {msg.body}
+                                                    </div>
+                                                    {isOwn && (
+                                                        <div className="flex items-center justify-end gap-1 mt-1">
+                                                            <span className={`text-[10px] ${n.tertiary}`}>{fmtTime(msg.timestamp)}</span>
+                                                            <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {isOwn && <Avatar name={msg.from.name} role={msg.from.role} />}
+                                            </div>
+                                        );
+                                    })}
+                                    <div ref={msgEndRef} />
+                                </div>
+
+                                {/* Reply bar */}
+                                <div className={`px-4 py-3 border-t ${n.divider} flex-shrink-0`}>
+                                    <button
+                                        onClick={() => openReply(threadMessages[threadMessages.length - 1])}
+                                        className={`w-full ${n.inset} rounded-xl px-4 py-3 text-left flex items-center gap-3 transition-all ${isDark ? "hover:bg-gray-800/50" : "hover:bg-black/5"}`}
+                                    >
+                                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <Reply className="w-3.5 h-3.5 text-white" />
+                                        </div>
+                                        <span className={`text-sm ${n.tertiary}`}>Reply to this conversation…</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

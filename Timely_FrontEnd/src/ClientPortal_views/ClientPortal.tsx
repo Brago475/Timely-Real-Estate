@@ -10,36 +10,25 @@ import ClientDocuments from "./ClientDocuments";
 import ClientMessages from "./ClientMessages";
 import ClientProjects from "./ClientProjects";
 import {
-    FolderOpen,
-    CheckCircle2,
-    User,
-    Calendar,
-    FileText,
-    RefreshCw,
-    Mail,
-    Phone,
-    HelpCircle,
-    ExternalLink,
-    ArrowRight,
-    TrendingUp,
-    MessageCircle,
-    Clock,
-    Bell,
+    FolderOpen, CheckCircle2, User, Calendar, FileText,
+    RefreshCw, Mail, Phone, HelpCircle, ArrowRight,
+    TrendingUp, MessageCircle, Clock, Bell, ExternalLink,
+    CheckCircle, AlertCircle, Info, X,
 } from "lucide-react";
 
 const API_BASE = "/api";
 
 const safeFetch = async (url: string) => {
     try {
-        const response = await fetch(url);
-        if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
-            return null;
-        }
-        return await response.json();
-    } catch {
-        return null;
-    }
+        const r = await fetch(url);
+        if (!r.ok || !r.headers.get("content-type")?.includes("application/json")) return null;
+        return await r.json();
+    } catch { return null; }
 };
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type PageType = "dashboard" | "projects" | "history" | "documents" | "messages" | "settings" | "profile" | "help";
 
 type ClientPortalProps = {
     userName?: string;
@@ -56,6 +45,17 @@ interface Project {
     dateDue?: string;
     description?: string;
     createdAt?: string;
+    isPublished?: boolean;
+    listingSlug?: string;
+    listingStatus?: string;
+    listingPrice?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    propertyType?: string;
+    bedrooms?: string;
+    bathrooms?: string;
+    sqft?: string;
 }
 
 interface Consultant {
@@ -67,90 +67,56 @@ interface Consultant {
     role?: string;
 }
 
-interface DocumentFile {
-    id: string;
-    name: string;
-    uploadedAt: string;
-}
+interface DocumentFile { id: string; name: string; uploadedAt: string; }
+interface Message      { id: string; timestamp: string; read: boolean; }
+interface Toast        { id: string; message: string; type: "success" | "error" | "info"; }
 
-interface Message {
-    id: string;
-    timestamp: string;
-    read: boolean;
-}
+// ─── Mini charts ──────────────────────────────────────────────────────────────
 
-type PageType = "dashboard" | "projects" | "history" | "documents" | "messages" | "settings" | "profile" | "help";
-
-
-// Donut Chart for Project Status
-const ProjectStatusChart: React.FC<{
+const DonutChart: React.FC<{
     data: { label: string; value: number; color: string }[];
-    isDark: boolean;
-}> = ({ data, isDark }) => {
-    const total = data.reduce((sum, d) => sum + d.value, 0);
-    if (total === 0) {
-        return (
-            <div className="flex items-center justify-center h-40">
-                <p className={isDark ? "text-slate-500" : "text-gray-400"}>No project data</p>
-            </div>
-        );
-    }
+    n: Record<string, string>;
+}> = ({ data, n }) => {
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return <p className={`${n.tertiary} text-sm text-center py-8`}>No project data yet</p>;
 
-    let cumulativePercent = 0;
-    const segments = data.filter(d => d.value > 0).map((d) => {
-        const percent = (d.value / total) * 100;
-        const startAngle = cumulativePercent * 3.6;
-        cumulativePercent += percent;
-        const endAngle = cumulativePercent * 3.6;
-        return { ...d, percent, startAngle, endAngle };
+    let cum = 0;
+    const segments = data.filter(d => d.value > 0).map(d => {
+        const pct   = (d.value / total) * 100;
+        const start = cum * 3.6;
+        cum += pct;
+        const end   = cum * 3.6;
+        return { ...d, pct, start, end };
     });
 
-    const createArcPath = (startAngle: number, endAngle: number, radius: number, innerRadius: number) => {
-        const startRad = (startAngle - 90) * (Math.PI / 180);
-        const endRad = (endAngle - 90) * (Math.PI / 180);
-
-        const x1 = 50 + radius * Math.cos(startRad);
-        const y1 = 50 + radius * Math.sin(startRad);
-        const x2 = 50 + radius * Math.cos(endRad);
-        const y2 = 50 + radius * Math.sin(endRad);
-
-        const x3 = 50 + innerRadius * Math.cos(endRad);
-        const y3 = 50 + innerRadius * Math.sin(endRad);
-        const x4 = 50 + innerRadius * Math.cos(startRad);
-        const y4 = 50 + innerRadius * Math.sin(startRad);
-
-        const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-
-        return `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4} Z`;
+    const arc = (s: number, e: number, r: number, ir: number) => {
+        const toRad = (a: number) => (a - 90) * (Math.PI / 180);
+        const x1 = 50 + r * Math.cos(toRad(s)), y1 = 50 + r * Math.sin(toRad(s));
+        const x2 = 50 + r * Math.cos(toRad(e)), y2 = 50 + r * Math.sin(toRad(e));
+        const x3 = 50 + ir * Math.cos(toRad(e)), y3 = 50 + ir * Math.sin(toRad(e));
+        const x4 = 50 + ir * Math.cos(toRad(s)), y4 = 50 + ir * Math.sin(toRad(s));
+        const lg = e - s > 180 ? 1 : 0;
+        return `M${x1} ${y1} A${r} ${r} 0 ${lg} 1 ${x2} ${y2} L${x3} ${y3} A${ir} ${ir} 0 ${lg} 0 ${x4} ${y4}Z`;
     };
 
     return (
         <div className="flex items-center gap-6">
-            <div className="relative w-32 h-32">
+            <div className="relative w-28 h-28 flex-shrink-0">
                 <svg viewBox="0 0 100 100" className="w-full h-full">
                     {segments.map((seg, i) => (
-                        <path
-                            key={i}
-                            d={createArcPath(seg.startAngle, seg.endAngle, 45, 30)}
-                            fill={seg.color}
-                            className="transition-all duration-300 hover:opacity-80"
-                        />
+                        <path key={i} d={arc(seg.start, seg.end, 45, 30)} fill={seg.color} className="hover:opacity-80 transition-opacity" />
                     ))}
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                        <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{total}</p>
-                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Projects</p>
-                    </div>
+                <div className="absolute inset-0 flex items-center justify-center flex-col">
+                    <p className={`text-xl font-bold ${n.strong}`}>{total}</p>
+                    <p className={`text-[10px] ${n.tertiary}`}>Projects</p>
                 </div>
             </div>
             <div className="space-y-2">
                 {data.map((d, i) => (
                     <div key={i} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
-                        <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
-                            {d.label}: {d.value}
-                        </span>
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                        <span className={`text-xs ${n.secondary}`}>{d.label}: <span className={`font-semibold ${n.text}`}>{d.value}</span></span>
                     </div>
                 ))}
             </div>
@@ -158,107 +124,44 @@ const ProjectStatusChart: React.FC<{
     );
 };
 
-// Bar Chart for Monthly Activity
-const ActivityBarChart: React.FC<{
-    data: { month: string; documents: number; messages: number }[];
-    isDark: boolean;
-}> = ({ data, isDark }) => {
-    const maxValue = Math.max(...data.flatMap(d => [d.documents, d.messages]), 1);
+const ProgressBars: React.FC<{
+    projects: Project[];
+    n: Record<string, string>;
+    onViewAll: () => void;
+}> = ({ projects, n, onViewAll }) => {
+    if (projects.length === 0) return <p className={`${n.tertiary} text-sm text-center py-8`}>No projects to display</p>;
 
-    if (data.every(d => d.documents === 0 && d.messages === 0)) {
-        return (
-            <div className="flex items-center justify-center h-40">
-                <p className={isDark ? "text-slate-500" : "text-gray-400"}>No activity data</p>
-            </div>
-        );
-    }
+    const getColor = (s: string) =>
+        s === "completed" ? "bg-blue-500" : s === "active" || s === "in_progress" ? "bg-emerald-500" : s === "on_hold" ? "bg-gray-500" : "bg-amber-500";
+    const getPct = (s: string) =>
+        s === "completed" ? 100 : s === "active" || s === "in_progress" ? 60 : s === "on_hold" ? 35 : 20;
 
     return (
         <div className="space-y-4">
-            <div className="flex items-end justify-between gap-2 h-32">
-                {data.map((d, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                        <div className="flex items-end gap-0.5 h-24 w-full justify-center">
-                            <div
-                                className="w-3 bg-blue-500 rounded-t transition-all duration-300"
-                                style={{ height: `${(d.documents / maxValue) * 100}%`, minHeight: d.documents > 0 ? '4px' : '0' }}
-                                title={`Documents: ${d.documents}`}
-                            />
-                            <div
-                                className="w-3 bg-emerald-500 rounded-t transition-all duration-300"
-                                style={{ height: `${(d.messages / maxValue) * 100}%`, minHeight: d.messages > 0 ? '4px' : '0' }}
-                                title={`Messages: ${d.messages}`}
-                            />
-                        </div>
-                        <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>{d.month}</span>
-                    </div>
-                ))}
-            </div>
-            <div className="flex items-center justify-center gap-4">
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 bg-blue-500 rounded" />
-                    <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Documents</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 bg-emerald-500 rounded" />
-                    <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Messages</span>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// Timeline Chart for Project Progress
-const ProjectTimelineChart: React.FC<{
-    projects: Project[];
-    isDark: boolean;
-}> = ({ projects, isDark }) => {
-    if (projects.length === 0) {
-        return (
-            <div className="flex items-center justify-center h-32">
-                <p className={isDark ? "text-slate-500" : "text-gray-400"}>No projects to display</p>
-            </div>
-        );
-    }
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "completed": return "bg-blue-500";
-            case "active": return "bg-emerald-500";
-            case "pending": return "bg-amber-500";
-            case "on_hold": return "bg-gray-500";
-            default: return "bg-emerald-500";
-        }
-    };
-
-    return (
-        <div className="space-y-3">
-            {projects.slice(0, 5).map((p) => {
-                const progress = p.status === "completed" ? 100 : p.status === "active" ? 60 : 20;
+            {projects.slice(0, 4).map(p => {
+                const pct = getPct(p.status);
                 return (
-                    <div key={p.projectId} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                            <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"} truncate max-w-[60%]`}>
-                                {p.projectName}
-                            </span>
-                            <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                {p.status === "completed" ? "Complete" : `${progress}%`}
-                            </span>
+                    <div key={p.projectId}>
+                        <div className="flex items-center justify-between mb-1.5">
+                            <span className={`text-sm font-medium ${n.text} truncate max-w-[65%]`}>{p.projectName}</span>
+                            <span className={`text-xs ${n.tertiary}`}>{pct}%</span>
                         </div>
-                        <div className={`h-2 rounded-full ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>
-                            <div
-                                className={`h-full rounded-full ${getStatusColor(p.status)} transition-all duration-500`}
-                                style={{ width: `${progress}%` }}
-                            />
+                        <div className={`h-1.5 rounded-full ${n.inset}`}>
+                            <div className={`h-full rounded-full ${getColor(p.status)} transition-all duration-500`} style={{ width: `${pct}%` }} />
                         </div>
                     </div>
                 );
             })}
+            {projects.length > 4 && (
+                <button onClick={onViewAll} className={`text-xs ${n.link} flex items-center gap-1 pt-1`}>
+                    +{projects.length - 4} more <ArrowRight className="w-3 h-3" />
+                </button>
+            )}
         </div>
     );
 };
 
-// ==================== MAIN COMPONENT ====================
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const ClientPortal: React.FC<ClientPortalProps> = ({
     userName = "Client",
@@ -268,72 +171,87 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
 }) => {
     const { isDark } = useTheme();
 
-    const s = {
-        bg: isDark ? "bg-slate-950" : "bg-gray-50",
-        card: isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200",
-        cardHover: isDark ? "hover:bg-slate-800/80 active:bg-slate-800" : "hover:bg-gray-50 active:bg-gray-100",
-        cardInner: isDark ? "bg-slate-800" : "bg-gray-100",
-        text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-600",
-        textSubtle: isDark ? "text-slate-500" : "text-gray-400",
-        divider: isDark ? "border-slate-800" : "border-gray-200",
-        button: isDark ? "bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800",
-        buttonPrimary: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white",
-        accent: isDark ? "text-blue-400" : "text-blue-600",
-        // Interactive states
-        clickable: "cursor-pointer active:scale-[0.98] transition-all duration-150",
-        hoverLift: "hover:-translate-y-1 hover:shadow-xl transition-all duration-300",
-        hoverGlow: isDark ? "hover:shadow-lg hover:shadow-blue-500/10" : "hover:shadow-lg hover:shadow-blue-500/5",
-        cardClickable: "cursor-pointer transition-all duration-200 hover:shadow-lg active:scale-[0.99] active:shadow-md",
+    // ── Neumorphic tokens — same system as staff side ────────────────────────
+    const n = {
+        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
+        card:         isDark ? "neu-dark"           : "neu-light",
+        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
+        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
+        pressed:      isDark ? "neu-dark-pressed"   : "neu-light-pressed",
+        text:         isDark ? "text-white"         : "text-gray-900",
+        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
+        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
+        strong:       isDark ? "text-white"         : "text-black",
+        label:        isDark ? "text-blue-400"      : "text-blue-600",
+        link:         isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
+        divider:      isDark ? "border-gray-800"    : "border-gray-200",
+        btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
+        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        edgeHover: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
     };
 
-    // sidebarToggle = true means collapsed (w-20), false means expanded (w-64)
     const [sidebarToggle, setSidebarToggle] = useState(false);
-    const [activePage, setActivePage] = useState<PageType>("dashboard");
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    const [activePage, setActivePage]       = useState<PageType>("dashboard");
+    const [loading, setLoading]             = useState(true);
+    const [refreshing, setRefreshing]       = useState(false);
+    const [toasts, setToasts]               = useState<Toast[]>([]);
 
-    const [projects, setProjects] = useState<Project[]>([]);
+    const [projects, setProjects]                 = useState<Project[]>([]);
     const [assignedConsultant, setAssignedConsultant] = useState<Consultant | null>(null);
-    const [documents, setDocuments] = useState<DocumentFile[]>([]);
-    const [messages, setMessages] = useState<Message[]>([]);
+    const [documents, setDocuments]               = useState<DocumentFile[]>([]);
+    const [messages, setMessages]                 = useState<Message[]>([]);
 
     const firstName = userName.split(" ")[0] || "Client";
 
-    useEffect(() => {
-        loadClientData();
-    }, [customerId]);
+    const showToast = (message: string, type: Toast["type"] = "success") => {
+        const id = `t_${Date.now()}`;
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
+    };
+
+    useEffect(() => { loadClientData(); }, [customerId]);
 
     const loadClientData = async () => {
         setRefreshing(true);
         try {
-            // Load projects assigned to this client
+            // Projects assigned to this client
             const projectClients = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
             const clientProjectIds = projectClients
                 .filter((pc: any) => String(pc.clientId) === String(customerId))
                 .map((pc: any) => String(pc.projectId));
 
-            const projectsRes = await safeFetch(`${API_BASE}/projects`);
-            if (projectsRes?.data) {
-                const clientProjects = projectsRes.data.filter((p: Project) =>
-                    clientProjectIds.includes(String(p.projectId))
-                );
-
-                const projectsWithDetails = await Promise.all(
-                    clientProjects.map(async (p: Project) => {
-                        const details = await safeFetch(`${API_BASE}/project-details/${p.projectId}`);
-                        return {
-                            ...p,
-                            dateDue: details?.data?.dateDue,
-                            description: details?.data?.description,
-                            createdAt: details?.data?.createdAt || new Date().toISOString(),
-                        };
-                    })
-                );
-                setProjects(projectsWithDetails);
+            // Also check AssignmentService format
+            const assignmentData = JSON.parse(localStorage.getItem("timely_assignments") || "{}");
+            if (assignmentData.projectClients) {
+                assignmentData.projectClients.forEach((pc: any) => {
+                    if (String(pc.clientId) === String(customerId) && !clientProjectIds.includes(String(pc.projectId))) {
+                        clientProjectIds.push(String(pc.projectId));
+                    }
+                });
             }
 
-            // Load assigned consultant
+            // Load all projects from localStorage (includes property/listing fields)
+            const localProjects: Project[] = JSON.parse(localStorage.getItem("timely_projects") || "[]");
+            const apiProjectsRes = await safeFetch(`${API_BASE}/projects`);
+            const apiProjects: Project[] = apiProjectsRes?.data || [];
+
+            // Merge: API base + local property/listing enrichment
+            const allProjects = [...apiProjects];
+            localProjects.forEach(lp => {
+                if (!allProjects.find(ap => String(ap.projectId) === String(lp.projectId))) {
+                    allProjects.push(lp);
+                } else {
+                    const idx = allProjects.findIndex(ap => String(ap.projectId) === String(lp.projectId));
+                    allProjects[idx] = { ...allProjects[idx], ...lp };
+                }
+            });
+
+            const clientProjects = allProjects.filter(p => clientProjectIds.includes(String(p.projectId)));
+            setProjects(clientProjects);
+
+            // Assigned consultant
             const clientConsultants = await safeFetch(`${API_BASE}/client-consultants`);
             if (clientConsultants?.data) {
                 const assignment = clientConsultants.data.find((cc: any) => String(cc.clientId) === String(customerId));
@@ -351,17 +269,11 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
                 }
             }
 
-            // Load documents from localStorage
+            // Documents + messages from localStorage
             const storedDocs = localStorage.getItem(`timely_client_documents_${customerId}`);
-            if (storedDocs) {
-                setDocuments(JSON.parse(storedDocs));
-            }
-
-            // Load messages from localStorage
+            if (storedDocs) setDocuments(JSON.parse(storedDocs));
             const storedMsgs = localStorage.getItem(`timely_client_messages_${customerId}`);
-            if (storedMsgs) {
-                setMessages(JSON.parse(storedMsgs));
-            }
+            if (storedMsgs) setMessages(JSON.parse(storedMsgs));
 
         } catch (e) {
             console.error("Error loading client data:", e);
@@ -371,223 +283,151 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
         }
     };
 
-    // Stats
-    const stats = useMemo(() => {
-        const active = projects.filter((p) => p.status === "active" || !p.status).length;
-        const completed = projects.filter((p) => p.status === "completed").length;
-        const pending = projects.filter((p) => p.status === "pending" || p.status === "on_hold").length;
-        return { active, completed, pending, total: projects.length };
-    }, [projects]);
+    // ── Derived stats ─────────────────────────────────────────────────────────
+    const stats = useMemo(() => ({
+        total:     projects.length,
+        active:    projects.filter(p => p.status === "active" || p.status === "in_progress").length,
+        completed: projects.filter(p => p.status === "completed").length,
+        pending:   projects.filter(p => p.status === "pending" || p.status === "on_hold").length,
+        listed:    projects.filter(p => p.isPublished).length,
+    }), [projects]);
 
-    // Chart data - derived from real data
-    const projectStatusData = useMemo(() => [
-        { label: "In Progress", value: stats.active, color: "#10b981" },
+    const donutData = useMemo(() => [
+        { label: "Active",    value: stats.active,    color: "#10b981" },
         { label: "Completed", value: stats.completed, color: "#3b82f6" },
-        { label: "Pending", value: stats.pending, color: "#f59e0b" },
+        { label: "Pending",   value: stats.pending,   color: "#f59e0b" },
     ], [stats]);
 
-    // Monthly activity data - derived from documents and messages
-    const monthlyActivityData = useMemo(() => {
-        const months: { month: string; documents: number; messages: number }[] = [];
-        const now = new Date();
+    const formatDate = (d: string) => d
+        ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : null;
 
-        for (let i = 5; i >= 0; i--) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthStr = date.toLocaleDateString("en-US", { month: "short" });
-            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const statusBadge = (status: string) => ({
+        active:      { bg: "bg-emerald-500/10 text-emerald-500", label: "In Progress" },
+        in_progress: { bg: "bg-emerald-500/10 text-emerald-500", label: "In Progress" },
+        completed:   { bg: "bg-blue-500/10 text-blue-500",       label: "Completed" },
+        pending:     { bg: "bg-amber-500/10 text-amber-500",     label: "Pending" },
+        on_hold:     { bg: "bg-gray-500/10 text-gray-500",       label: "On Hold" },
+        planning:    { bg: "bg-blue-500/10 text-blue-400",       label: "Planning" },
+    }[status] || { bg: "bg-emerald-500/10 text-emerald-500", label: "Active" });
 
-            const docsInMonth = documents.filter(d => {
-                const docDate = new Date(d.uploadedAt);
-                return docDate >= monthStart && docDate <= monthEnd;
-            }).length;
-
-            const msgsInMonth = messages.filter(m => {
-                const msgDate = new Date(m.timestamp);
-                return msgDate >= monthStart && msgDate <= monthEnd;
-            }).length;
-
-            months.push({ month: monthStr, documents: docsInMonth, messages: msgsInMonth });
-        }
-
-        return months;
-    }, [documents, messages]);
-
-    const formatDate = (d: string) => {
-        if (!d) return null;
-        return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    };
-
-    const getStatusStyle = (status: string) => {
-        const styles: { [key: string]: { bg: string; text: string; label: string } } = {
-            active: { bg: "bg-emerald-500/10", text: "text-emerald-500", label: "In Progress" },
-            completed: { bg: "bg-blue-500/10", text: "text-blue-500", label: "Completed" },
-            pending: { bg: "bg-amber-500/10", text: "text-amber-500", label: "Pending" },
-            on_hold: { bg: "bg-gray-500/10", text: "text-gray-500", label: "On Hold" },
-        };
-        return styles[status] || styles.active;
-    };
-
-    const handleNavigate = (page: string) => {
-        setActivePage(page as PageType);
-    };
-
+    // ── Dashboard ─────────────────────────────────────────────────────────────
     const renderDashboard = () => (
         <div className="space-y-6">
-            {/* Welcome Header */}
-            <div className={`${s.card} border rounded-2xl p-6`}>
+
+            {/* Welcome */}
+            <div className={`${n.card} rounded-2xl p-6`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-purple-500/20">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-lg">
                             {firstName[0]}
                         </div>
                         <div>
-                            <h1 className={`text-2xl font-bold ${s.text}`}>
-                                Welcome back, {firstName}!
-                            </h1>
-                            <p className={`mt-1 ${s.textMuted}`}>
-                                Here's what's happening with your projects today.
-                            </p>
+                            <h1 className={`text-xl font-semibold ${n.strong}`}>Welcome back, {firstName}</h1>
+                            <p className={`text-sm ${n.secondary} mt-0.5`}>Here's an overview of your projects</p>
                         </div>
                     </div>
-                    <button
-                        onClick={loadClientData}
-                        disabled={refreshing}
-                        className={`p-3 rounded-xl ${s.button} transition-all duration-200 hover:shadow-md active:scale-95`}
-                    >
-                        <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin" : "hover:rotate-180 transition-transform duration-500"}`} />
+                    <button onClick={loadClientData} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl`}>
+                        <RefreshCw className={`w-4 h-4 ${n.secondary} ${refreshing ? "animate-spin" : ""}`} />
                     </button>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`${s.card} border rounded-2xl p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group`}>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className={`text-sm font-medium ${s.textMuted}`}>Total Projects</p>
-                            <p className={`text-3xl font-bold ${s.text} mt-1`}>{stats.total}</p>
-                            <p className={`text-xs ${s.textSubtle} mt-1`}>All time</p>
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: "Total Projects", value: stats.total,     dot: "bg-blue-500",    icon: FolderOpen },
+                    { label: "In Progress",    value: stats.active,    dot: "bg-emerald-500", icon: TrendingUp },
+                    { label: "Completed",      value: stats.completed, dot: "bg-blue-500",    icon: CheckCircle2 },
+                    { label: "Listings",       value: stats.listed,    dot: "bg-emerald-500", icon: ExternalLink },
+                ].map((st, i) => (
+                    <div key={i} className={`${n.card} ${n.edgeHover} p-4 rounded-2xl transition-all`}>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                            <span className={`text-[11px] uppercase tracking-widest ${n.tertiary}`}>{st.label}</span>
                         </div>
-                        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                            <FolderOpen className="w-7 h-7 text-white" />
-                        </div>
+                        <div className={`text-3xl font-semibold ${n.strong} tabular-nums`}>{st.value}</div>
                     </div>
-                </div>
-
-                <div className={`${s.card} border rounded-2xl p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group`}>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className={`text-sm font-medium ${s.textMuted}`}>In Progress</p>
-                            <p className={`text-3xl font-bold ${s.text} mt-1`}>{stats.active}</p>
-                            <p className={`text-xs ${s.textSubtle} mt-1`}>Active now</p>
-                        </div>
-                        <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                            <TrendingUp className="w-7 h-7 text-white" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className={`${s.card} border rounded-2xl p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group`}>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className={`text-sm font-medium ${s.textMuted}`}>Completed</p>
-                            <p className={`text-3xl font-bold ${s.text} mt-1`}>{stats.completed}</p>
-                            <p className={`text-xs ${s.textSubtle} mt-1`}>All time</p>
-                        </div>
-                        <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                            <CheckCircle2 className="w-7 h-7 text-white" />
-                        </div>
-                    </div>
-                </div>
+                ))}
             </div>
 
-            {/* Charts Row */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                {/* Project Status Chart */}
-                <div className={`${s.card} border rounded-2xl p-6`}>
-                    <h2 className={`font-semibold ${s.text} mb-4 flex items-center gap-2`}>
-                        <FolderOpen className={`w-5 h-5 ${s.accent}`} />
-                        Project Status
-                    </h2>
-                    <ProjectStatusChart data={projectStatusData} isDark={isDark} />
+            {/* Charts row */}
+            <div className="grid gap-5 lg:grid-cols-2">
+                {/* Donut */}
+                <div className={`${n.card} rounded-2xl p-5`}>
+                    <div className="flex items-center gap-2 mb-5">
+                        <FolderOpen className={`w-4 h-4 ${n.label}`} />
+                        <h2 className={`font-semibold ${n.text}`}>Project Status</h2>
+                    </div>
+                    <DonutChart data={donutData} n={n} />
                 </div>
 
-                {/* Activity Chart */}
-                <div className={`${s.card} border rounded-2xl p-6`}>
-                    <h2 className={`font-semibold ${s.text} mb-4 flex items-center gap-2`}>
-                        <TrendingUp className={`w-5 h-5 ${s.accent}`} />
-                        Activity (Last 6 Months)
-                    </h2>
-                    <ActivityBarChart data={monthlyActivityData} isDark={isDark} />
-                </div>
-            </div>
-
-            {/* Project Progress Timeline */}
-            <div className={`${s.card} border rounded-2xl p-6`}>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className={`font-semibold ${s.text} flex items-center gap-2`}>
-                        <Clock className={`w-5 h-5 ${s.accent}`} />
-                        Project Progress
-                    </h2>
-                    <button
-                        onClick={() => setActivePage("projects")}
-                        className={`text-sm ${s.accent} hover:underline flex items-center gap-1 font-medium`}
-                    >
-                        View all <ArrowRight className="w-4 h-4" />
-                    </button>
-                </div>
-                <ProjectTimelineChart projects={projects} isDark={isDark} />
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-3">
-                {/* Recent Projects */}
-                <div className={`lg:col-span-2 ${s.card} border rounded-2xl overflow-hidden`}>
-                    <div className={`px-6 py-4 border-b ${s.divider} flex items-center justify-between`}>
-                        <h2 className={`font-semibold ${s.text} flex items-center gap-2`}>
-                            <FolderOpen className={`w-5 h-5 ${s.accent}`} />
-                            Your Projects
-                        </h2>
-                        <button
-                            onClick={() => setActivePage("projects")}
-                            className={`text-sm ${s.accent} hover:underline flex items-center gap-1 font-medium`}
-                        >
-                            View all <ArrowRight className="w-4 h-4" />
+                {/* Progress bars */}
+                <div className={`${n.card} rounded-2xl p-5`}>
+                    <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-2">
+                            <Clock className={`w-4 h-4 ${n.label}`} />
+                            <h2 className={`font-semibold ${n.text}`}>Project Progress</h2>
+                        </div>
+                        <button onClick={() => setActivePage("projects")} className={`text-xs ${n.link} flex items-center gap-1`}>
+                            View all <ArrowRight className="w-3 h-3" />
                         </button>
                     </div>
-                    <div className={`divide-y ${s.divider}`}>
+                    <ProgressBars projects={projects} n={n} onViewAll={() => setActivePage("projects")} />
+                </div>
+            </div>
+
+            {/* Recent projects + consultant */}
+            <div className="grid gap-5 lg:grid-cols-3">
+
+                {/* Recent projects */}
+                <div className={`lg:col-span-2 ${n.card} rounded-2xl overflow-hidden`}>
+                    <div className={`px-5 py-4 border-b ${n.divider} flex items-center justify-between`}>
+                        <div className="flex items-center gap-2">
+                            <FolderOpen className={`w-4 h-4 ${n.label}`} />
+                            <h2 className={`font-semibold ${n.text}`}>Your Projects</h2>
+                        </div>
+                        <button onClick={() => setActivePage("projects")} className={`text-xs ${n.link} flex items-center gap-1`}>
+                            View all <ArrowRight className="w-3 h-3" />
+                        </button>
+                    </div>
+                    <div>
                         {projects.length === 0 ? (
                             <div className="p-10 text-center">
-                                <FolderOpen className={`w-12 h-12 ${s.textSubtle} mx-auto mb-3`} />
-                                <p className={`${s.textMuted} font-medium`}>No projects yet</p>
-                                <p className={`${s.textSubtle} text-sm mt-1`}>Your projects will appear here</p>
+                                <FolderOpen className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} strokeWidth={1.5} />
+                                <p className={`${n.secondary} text-sm font-medium`}>No projects yet</p>
+                                <p className={`${n.tertiary} text-xs mt-1`}>Projects assigned to you will appear here</p>
                             </div>
                         ) : (
-                            projects.slice(0, 4).map((p) => {
-                                const status = getStatusStyle(p.status);
+                            projects.slice(0, 4).map((p, i) => {
+                                const badge = statusBadge(p.status);
                                 return (
-                                    <div key={p.projectId} className={`px-6 py-4 ${s.cardHover} transition-all duration-200 cursor-pointer group active:bg-opacity-80`} onClick={() => setActivePage("projects")}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-amber-500/20 group-hover:scale-105 group-hover:rotate-2 transition-transform duration-200">
-                                                    {p.projectName.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <p className={`font-semibold ${s.text} group-hover:text-blue-500 transition-colors`}>{p.projectName}</p>
-                                                    <p className={`text-sm ${s.textMuted}`}>{p.projectCode}</p>
-                                                </div>
+                                    <div
+                                        key={p.projectId}
+                                        onClick={() => setActivePage("projects")}
+                                        className={`px-5 py-3.5 flex items-center justify-between cursor-pointer transition-all ${i < projects.slice(0, 4).length - 1 ? `border-b ${n.divider}` : ""} ${isDark ? "hover:bg-gray-800/50" : "hover:bg-black/5"}`}
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
+                                                {p.projectName.slice(0, 2).toUpperCase()}
                                             </div>
-                                            <div className="flex items-center gap-4">
-                                                {p.dateDue && (
-                                                    <span className={`text-sm ${s.textMuted} hidden sm:flex items-center gap-1`}>
-                                                        <Calendar className="w-4 h-4" />
-                                                        {formatDate(p.dateDue)}
-                                                    </span>
-                                                )}
-                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${status.bg} ${status.text} group-hover:scale-105 transition-transform`}>
-                                                    {status.label}
+                                            <div className="min-w-0">
+                                                <p className={`font-medium ${n.text} text-sm truncate`}>{p.projectName}</p>
+                                                <p className={`${n.tertiary} text-[11px] font-mono`}>{p.projectCode}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                                            {p.dateDue && (
+                                                <span className={`text-xs ${n.tertiary} hidden sm:flex items-center gap-1`}>
+                                                    <Calendar className="w-3 h-3" />{formatDate(p.dateDue)}
                                                 </span>
-                                            </div>
+                                            )}
+                                            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${badge.bg}`}>{badge.label}</span>
+                                            {p.isPublished && (
+                                                <span className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 flex items-center gap-1">
+                                                    <ExternalLink className="w-2.5 h-2.5" />Listing
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -596,91 +436,69 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
                     </div>
                 </div>
 
-                {/* Consultant Card */}
-                <div className={`${s.card} border rounded-2xl overflow-hidden`}>
-                    <div className={`px-6 py-4 border-b ${s.divider}`}>
-                        <h2 className={`font-semibold ${s.text} flex items-center gap-2`}>
-                            <User className={`w-5 h-5 ${s.accent}`} />
-                            Your Consultant
-                        </h2>
+                {/* Consultant */}
+                <div className={`${n.card} rounded-2xl overflow-hidden`}>
+                    <div className={`px-5 py-4 border-b ${n.divider} flex items-center gap-2`}>
+                        <User className={`w-4 h.4 ${n.label}`} />
+                        <h2 className={`font-semibold ${n.text}`}>Your Consultant</h2>
                     </div>
-                    <div className="p-6">
+                    <div className="p-5">
                         {assignedConsultant ? (
-                            <div className="space-y-5">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-bold">
                                         {assignedConsultant.firstName[0]}{assignedConsultant.lastName[0]}
                                     </div>
                                     <div>
-                                        <p className={`font-semibold ${s.text}`}>
-                                            {assignedConsultant.firstName} {assignedConsultant.lastName}
-                                        </p>
-                                        {assignedConsultant.role && (
-                                            <p className={`text-sm ${s.textMuted}`}>{assignedConsultant.role}</p>
-                                        )}
+                                        <p className={`font-semibold ${n.text} text-sm`}>{assignedConsultant.firstName} {assignedConsultant.lastName}</p>
+                                        {assignedConsultant.role && <p className={`text-xs ${n.tertiary}`}>{assignedConsultant.role}</p>}
                                     </div>
                                 </div>
-
                                 <div className="space-y-2">
-                                    <a
-                                        href={`mailto:${assignedConsultant.email}`}
-                                        className={`flex items-center gap-3 p-3 rounded-xl ${s.cardInner} transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 group`}
-                                    >
-                                        <Mail className={`w-5 h-5 ${s.textMuted} group-hover:text-blue-500 transition-colors`} />
-                                        <span className={`text-sm ${s.text} truncate group-hover:text-blue-500 transition-colors`}>{assignedConsultant.email}</span>
+                                    <a href={`mailto:${assignedConsultant.email}`} className={`flex items-center gap-2.5 px-3 py-2.5 ${n.flat} rounded-xl text-sm ${n.secondary} hover:${n.label} transition-colors`}>
+                                        <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <span className="truncate text-xs">{assignedConsultant.email}</span>
                                     </a>
                                     {assignedConsultant.phone && (
-                                        <a
-                                            href={`tel:${assignedConsultant.phone}`}
-                                            className={`flex items-center gap-3 p-3 rounded-xl ${s.cardInner} transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 group`}
-                                        >
-                                            <Phone className={`w-5 h-5 ${s.textMuted} group-hover:text-emerald-500 transition-colors`} />
-                                            <span className={`text-sm ${s.text} group-hover:text-emerald-500 transition-colors`}>{assignedConsultant.phone}</span>
+                                        <a href={`tel:${assignedConsultant.phone}`} className={`flex items-center gap-2.5 px-3 py-2.5 ${n.flat} rounded-xl text-sm ${n.secondary} transition-colors`}>
+                                            <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                                            <span className="text-xs">{assignedConsultant.phone}</span>
                                         </a>
                                     )}
                                 </div>
-
-                                <button
-                                    onClick={() => setActivePage("messages")}
-                                    className={`w-full ${s.buttonPrimary} py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:shadow-md`}
-                                >
-                                    <MessageCircle className="w-4 h-4" />
-                                    Send Message
+                                <button onClick={() => setActivePage("messages")} className={`w-full px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm font-medium flex items-center justify-center gap-2`}>
+                                    <MessageCircle className="w-4 h-4" />Send Message
                                 </button>
                             </div>
                         ) : (
                             <div className="text-center py-6">
-                                <User className={`w-12 h-12 ${s.textSubtle} mx-auto mb-3`} />
-                                <p className={`${s.textMuted} font-medium`}>No consultant assigned</p>
-                                <p className={`${s.textSubtle} text-sm mt-1`}>One will be assigned soon</p>
+                                <User className={`w-10 h-10 ${n.tertiary} mx-auto mb-3`} strokeWidth={1.5} />
+                                <p className={`${n.secondary} text-sm`}>No consultant assigned</p>
+                                <p className={`${n.tertiary} text-xs mt-1`}>One will be assigned soon</p>
                             </div>
                         )}
                     </div>
                 </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className={`${s.card} border rounded-2xl p-6`}>
-                <h2 className={`font-semibold ${s.text} mb-4 flex items-center gap-2`}>
-                    <Bell className={`w-5 h-5 ${s.accent}`} />
-                    Quick Actions
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Quick actions */}
+            <div className={`${n.card} rounded-2xl p-5`}>
+                <div className="flex items-center gap-2 mb-5">
+                    <Bell className={`w-4 h-4 ${n.label}`} />
+                    <h2 className={`font-semibold ${n.text}`}>Quick Actions</h2>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                        { label: "View Projects", icon: FolderOpen, page: "projects", color: "from-amber-500 to-amber-600", shadow: "shadow-amber-500/20" },
-                        { label: "Documents", icon: FileText, page: "documents", color: "from-blue-500 to-blue-600", shadow: "shadow-blue-500/20" },
-                        { label: "Messages", icon: MessageCircle, page: "messages", color: "from-emerald-500 to-emerald-600", shadow: "shadow-emerald-500/20" },
-                        { label: "Get Help", icon: HelpCircle, page: "help", color: "from-purple-500 to-purple-600", shadow: "shadow-purple-500/20" },
-                    ].map((action) => (
-                        <button
-                            key={action.page}
-                            onClick={() => setActivePage(action.page as PageType)}
-                            className={`flex flex-col items-center gap-3 p-5 rounded-2xl ${s.cardInner} transition-all duration-300 hover:shadow-xl hover:-translate-y-2 active:translate-y-0 active:shadow-md group cursor-pointer`}
-                        >
-                            <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center shadow-lg ${action.shadow} group-hover:scale-110 group-hover:rotate-6 group-active:scale-95 transition-all duration-300`}>
-                                <action.icon className="w-6 h-6 text-white" />
+                        { label: "My Projects", page: "projects",  color: "from-blue-500 to-blue-700",    icon: FolderOpen },
+                        { label: "Documents",   page: "documents", color: "from-emerald-500 to-emerald-700", icon: FileText },
+                        { label: "Messages",    page: "messages",  color: "from-amber-500 to-amber-700",  icon: MessageCircle },
+                        { label: "Help",        page: "help",      color: "from-gray-500 to-gray-700",    icon: HelpCircle },
+                    ].map(action => (
+                        <button key={action.page} onClick={() => setActivePage(action.page as PageType)} className={`${n.flat} ${n.edgeHover} flex flex-col items-center gap-3 p-5 rounded-2xl transition-all group`}>
+                            <div className={`w-11 h-11 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                                <action.icon className="w-5 h-5 text-white" />
                             </div>
-                            <span className={`text-sm font-medium ${s.text} group-hover:${s.accent}`}>{action.label}</span>
+                            <span className={`text-xs font-medium ${n.secondary}`}>{action.label}</span>
                         </button>
                     ))}
                 </div>
@@ -688,62 +506,48 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
         </div>
     );
 
-    // ==================== HELP ====================
+    // ── Help ──────────────────────────────────────────────────────────────────
     const renderHelp = () => (
         <div className="space-y-6">
             <div>
-                <h1 className={`text-2xl font-bold ${s.text}`}>Help & Support</h1>
-                <p className={`mt-1 ${s.textMuted}`}>Get assistance with your account</p>
+                <h1 className={`text-xl font-semibold ${n.strong}`}>Help & Support</h1>
+                <p className={`text-sm ${n.secondary} mt-1`}>Get assistance with your account</p>
             </div>
-
             <div className="grid gap-4 md:grid-cols-2">
-                <div className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group`}>
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                        <HelpCircle className="w-6 h-6 text-white" />
+                <div className={`${n.card} ${n.edgeHover} rounded-2xl p-5 transition-all`}>
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center mb-4">
+                        <HelpCircle className="w-5 h-5 text-white" />
                     </div>
-                    <h3 className={`font-semibold ${s.text} mb-2`}>FAQ</h3>
-                    <p className={`text-sm ${s.textMuted} mb-4`}>Find answers to common questions about our services.</p>
-                    <button className={`${s.button} px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:shadow-md active:scale-95`}>
-                        View FAQ <ExternalLink className="w-4 h-4" />
+                    <h3 className={`font-semibold ${n.text} mb-1.5`}>FAQ</h3>
+                    <p className={`text-sm ${n.secondary} mb-4`}>Find answers to common questions about our services.</p>
+                    <button className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary} flex items-center gap-2`}>
+                        View FAQ <ExternalLink className="w-3.5 h-3.5" />
                     </button>
                 </div>
-
-                <div className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group`}>
-                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                        <Mail className="w-6 h-6 text-white" />
+                <div className={`${n.card} ${n.edgeHover} rounded-2xl p-5 transition-all`}>
+                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center mb-4">
+                        <Mail className="w-5 h-5 text-white" />
                     </div>
-                    <h3 className={`font-semibold ${s.text} mb-2`}>Contact Support</h3>
-                    <p className={`text-sm ${s.textMuted} mb-4`}>Our team is here to help with any questions.</p>
-                    <a
-                        href="mailto:support@timely.com"
-                        className={`${s.buttonPrimary} px-4 py-2.5 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition-all duration-200 hover:shadow-md active:scale-95`}
-                    >
-                        <Mail className="w-4 h-4" /> Email Support
+                    <h3 className={`font-semibold ${n.text} mb-1.5`}>Contact Support</h3>
+                    <p className={`text-sm ${n.secondary} mb-4`}>Our team is here to help with any questions.</p>
+                    <a href="mailto:support@timely.com" className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm inline-flex items-center gap-2`}>
+                        <Mail className="w-3.5 h-3.5" />Email Support
                     </a>
                 </div>
-
                 {assignedConsultant && (
-                    <div className={`${s.card} border rounded-2xl p-6 md:col-span-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group`}>
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-purple-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                            <User className="w-6 h-6 text-white" />
+                    <div className={`${n.card} ${n.edgeHover} rounded-2xl p-5 transition-all md:col-span-2`}>
+                        <div className="w-10 h-10 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center mb-4">
+                            <User className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className={`font-semibold ${s.text} mb-2`}>Your Consultant</h3>
-                        <p className={`text-sm ${s.textMuted} mb-4`}>
-                            {assignedConsultant.firstName} {assignedConsultant.lastName} is your dedicated consultant.
-                        </p>
+                        <h3 className={`font-semibold ${n.text} mb-1.5`}>Your Consultant</h3>
+                        <p className={`text-sm ${n.secondary} mb-4`}>{assignedConsultant.firstName} {assignedConsultant.lastName} is your dedicated consultant.</p>
                         <div className="flex flex-wrap gap-3">
-                            <a
-                                href={`mailto:${assignedConsultant.email}`}
-                                className={`${s.buttonPrimary} px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0`}
-                            >
-                                <Mail className="w-4 h-4" /> {assignedConsultant.email}
+                            <a href={`mailto:${assignedConsultant.email}`} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2`}>
+                                <Mail className="w-3.5 h-3.5" />{assignedConsultant.email}
                             </a>
                             {assignedConsultant.phone && (
-                                <a
-                                    href={`tel:${assignedConsultant.phone}`}
-                                    className={`${s.button} px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0`}
-                                >
-                                    <Phone className="w-4 h-4" /> {assignedConsultant.phone}
+                                <a href={`tel:${assignedConsultant.phone}`} className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary} flex items-center gap-2`}>
+                                    <Phone className="w-3.5 h-3.5" />{assignedConsultant.phone}
                                 </a>
                             )}
                         </div>
@@ -753,56 +557,65 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
         </div>
     );
 
+    // ── Content router ────────────────────────────────────────────────────────
     const renderContent = () => {
-        if (loading) {
-            return (
-                <div className="flex items-center justify-center py-20">
-                    <div className="text-center">
-                        <RefreshCw className={`w-8 h-8 ${s.accent} animate-spin mx-auto mb-3`} />
-                        <p className={s.textMuted}>Loading your dashboard...</p>
-                    </div>
+        if (loading) return (
+            <div className="flex items-center justify-center py-24">
+                <div className="text-center">
+                    <RefreshCw className={`w-7 h-7 ${n.label} animate-spin mx-auto mb-3`} />
+                    <p className={`${n.secondary} text-sm`}>Loading your dashboard…</p>
                 </div>
-            );
-        }
+            </div>
+        );
 
         switch (activePage) {
-            case "dashboard": return renderDashboard();
-            case "projects": return <ClientProjects userName={userName} userEmail={userEmail} customerId={customerId} />;
-            case "history": return <ClientHistory userName={userName} userEmail={userEmail} customerId={customerId} />;
-            case "documents": return <ClientDocuments userName={userName} userEmail={userEmail} customerId={customerId} />;
-            case "messages": return <ClientMessages userName={userName} userEmail={userEmail} customerId={customerId} />;
-            case "settings": return <ClientSettings userName={userName} userEmail={userEmail} customerId={customerId} />;
-            case "profile": return <ClientProfile userName={userName} userEmail={userEmail} customerId={customerId} />;
-            case "help": return renderHelp();
-            default: return renderDashboard();
+            case "dashboard":  return renderDashboard();
+            case "projects":   return <ClientProjects userName={userName} userEmail={userEmail} customerId={customerId} />;
+            case "history":    return <ClientHistory  userName={userName} userEmail={userEmail} customerId={customerId} />;
+            case "documents":  return <ClientDocuments userName={userName} userEmail={userEmail} customerId={customerId} />;
+            case "messages":   return <ClientMessages  userName={userName} userEmail={userEmail} customerId={customerId} />;
+            case "settings":   return <ClientSettings  userName={userName} userEmail={userEmail} customerId={customerId} />;
+            case "profile":    return <ClientProfile   userName={userName} userEmail={userEmail} customerId={customerId} />;
+            case "help":       return renderHelp();
+            default:           return renderDashboard();
         }
     };
 
     return (
-        <div className={`min-h-screen ${s.bg}`}>
+        <div className={`min-h-screen ${n.bg} ${n.text}`}>
+
+            {/* Toasts */}
+            <div className="fixed top-4 right-4 z-[10000] space-y-2">
+                {toasts.map(t => (
+                    <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm`}>
+                        {t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === "error" ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}
+                        <span className={n.text}>{t.message}</span>
+                        <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                ))}
+            </div>
+
             <ClientSidebar
                 sidebarToggle={sidebarToggle}
                 setSidebarToggle={setSidebarToggle}
                 activePage={activePage}
-                onNavigate={handleNavigate}
+                onNavigate={(page) => setActivePage(page as PageType)}
                 onLogout={onLogout}
                 userName={userName}
                 userEmail={userEmail}
             />
 
-            {/* Main content area - adjusts based on sidebar state */}
             <div className={`min-h-screen transition-all duration-300 ${sidebarToggle ? "ml-20" : "ml-64"}`}>
                 <ClientNavbar
                     sidebarToggle={sidebarToggle}
                     setSidebarToggle={setSidebarToggle}
                     activePage={activePage}
-                    onNavigate={handleNavigate}
+                    onNavigate={(page) => setActivePage(page as PageType)}
                     onLogout={onLogout}
                     userName={userName}
                     userEmail={userEmail}
                     customerId={customerId}
                 />
-
                 <main className="pt-20 px-6 pb-8">
                     <div className="max-w-6xl mx-auto">
                         {renderContent()}

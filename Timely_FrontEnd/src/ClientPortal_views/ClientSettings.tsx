@@ -2,452 +2,285 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
-    Sun,
-    Moon,
-    Bell,
-    BellOff,
-    Mail,
-    Shield,
-    Eye,
-    EyeOff,
-    Globe,
-    Clock,
-    CheckCircle,
-    AlertCircle,
-    Info,
-    X,
-    Save,
-    RotateCcw,
-    Settings,
-    User,
-    Calendar,
-    Palette,
-    Lock,
-    FileText,
-    MessageCircle,
-    FolderOpen,
+    Sun, Moon, Bell, Mail, Shield, Eye, Lock, Globe,
+    Calendar, Palette, Settings, User, FileText, MessageCircle,
+    FolderOpen, CheckCircle, AlertCircle, Info, X, Save, RotateCcw,
 } from "lucide-react";
 
-type ClientSettingsProps = {
-    userName?: string;
-    userEmail?: string;
-    customerId?: string;
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ClientSettingsProps = { userName?: string; userEmail?: string; customerId?: string; };
 
 interface SettingsState {
-    // Notifications
     emailNotifications: boolean;
     projectUpdates: boolean;
     messageAlerts: boolean;
     documentAlerts: boolean;
     weeklyDigest: boolean;
-
-    // Privacy
     showActivityStatus: boolean;
     allowConsultantContact: boolean;
-
-    // Preferences
     dateFormat: string;
 }
 
-interface Toast {
-    id: string;
-    message: string;
-    type: "success" | "error" | "info";
-}
+interface Toast { id: string; message: string; type: "success" | "error" | "info"; }
 
 const STORAGE_KEY = "timely_client_settings";
 
+const DEFAULTS: SettingsState = {
+    emailNotifications: true,
+    projectUpdates: true,
+    messageAlerts: true,
+    documentAlerts: true,
+    weeklyDigest: false,
+    showActivityStatus: true,
+    allowConsultantContact: true,
+    dateFormat: "MM/DD/YYYY",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const ClientSettings: React.FC<ClientSettingsProps> = ({
-    userName = "Client",
-    userEmail = "",
-    customerId = "",
+    userName = "Client", userEmail = "", customerId = "",
 }) => {
     const { isDark, toggleTheme } = useTheme();
 
-    const s = {
-        bg: isDark ? "bg-slate-950" : "bg-gray-50",
-        card: isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200",
-        cardHover: isDark ? "hover:bg-slate-800/80" : "hover:bg-gray-50",
-        cardInner: isDark ? "bg-slate-800" : "bg-gray-100",
-        text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-600",
-        textSubtle: isDark ? "text-slate-500" : "text-gray-400",
-        divider: isDark ? "border-slate-800" : "border-gray-200",
-        button: isDark ? "bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800",
-        buttonPrimary: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white",
-        input: isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-gray-300 text-gray-900",
-        toggle: isDark ? "bg-slate-700" : "bg-gray-300",
-        toggleActive: "bg-blue-600",
+    const n = {
+        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
+        card:         isDark ? "neu-dark"           : "neu-light",
+        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
+        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
+        text:         isDark ? "text-white"         : "text-gray-900",
+        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
+        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
+        strong:       isDark ? "text-white"         : "text-black",
+        label:        isDark ? "text-blue-400"      : "text-blue-600",
+        divider:      isDark ? "border-gray-800"    : "border-gray-200",
+        input:        isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
+        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        btnDanger:    "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white",
     };
 
-    // Default settings
-    const defaultSettings: SettingsState = {
-        emailNotifications: true,
-        projectUpdates: true,
-        messageAlerts: true,
-        documentAlerts: true,
-        weeklyDigest: false,
-        showActivityStatus: true,
-        allowConsultantContact: true,
-        dateFormat: "MM/DD/YYYY",
-    };
-
-    const [settings, setSettings] = useState<SettingsState>(defaultSettings);
+    const [settings, setSettings]   = useState<SettingsState>(DEFAULTS);
     const [hasChanges, setHasChanges] = useState(false);
-    const [toasts, setToasts] = useState<Toast[]>([]);
-    const [saving, setSaving] = useState(false);
+    const [saving, setSaving]       = useState(false);
+    const [toasts, setToasts]       = useState<Toast[]>([]);
 
-    // Load settings from localStorage
     useEffect(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                setSettings({ ...defaultSettings, ...parsed });
-            }
-        } catch (e) {
-            console.error("Error loading settings:", e);
-        }
+            if (saved) setSettings({ ...DEFAULTS, ...JSON.parse(saved) });
+        } catch {}
     }, []);
 
-    // Toast notification
-    const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
-        const id = `toast_${Date.now()}`;
-        setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+    const showToast = (message: string, type: Toast["type"] = "success") => {
+        const id = `t_${Date.now()}`;
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
     };
 
-    // Update setting
-    const updateSetting = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
-        setSettings((prev) => ({ ...prev, [key]: value }));
+    const update = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
+        setSettings(p => ({ ...p, [key]: value }));
         setHasChanges(true);
     };
 
-    // Save settings
-    const saveSettings = () => {
+    const save = () => {
         setSaving(true);
         setTimeout(() => {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
                 setHasChanges(false);
-                showToast("Settings saved successfully", "success");
-            } catch (e) {
-                showToast("Failed to save settings", "error");
-            }
+                showToast("Settings saved", "success");
+            } catch { showToast("Failed to save", "error"); }
             setSaving(false);
-        }, 500);
+        }, 400);
     };
 
-    // Reset to defaults
-    const resetSettings = () => {
-        setSettings(defaultSettings);
-        setHasChanges(true);
-        showToast("Settings reset to defaults", "info");
-    };
+    const reset = () => { setSettings(DEFAULTS); setHasChanges(true); showToast("Reset to defaults", "info"); };
 
-    // Toggle component with animation
-    const Toggle = ({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) => (
-        <button
-            onClick={() => onChange(!enabled)}
-            className={`relative w-12 h-7 rounded-full transition-all duration-300 ${enabled ? s.toggleActive + " shadow-lg shadow-blue-500/30" : s.toggle} active:scale-95`}
-        >
-            <span
-                className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-md ${enabled ? "left-6 scale-110" : "left-1"
-                    }`}
-            />
+    // ── Shared sub-components ────────────────────────────────────────────────
+
+    const Toggle: React.FC<{ enabled: boolean; onChange: (v: boolean) => void }> = ({ enabled, onChange }) => (
+        <button onClick={() => onChange(!enabled)}
+            className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-emerald-500" : (isDark ? "bg-gray-700" : "bg-gray-300")}`}>
+            <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? "translate-x-6" : "translate-x-0.5"}`} />
         </button>
     );
 
-    // Setting row component with hover effects
-    const SettingRow = ({
-        icon: Icon,
-        title,
-        description,
-        children,
-        gradient,
-    }: {
-        icon: React.ElementType;
+    const SettingRow: React.FC<{
+        icon: React.ComponentType<{ className?: string }>;
         title: string;
         description: string;
         children: React.ReactNode;
-        gradient?: string;
-    }) => (
-        <div className={`flex items-center justify-between py-4 border-b ${s.divider} last:border-0 group transition-all duration-200 hover:px-2 rounded-xl`}>
-            <div className="flex items-start gap-3">
-                <div className={`w-11 h-11 rounded-xl ${gradient ? `bg-gradient-to-br ${gradient}` : s.cardInner} flex items-center justify-center shadow-lg ${gradient ? "" : ""} group-hover:scale-105 transition-transform duration-200`}>
-                    <Icon className={`w-5 h-5 ${gradient ? "text-white" : s.textMuted}`} />
+        color?: string;
+    }> = ({ icon: Icon, title, description, children, color = "bg-blue-600" }) => (
+        <div className={`flex items-center justify-between py-4 border-b ${n.divider} last:border-0`}>
+            <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                    <Icon className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                    <p className={`font-semibold ${s.text}`}>{title}</p>
-                    <p className={`text-sm ${s.textMuted}`}>{description}</p>
+                    <p className={`text-sm font-medium ${n.text}`}>{title}</p>
+                    <p className={`text-xs ${n.tertiary} mt-0.5`}>{description}</p>
                 </div>
             </div>
             {children}
         </div>
     );
 
-    // Section header component
-    const SectionHeader = ({ icon: Icon, title, gradient }: { icon: React.ElementType; title: string; gradient: string }) => (
-        <div className="flex items-center gap-3 mb-5">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-                <Icon className="w-5 h-5 text-white" />
+    const Section: React.FC<{
+        icon: React.ComponentType<{ className?: string }>;
+        title: string;
+        color: string;
+        children: React.ReactNode;
+    }> = ({ icon: Icon, title, color, children }) => (
+        <section className={`${n.card} rounded-2xl p-5`}>
+            <div className="flex items-center gap-3 mb-4">
+                <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center`}>
+                    <Icon className="w-4 h-4 text-white" />
+                </div>
+                <h2 className={`font-semibold ${n.strong}`}>{title}</h2>
             </div>
-            <h2 className={`text-lg font-bold ${s.text}`}>{title}</h2>
-        </div>
+            {children}
+        </section>
     );
 
+    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className={`${s.bg} min-h-full`}>
-            {/* Toast Notifications */}
-            <div className="fixed top-20 right-4 z-[10000] space-y-2">
-                {toasts.map((toast, index) => (
-                    <div
-                        key={toast.id}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border ${s.card} animate-in slide-in-from-right duration-300`}
-                    >
-                        {toast.type === "success" && <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                        {toast.type === "error" && <AlertCircle className="w-5 h-5 text-red-500" />}
-                        {toast.type === "info" && <Info className="w-5 h-5 text-blue-500" />}
-                        <span className={s.text}>{toast.message}</span>
-                        <button
-                            onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-                            className={`ml-2 ${s.textMuted} hover:${s.text} transition-colors`}
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
+        <div className="space-y-6">
+
+            {/* Toasts */}
+            <div className="fixed top-4 right-4 z-[10000] space-y-2">
+                {toasts.map(t => (
+                    <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm`}>
+                        {t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === "error" ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}
+                        <span className={n.text}>{t.message}</span>
+                        <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
                     </div>
                 ))}
             </div>
 
-            <div className="max-w-3xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className={`text-2xl font-bold ${s.text}`}>Settings</h1>
-                        <p className={`text-sm ${s.textMuted} mt-1`}>Manage your preferences and account settings</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {hasChanges && (
-                            <>
-                                <button
-                                    onClick={resetSettings}
-                                    className={`px-4 py-2.5 rounded-xl flex items-center gap-2 ${s.button} transition-all duration-200 hover:shadow-md active:scale-95`}
-                                >
-                                    <RotateCcw className="w-4 h-4" />
-                                    Reset
-                                </button>
-                                <button
-                                    onClick={saveSettings}
-                                    disabled={saving}
-                                    className={`px-5 py-2.5 rounded-xl flex items-center gap-2 ${s.buttonPrimary} shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70`}
-                                >
-                                    {saving ? (
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                        <Save className="w-4 h-4" />
-                                    )}
-                                    {saving ? "Saving..." : "Save Changes"}
-                                </button>
-                            </>
-                        )}
-                    </div>
+            {/* Header */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className={`text-xl font-semibold ${n.strong}`}>Settings</h1>
+                    <p className={`text-sm ${n.secondary} mt-0.5`}>Manage your preferences</p>
                 </div>
-
-                {/* Appearance */}
-                <section className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={Palette} title="Appearance" gradient="from-purple-500 to-purple-600" />
-                    <SettingRow
-                        icon={isDark ? Moon : Sun}
-                        title="Dark Mode"
-                        description="Toggle between light and dark theme"
-                        gradient={isDark ? "from-indigo-500 to-indigo-600" : "from-amber-400 to-amber-500"}
-                    >
-                        <Toggle enabled={isDark} onChange={toggleTheme} />
-                    </SettingRow>
-                </section>
-
-                {/* Notifications */}
-                <section className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={Bell} title="Notifications" gradient="from-blue-500 to-blue-600" />
-
-                    <SettingRow
-                        icon={Mail}
-                        title="Email Notifications"
-                        description="Receive notifications via email"
-                        gradient="from-rose-500 to-rose-600"
-                    >
-                        <Toggle
-                            enabled={settings.emailNotifications}
-                            onChange={(v) => updateSetting("emailNotifications", v)}
-                        />
-                    </SettingRow>
-
-                    <SettingRow
-                        icon={FolderOpen}
-                        title="Project Updates"
-                        description="Get notified when your projects are updated"
-                        gradient="from-emerald-500 to-emerald-600"
-                    >
-                        <Toggle
-                            enabled={settings.projectUpdates}
-                            onChange={(v) => updateSetting("projectUpdates", v)}
-                        />
-                    </SettingRow>
-
-                    <SettingRow
-                        icon={MessageCircle}
-                        title="Message Alerts"
-                        description="Get notified when you receive new messages"
-                        gradient="from-pink-500 to-pink-600"
-                    >
-                        <Toggle
-                            enabled={settings.messageAlerts}
-                            onChange={(v) => updateSetting("messageAlerts", v)}
-                        />
-                    </SettingRow>
-
-                    <SettingRow
-                        icon={FileText}
-                        title="Document Alerts"
-                        description="Get notified when documents are uploaded"
-                        gradient="from-cyan-500 to-cyan-600"
-                    >
-                        <Toggle
-                            enabled={settings.documentAlerts}
-                            onChange={(v) => updateSetting("documentAlerts", v)}
-                        />
-                    </SettingRow>
-
-                    <SettingRow
-                        icon={Mail}
-                        title="Weekly Digest"
-                        description="Receive a weekly summary of activity"
-                        gradient="from-violet-500 to-violet-600"
-                    >
-                        <Toggle
-                            enabled={settings.weeklyDigest}
-                            onChange={(v) => updateSetting("weeklyDigest", v)}
-                        />
-                    </SettingRow>
-                </section>
-
-                {/* Privacy */}
-                <section className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={Shield} title="Privacy" gradient="from-emerald-500 to-emerald-600" />
-
-                    <SettingRow
-                        icon={Eye}
-                        title="Show Activity Status"
-                        description="Let consultants see when you're online"
-                        gradient="from-blue-500 to-blue-600"
-                    >
-                        <Toggle
-                            enabled={settings.showActivityStatus}
-                            onChange={(v) => updateSetting("showActivityStatus", v)}
-                        />
-                    </SettingRow>
-
-                    <SettingRow
-                        icon={Lock}
-                        title="Allow Consultant Contact"
-                        description="Allow assigned consultants to contact you directly"
-                        gradient="from-amber-500 to-amber-600"
-                    >
-                        <Toggle
-                            enabled={settings.allowConsultantContact}
-                            onChange={(v) => updateSetting("allowConsultantContact", v)}
-                        />
-                    </SettingRow>
-                </section>
-
-                {/* Preferences */}
-                <section className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={Settings} title="Preferences" gradient="from-amber-500 to-amber-600" />
-
-                    <div className="space-y-4">
-                        {/* Date Format */}
-                        <div className="flex items-center justify-between group transition-all duration-200 hover:px-2 rounded-xl">
-                            <div className="flex items-start gap-3">
-                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200">
-                                    <Calendar className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                    <p className={`font-semibold ${s.text}`}>Date Format</p>
-                                    <p className={`text-sm ${s.textMuted}`}>Choose how dates are displayed</p>
-                                </div>
-                            </div>
-                            <select
-                                value={settings.dateFormat}
-                                onChange={(e) => updateSetting("dateFormat", e.target.value)}
-                                className={`px-4 py-2.5 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 cursor-pointer`}
-                            >
-                                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                            </select>
-                        </div>
+                {hasChanges && (
+                    <div className="flex items-center gap-2">
+                        <button onClick={reset} className={`px-3 py-2 ${n.flat} rounded-xl text-sm ${n.secondary} flex items-center gap-1.5`}>
+                            <RotateCcw className="w-3.5 h-3.5" />Reset
+                        </button>
+                        <button onClick={save} disabled={saving} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-1.5 disabled:opacity-70`}>
+                            {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            {saving ? "Saving…" : "Save Changes"}
+                        </button>
                     </div>
-                </section>
+                )}
+            </div>
 
-                {/* Account Info (Read-only) */}
-                <section className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={User} title="Account Information" gradient="from-slate-500 to-slate-600" />
+            {/* Appearance */}
+            <Section icon={Palette} title="Appearance" color="bg-blue-600">
+                <SettingRow icon={isDark ? Moon : Sun} title="Dark Mode" description="Toggle between light and dark theme" color={isDark ? "bg-indigo-600" : "bg-amber-500"}>
+                    <Toggle enabled={isDark} onChange={toggleTheme} />
+                </SettingRow>
+            </Section>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className={`p-4 ${s.cardInner} rounded-xl transition-all duration-200 hover:shadow-md group`}>
-                            <p className={`text-xs font-medium ${s.textSubtle} mb-1 uppercase tracking-wider`}>Name</p>
-                            <p className={`font-semibold ${s.text} group-hover:text-blue-500 transition-colors`}>{userName}</p>
-                        </div>
-                        <div className={`p-4 ${s.cardInner} rounded-xl transition-all duration-200 hover:shadow-md group`}>
-                            <p className={`text-xs font-medium ${s.textSubtle} mb-1 uppercase tracking-wider`}>Email</p>
-                            <p className={`font-semibold ${s.text} group-hover:text-blue-500 transition-colors truncate`}>{userEmail}</p>
-                        </div>
-                        <div className={`p-4 ${s.cardInner} rounded-xl transition-all duration-200 hover:shadow-md group`}>
-                            <p className={`text-xs font-medium ${s.textSubtle} mb-1 uppercase tracking-wider`}>Customer ID</p>
-                            <p className={`font-mono ${s.text} group-hover:text-blue-500 transition-colors`}>{customerId || "N/A"}</p>
-                        </div>
-                        <div className={`p-4 ${s.cardInner} rounded-xl transition-all duration-200 hover:shadow-md`}>
-                            <p className={`text-xs font-medium ${s.textSubtle} mb-1 uppercase tracking-wider`}>Account Type</p>
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 text-sm font-semibold">
-                                <User className="w-3.5 h-3.5" />
-                                Client
-                            </span>
-                        </div>
-                    </div>
+            {/* Notifications */}
+            <Section icon={Bell} title="Notifications" color="bg-blue-600">
+                <SettingRow icon={Mail}          title="Email Notifications" description="Receive notifications via email"               color="bg-rose-600">
+                    <Toggle enabled={settings.emailNotifications} onChange={v => update("emailNotifications", v)} />
+                </SettingRow>
+                <SettingRow icon={FolderOpen}    title="Project Updates"    description="Get notified when your projects are updated"   color="bg-emerald-600">
+                    <Toggle enabled={settings.projectUpdates}    onChange={v => update("projectUpdates", v)} />
+                </SettingRow>
+                <SettingRow icon={MessageCircle} title="Message Alerts"     description="Get notified when you receive new messages"    color="bg-pink-600">
+                    <Toggle enabled={settings.messageAlerts}     onChange={v => update("messageAlerts", v)} />
+                </SettingRow>
+                <SettingRow icon={FileText}      title="Document Alerts"    description="Get notified when documents are uploaded"      color="bg-cyan-600">
+                    <Toggle enabled={settings.documentAlerts}    onChange={v => update("documentAlerts", v)} />
+                </SettingRow>
+                <SettingRow icon={Mail}          title="Weekly Digest"      description="Receive a weekly summary of activity"          color="bg-violet-600">
+                    <Toggle enabled={settings.weeklyDigest}      onChange={v => update("weeklyDigest", v)} />
+                </SettingRow>
+            </Section>
 
-                    <p className={`text-xs ${s.textMuted} mt-5 p-3 ${s.cardInner} rounded-xl flex items-center gap-2`}>
-                        <Info className="w-4 h-4 text-blue-500 shrink-0" />
-                        To update your account information, please contact your consultant or support.
-                    </p>
-                </section>
+            {/* Privacy */}
+            <Section icon={Shield} title="Privacy" color="bg-emerald-600">
+                <SettingRow icon={Eye}  title="Show Activity Status"     description="Let consultants see when you're online"                color="bg-blue-600">
+                    <Toggle enabled={settings.showActivityStatus}     onChange={v => update("showActivityStatus", v)} />
+                </SettingRow>
+                <SettingRow icon={Lock} title="Allow Consultant Contact" description="Allow assigned consultants to contact you directly"   color="bg-amber-600">
+                    <Toggle enabled={settings.allowConsultantContact} onChange={v => update("allowConsultantContact", v)} />
+                </SettingRow>
+            </Section>
 
-                {/* Danger Zone */}
-                <section className={`${s.card} border border-red-500/30 rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/5`}>
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/20">
-                            <AlertCircle className="w-5 h-5 text-white" />
+            {/* Preferences */}
+            <Section icon={Settings} title="Preferences" color="bg-amber-600">
+                <div className="flex items-center justify-between py-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+                            <Calendar className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                            <h2 className={`text-lg font-bold text-red-500`}>Danger Zone</h2>
-                            <p className={`text-sm ${s.textMuted}`}>Irreversible actions</p>
+                            <p className={`text-sm font-medium ${n.text}`}>Date Format</p>
+                            <p className={`text-xs ${n.tertiary} mt-0.5`}>Choose how dates are displayed</p>
                         </div>
                     </div>
+                    <select value={settings.dateFormat} onChange={e => update("dateFormat", e.target.value)}
+                        className={`px-3 py-2 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`}>
+                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    </select>
+                </div>
+            </Section>
 
-                    <div className={`p-4 rounded-xl border border-red-500/20 ${isDark ? "bg-red-500/5" : "bg-red-50"}`}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className={`font-semibold ${s.text}`}>Delete Account</p>
-                                <p className={`text-sm ${s.textMuted}`}>Permanently delete your account and all data</p>
-                            </div>
-                            <button className="px-4 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-red-500/20 active:scale-95">
-                                Delete Account
-                            </button>
+            {/* Account Info */}
+            <Section icon={User} title="Account Information" color="bg-gray-600">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    {[
+                        { label: "Name",        value: userName,   mono: false },
+                        { label: "Email",       value: userEmail,  mono: false },
+                        { label: "Customer ID", value: customerId || "N/A", mono: true },
+                    ].map(item => (
+                        <div key={item.label} className={`${n.flat} p-4 rounded-xl`}>
+                            <p className={`text-[10px] uppercase tracking-wider ${n.tertiary} mb-1`}>{item.label}</p>
+                            <p className={`text-sm font-medium ${n.text} ${item.mono ? "font-mono" : ""} truncate`}>{item.value}</p>
                         </div>
+                    ))}
+                    <div className={`${n.flat} p-4 rounded-xl`}>
+                        <p className={`text-[10px] uppercase tracking-wider ${n.tertiary} mb-1`}>Account Type</p>
+                        <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold">Client</span>
                     </div>
-                </section>
-            </div>
+                </div>
+                <div className={`${n.inset} p-3 rounded-xl flex items-start gap-2`}>
+                    <Info className={`w-4 h-4 ${n.label} flex-shrink-0 mt-0.5`} />
+                    <p className={`text-xs ${n.secondary}`}>To update your account information, please contact your consultant or support.</p>
+                </div>
+            </Section>
+
+            {/* Danger Zone */}
+            <section className={`${n.card} rounded-2xl p-5 border border-red-500/20`}>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center">
+                        <AlertCircle className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                        <h2 className="font-semibold text-red-400">Danger Zone</h2>
+                        <p className={`text-xs ${n.tertiary}`}>Irreversible actions</p>
+                    </div>
+                </div>
+                <div className={`${n.inset} p-4 rounded-xl flex items-center justify-between`}>
+                    <div>
+                        <p className={`text-sm font-medium ${n.text}`}>Delete Account</p>
+                        <p className={`text-xs ${n.tertiary} mt-0.5`}>Permanently delete your account and all data</p>
+                    </div>
+                    <button className={`px-4 py-2 ${n.btnDanger} rounded-xl text-sm font-medium transition-all`}>
+                        Delete Account
+                    </button>
+                </div>
+            </section>
         </div>
     );
 };

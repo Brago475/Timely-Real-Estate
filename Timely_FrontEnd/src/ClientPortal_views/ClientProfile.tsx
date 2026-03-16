@@ -2,28 +2,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
-    User,
-    Mail,
-    Phone,
-    MapPin,
-    Building,
-    Calendar,
-    Edit3,
-    Save,
-    X,
-    Camera,
-    Upload,
-    Trash2,
-    CheckCircle,
-    AlertCircle,
-    Shield,
-    Clock,
-    FolderOpen,
-    Info,
-    Briefcase,
+    User, Mail, Phone, MapPin, Building, Calendar, Edit3,
+    Save, X, Camera, Trash2, CheckCircle, AlertCircle, Info,
+    Shield, Clock, FolderOpen, Briefcase, RefreshCw,
 } from "lucide-react";
 
 const API_BASE = "/api";
+const STORAGE_KEY = "timely_client_profile";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type ClientProfileProps = {
     userName?: string;
@@ -33,637 +20,398 @@ type ClientProfileProps = {
 };
 
 interface ProfileData {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    company: string;
-    address: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-    bio: string;
-    avatar: string | null;
+    firstName: string; lastName: string; email: string; phone: string;
+    company: string; address: string; city: string; state: string;
+    zipCode: string; country: string; bio: string; avatar: string | null;
 }
 
-interface Toast {
-    id: string;
-    message: string;
-    type: "success" | "error" | "info";
-}
+interface Toast { id: string; message: string; type: "success" | "error" | "info"; }
+interface Stats  { projects: number; totalHours: number; memberSince: string; }
 
-const STORAGE_KEY = "timely_client_profile";
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const ClientProfile: React.FC<ClientProfileProps> = ({
-    userName = "",
-    userEmail = "",
-    customerId = "",
-    onProfileUpdate,
+    userName = "", userEmail = "", customerId = "", onProfileUpdate,
 }) => {
     const { isDark } = useTheme();
 
-    const s = {
-        bg: isDark ? "bg-slate-950" : "bg-gray-50",
-        card: isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200",
-        cardHover: isDark ? "hover:bg-slate-800/80" : "hover:bg-gray-50",
-        cardInner: isDark ? "bg-slate-800" : "bg-gray-100",
-        text: isDark ? "text-white" : "text-gray-900",
-        textMuted: isDark ? "text-slate-400" : "text-gray-600",
-        textSubtle: isDark ? "text-slate-500" : "text-gray-400",
-        divider: isDark ? "border-slate-800" : "border-gray-200",
-        button: isDark ? "bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800",
-        buttonPrimary: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white",
-        buttonDanger: "bg-red-600 hover:bg-red-700 active:bg-red-800 text-white",
-        input: isDark
-            ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
-            : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500",
-        label: isDark ? "text-slate-300" : "text-gray-700",
+    const n = {
+        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
+        card:         isDark ? "neu-dark"           : "neu-light",
+        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
+        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
+        pressed:      isDark ? "neu-dark-pressed"   : "neu-light-pressed",
+        text:         isDark ? "text-white"         : "text-gray-900",
+        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
+        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
+        strong:       isDark ? "text-white"         : "text-black",
+        label:        isDark ? "text-blue-400"      : "text-blue-600",
+        divider:      isDark ? "border-gray-800"    : "border-gray-200",
+        input:        isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
+        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        edgeHover: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
     };
 
-    // Parse name into first/last
-    const nameParts = userName.split(" ");
-    const defaultFirstName = nameParts[0] || "";
-    const defaultLastName = nameParts.slice(1).join(" ") || "";
+    const nameParts     = userName.split(" ");
+    const defaultFirst  = nameParts[0] || "";
+    const defaultLast   = nameParts.slice(1).join(" ") || "";
 
-    const defaultProfile: ProfileData = {
-        firstName: defaultFirstName,
-        lastName: defaultLastName,
-        email: userEmail,
-        phone: "",
-        company: "",
-        address: "",
-        city: "",
-        state: "",
-        zipCode: "",
-        country: "",
-        bio: "",
-        avatar: null,
+    const DEFAULTS: ProfileData = {
+        firstName: defaultFirst, lastName: defaultLast,
+        email: userEmail, phone: "", company: "",
+        address: "", city: "", state: "", zipCode: "", country: "",
+        bio: "", avatar: null,
     };
 
-    const [profile, setProfile] = useState<ProfileData>(defaultProfile);
-    const [editMode, setEditMode] = useState(false);
-    const [editedProfile, setEditedProfile] = useState<ProfileData>(defaultProfile);
-    const [toasts, setToasts] = useState<Toast[]>([]);
+    const [profile, setProfile]           = useState<ProfileData>(DEFAULTS);
+    const [editedProfile, setEditedProfile] = useState<ProfileData>(DEFAULTS);
+    const [editMode, setEditMode]         = useState(false);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-    const [stats, setStats] = useState({ projects: 0, totalHours: 0, memberSince: "" });
-    const [saving, setSaving] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [stats, setStats]               = useState<Stats>({ projects: 0, totalHours: 0, memberSince: "" });
+    const [saving, setSaving]             = useState(false);
+    const [loading, setLoading]           = useState(true);
+    const [toasts, setToasts]             = useState<Toast[]>([]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Load profile from localStorage and API
-    useEffect(() => {
-        loadProfile();
-        loadStats();
-    }, [customerId]);
+    useEffect(() => { loadProfile(); loadStats(); }, [customerId]);
 
     const loadProfile = async () => {
         setLoading(true);
         try {
-            // Try loading from localStorage first
             const saved = localStorage.getItem(`${STORAGE_KEY}_${customerId}`);
+            let base    = { ...DEFAULTS };
             if (saved) {
                 const parsed = JSON.parse(saved);
-                setProfile({ ...defaultProfile, ...parsed });
-                setEditedProfile({ ...defaultProfile, ...parsed });
-                if (parsed.avatar) {
-                    setAvatarPreview(parsed.avatar);
-                }
+                base = { ...DEFAULTS, ...parsed };
+                if (parsed.avatar) setAvatarPreview(parsed.avatar);
             }
-
-            // Also try to fetch from API for latest data
             if (customerId) {
-                const response = await fetch(`${API_BASE}/clients/${customerId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.data) {
-                        const apiProfile = {
-                            firstName: data.data.firstName || defaultFirstName,
-                            lastName: data.data.lastName || defaultLastName,
-                            email: data.data.email || userEmail,
-                            phone: data.data.phone || "",
-                            company: data.data.companyName || "",
-                            address: data.data.address || "",
-                            city: data.data.city || "",
-                            state: data.data.state || "",
-                            zipCode: data.data.zipCode || "",
-                            country: data.data.country || "",
-                            bio: data.data.bio || "",
-                            avatar: null,
+                const r = await fetch(`${API_BASE}/clients/${customerId}`);
+                if (r.ok) {
+                    const d = await r.json();
+                    if (d.data) {
+                        base = {
+                            ...base,
+                            firstName: d.data.firstName || base.firstName,
+                            lastName:  d.data.lastName  || base.lastName,
+                            email:     d.data.email     || base.email,
+                            phone:     d.data.phone     || base.phone,
+                            company:   d.data.companyName || base.company,
+                            address:   d.data.address   || base.address,
+                            city:      d.data.city      || base.city,
+                            state:     d.data.state     || base.state,
+                            zipCode:   d.data.zipCode   || base.zipCode,
+                            country:   d.data.country   || base.country,
                         };
-                        // Merge with saved avatar
-                        const savedData = saved ? JSON.parse(saved) : {};
-                        const mergedProfile = { ...apiProfile, avatar: savedData.avatar || null };
-                        setProfile(mergedProfile);
-                        setEditedProfile(mergedProfile);
-                        if (savedData.avatar) {
-                            setAvatarPreview(savedData.avatar);
-                        }
                     }
                 }
             }
-        } catch (e) {
-            console.error("Error loading profile:", e);
-        } finally {
-            setLoading(false);
-        }
+            setProfile(base); setEditedProfile(base);
+        } catch {}
+        finally { setLoading(false); }
     };
 
     const loadStats = async () => {
         try {
-            // Get projects count from API
-            const projectClientsRes = await fetch(`${API_BASE}/project-clients`);
-            let clientProjectIds: string[] = [];
-
-            if (projectClientsRes.ok) {
-                const pcData = await projectClientsRes.json();
-                clientProjectIds = (pcData.data || [])
-                    .filter((pc: any) => String(pc.clientId) === String(customerId))
-                    .map((pc: any) => String(pc.projectId));
+            let ids: string[] = [];
+            const pcRes = await fetch(`${API_BASE}/project-clients`);
+            if (pcRes.ok) {
+                const d = await pcRes.json();
+                ids = (d.data || []).filter((x: any) => String(x.clientId) === String(customerId)).map((x: any) => String(x.projectId));
             } else {
-                // Fallback to localStorage
-                const projectClients = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
-                clientProjectIds = projectClients
-                    .filter((pc: any) => String(pc.clientId) === String(customerId))
-                    .map((pc: any) => String(pc.projectId));
+                const local = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
+                ids = local.filter((x: any) => String(x.clientId) === String(customerId)).map((x: any) => String(x.projectId));
             }
-
-            // Get hours from API
-            const hoursRes = await fetch(`${API_BASE}/hours-logs`);
             let totalHours = 0;
-            if (hoursRes.ok) {
-                const hoursData = await hoursRes.json();
-                if (hoursData.data) {
-                    totalHours = hoursData.data
-                        .filter((h: any) => clientProjectIds.includes(String(h.projectId)))
-                        .reduce((sum: number, h: any) => sum + (parseFloat(h.hours) || 0), 0);
-                }
+            const hRes = await fetch(`${API_BASE}/hours-logs`);
+            if (hRes.ok) {
+                const hd = await hRes.json();
+                if (hd.data) totalHours = hd.data.filter((h: any) => ids.includes(String(h.projectId))).reduce((s: number, h: any) => s + (parseFloat(h.hours) || 0), 0);
             }
-
-            // Get member since from client data
             let memberSince = "";
             if (customerId) {
-                const clientRes = await fetch(`${API_BASE}/clients/${customerId}`);
-                if (clientRes.ok) {
-                    const clientData = await clientRes.json();
-                    memberSince = clientData.data?.createdAt || clientData.data?.dateAdded || "";
-                }
+                const cr = await fetch(`${API_BASE}/clients/${customerId}`);
+                if (cr.ok) { const cd = await cr.json(); memberSince = cd.data?.createdAt || cd.data?.dateAdded || ""; }
             }
-
-            setStats({
-                projects: clientProjectIds.length,
-                totalHours,
-                memberSince,
-            });
-        } catch (e) {
-            console.error("Could not load stats:", e);
-        }
+            setStats({ projects: ids.length, totalHours, memberSince });
+        } catch {}
     };
 
-    // Toast notification
-    const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
-        const id = `toast_${Date.now()}`;
-        setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+    const showToast = (message: string, type: Toast["type"] = "success") => {
+        const id = `t_${Date.now()}`;
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
     };
 
-    // Get initials
-    const getInitials = (first: string, last: string) => {
-        return `${first[0] || ""}${last[0] || ""}`.toUpperCase() || "?";
-    };
+    const initials = (f: string, l: string) => `${f[0] || ""}${l[0] || ""}`.toUpperCase() || "?";
+    const fmtDate  = (d: string) => { if (!d) return "N/A"; const dt = new Date(d); return isNaN(dt.getTime()) ? "N/A" : dt.toLocaleDateString("en-US", { month: "long", year: "numeric" }); };
+    const fmtHours = (h: number) => { const hr = Math.floor(h); const mn = Math.round((h - hr) * 60); return mn === 0 ? `${hr}h` : `${hr}h ${mn}m`; };
 
-    // Handle avatar upload
-    const handleAvatarClick = () => {
-        if (editMode) {
-            fileInputRef.current?.click();
-        }
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                showToast("Image must be less than 5MB", "error");
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                setAvatarPreview(base64);
-                setEditedProfile((prev) => ({ ...prev, avatar: base64 }));
-            };
-            reader.readAsDataURL(file);
-        }
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { showToast("Image must be under 5MB", "error"); return; }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const b64 = reader.result as string;
+            setAvatarPreview(b64);
+            setEditedProfile(p => ({ ...p, avatar: b64 }));
+        };
+        reader.readAsDataURL(file);
     };
 
-    const handleRemoveAvatar = () => {
-        setAvatarPreview(null);
-        setEditedProfile((prev) => ({ ...prev, avatar: null }));
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-    };
-
-    // Handle input change
-    const handleChange = (field: keyof ProfileData, value: string) => {
-        setEditedProfile((prev) => ({ ...prev, [field]: value }));
-    };
-
-    // Save profile
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Save to localStorage
             localStorage.setItem(`${STORAGE_KEY}_${customerId}`, JSON.stringify(editedProfile));
-
-            // Try to update via API as well
             if (customerId) {
                 await fetch(`${API_BASE}/clients/${customerId}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        firstName: editedProfile.firstName,
-                        lastName: editedProfile.lastName,
-                        phone: editedProfile.phone,
-                        companyName: editedProfile.company,
-                        address: editedProfile.address,
-                        city: editedProfile.city,
-                        state: editedProfile.state,
-                        zipCode: editedProfile.zipCode,
-                        country: editedProfile.country,
-                    }),
-                }).catch(() => { }); // Silently fail API update
+                    method: "PUT", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ firstName: editedProfile.firstName, lastName: editedProfile.lastName, phone: editedProfile.phone, companyName: editedProfile.company, address: editedProfile.address, city: editedProfile.city, state: editedProfile.state, zipCode: editedProfile.zipCode, country: editedProfile.country }),
+                }).catch(() => {});
             }
-
-            setProfile(editedProfile);
-            setEditMode(false);
-            showToast("Profile saved successfully", "success");
-
-            if (onProfileUpdate) {
-                onProfileUpdate(editedProfile);
-            }
-        } catch (e) {
-            showToast("Failed to save profile", "error");
-        } finally {
-            setSaving(false);
-        }
+            setProfile(editedProfile); setEditMode(false);
+            showToast("Profile saved", "success");
+            onProfileUpdate?.(editedProfile);
+        } catch { showToast("Failed to save", "error"); }
+        finally { setSaving(false); }
     };
 
-    // Cancel edit
-    const handleCancel = () => {
-        setEditedProfile(profile);
-        setAvatarPreview(profile.avatar);
-        setEditMode(false);
-    };
+    const handleCancel = () => { setEditedProfile(profile); setAvatarPreview(profile.avatar); setEditMode(false); };
 
-    // Format date
-    const formatDate = (d: string) => {
-        if (!d) return "N/A";
-        const date = new Date(d);
-        if (isNaN(date.getTime())) return "N/A";
-        return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    };
-
-    // Format hours
-    const formatHours = (h: number) => {
-        if (!h || h === 0) return "0h";
-        const hr = Math.floor(h);
-        const mn = Math.round((h - hr) * 60);
-        return mn === 0 ? `${hr}h` : `${hr}h ${mn}m`;
-    };
-
-    // Input field component with animations
-    const InputField = ({
-        label,
-        field,
-        type = "text",
-        placeholder = "",
-        icon: Icon,
-        disabled = false,
-    }: {
-        label: string;
-        field: keyof ProfileData;
-        type?: string;
-        placeholder?: string;
-        icon?: React.ElementType;
-        disabled?: boolean;
-    }) => (
-        <div className="group">
-            <label className={`block text-sm font-semibold ${s.label} mb-2`}>{label}</label>
+    // ── Input field ───────────────────────────────────────────────────────────
+    const Field: React.FC<{
+        label: string; field: keyof ProfileData; type?: string;
+        placeholder?: string; icon?: React.ComponentType<{ className?: string }>; disabled?: boolean;
+    }> = ({ label, field, type = "text", placeholder = "", icon: Icon, disabled = false }) => (
+        <div>
+            <label className={`text-[11px] uppercase tracking-wider ${n.label} block mb-1.5`}>{label}</label>
             <div className="relative">
-                {Icon && (
-                    <Icon className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${s.textMuted} group-focus-within:text-blue-500 transition-colors`} />
-                )}
-                <input
-                    type={type}
-                    value={editedProfile[field] as string}
-                    onChange={(e) => handleChange(field, e.target.value)}
-                    placeholder={placeholder}
-                    disabled={!editMode || disabled}
-                    className={`w-full ${Icon ? "pl-10" : "pl-4"} pr-4 py-3 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 ${!editMode || disabled ? "opacity-60 cursor-not-allowed" : "hover:border-blue-500/50"
-                        }`}
+                {Icon && <Icon className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${n.tertiary}`} />}
+                <input type={type} value={editedProfile[field] as string}
+                    onChange={e => setEditedProfile(p => ({ ...p, [field]: e.target.value }))}
+                    placeholder={placeholder} disabled={!editMode || disabled}
+                    className={`w-full ${Icon ? "pl-9" : "pl-3"} pr-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                 />
             </div>
         </div>
     );
 
-    // Section header component
-    const SectionHeader = ({ icon: Icon, title, gradient }: { icon: React.ElementType; title: string; gradient: string }) => (
-        <div className="flex items-center gap-3 mb-6">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-                <Icon className="w-5 h-5 text-white" />
+    // ── Section wrapper ───────────────────────────────────────────────────────
+    const Section: React.FC<{ icon: React.ComponentType<{ className?: string }>; title: string; color: string; children: React.ReactNode }> = ({ icon: Icon, title, color, children }) => (
+        <div className={`${n.card} rounded-2xl p-5`}>
+            <div className="flex items-center gap-3 mb-5">
+                <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                    <Icon className="w-4 h-4 text-white" />
+                </div>
+                <h3 className={`font-semibold ${n.strong}`}>{title}</h3>
             </div>
-            <h3 className={`text-lg font-bold ${s.text}`}>{title}</h3>
+            {children}
         </div>
     );
 
-    if (loading) {
-        return (
-            <div className={`${s.bg} min-h-full flex items-center justify-center`}>
-                <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
-                    <p className={s.textMuted}>Loading profile...</p>
-                </div>
+    // ─────────────────────────────────────────────────────────────────────────
+    if (loading) return (
+        <div className="flex items-center justify-center py-24">
+            <div className="text-center">
+                <RefreshCw className={`w-7 h-7 ${n.label} animate-spin mx-auto mb-3`} />
+                <p className={`${n.secondary} text-sm`}>Loading profile…</p>
             </div>
-        );
-    }
+        </div>
+    );
 
     return (
-        <div className={`${s.bg} min-h-full`}>
-            {/* Toast Notifications */}
-            <div className="fixed top-20 right-4 z-[10000] space-y-2">
-                {toasts.map((toast, index) => (
-                    <div
-                        key={toast.id}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border ${s.card} animate-in slide-in-from-right duration-300`}
-                    >
-                        {toast.type === "success" && <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                        {toast.type === "error" && <AlertCircle className="w-5 h-5 text-red-500" />}
-                        {toast.type === "info" && <Info className="w-5 h-5 text-blue-500" />}
-                        <span className={s.text}>{toast.message}</span>
-                        <button
-                            onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-                            className={`ml-2 ${s.textMuted} hover:${s.text} transition-colors`}
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
+        <div className="space-y-6">
+
+            {/* Toasts */}
+            <div className="fixed top-4 right-4 z-[10000] space-y-2">
+                {toasts.map(t => (
+                    <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm`}>
+                        {t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === "error" ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}
+                        <span className={n.text}>{t.message}</span>
+                        <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
                     </div>
                 ))}
             </div>
 
-            <div className="max-w-4xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className={`text-2xl font-bold ${s.text}`}>Profile</h1>
-                        <p className={`text-sm ${s.textMuted} mt-1`}>Manage your personal information</p>
-                    </div>
-                    {!editMode ? (
-                        <button
-                            onClick={() => setEditMode(true)}
-                            className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0`}
-                        >
-                            <Edit3 className="w-4 h-4" />
-                            Edit Profile
+            {/* Header */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className={`text-xl font-semibold ${n.strong}`}>Profile</h1>
+                    <p className={`text-sm ${n.secondary} mt-0.5`}>Manage your personal information</p>
+                </div>
+                {!editMode ? (
+                    <button onClick={() => setEditMode(true)} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2`}>
+                        <Edit3 className="w-3.5 h-3.5" />Edit Profile
+                    </button>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleCancel} className={`px-3 py-2 ${n.flat} rounded-xl text-sm ${n.secondary} flex items-center gap-1.5`}>
+                            <X className="w-3.5 h-3.5" />Cancel
                         </button>
-                    ) : (
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handleCancel}
-                                className={`${s.button} px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-200 hover:shadow-md active:scale-95`}
+                        <button onClick={handleSave} disabled={saving} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-1.5 disabled:opacity-70`}>
+                            {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            {saving ? "Saving…" : "Save Changes"}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Profile hero card */}
+            <div className={`${n.card} rounded-2xl overflow-hidden`}>
+                {/* Banner */}
+                <div className="h-28 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-900 relative">
+                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, white 1px, transparent 1px), radial-gradient(circle at 70% 80%, white 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+                </div>
+
+                <div className="px-6 pb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12">
+
+                        {/* Avatar */}
+                        <div className="relative group flex-shrink-0">
+                            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
+                            <div
+                                onClick={() => editMode && fileInputRef.current?.click()}
+                                className={`w-24 h-24 rounded-2xl border-4 ${isDark ? "border-[#111111]" : "border-[#e4e4e4]"} overflow-hidden ${editMode ? "cursor-pointer" : ""} shadow-xl`}
                             >
-                                <X className="w-4 h-4" />
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className={`${s.buttonPrimary} px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70`}
-                            >
-                                {saving ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                {avatarPreview ? (
+                                    <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
-                                    <Save className="w-4 h-4" />
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-2xl font-bold">
+                                        {initials(editedProfile.firstName, editedProfile.lastName)}
+                                    </div>
                                 )}
-                                {saving ? "Saving..." : "Save Changes"}
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Profile Card */}
-                <div className={`${s.card} border rounded-2xl overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl`}>
-                    {/* Banner */}
-                    <div className="h-36 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-black/10" />
-                        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
-                    </div>
-
-                    {/* Avatar & Basic Info */}
-                    <div className="px-6 pb-6">
-                        <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-16">
-                            {/* Avatar */}
-                            <div className="relative group">
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                />
-                                <div
-                                    onClick={handleAvatarClick}
-                                    className={`w-32 h-32 rounded-2xl border-4 ${isDark ? "border-slate-900" : "border-white"} shadow-2xl overflow-hidden transition-all duration-300 ${editMode ? "cursor-pointer hover:scale-105" : ""
-                                        }`}
-                                >
-                                    {avatarPreview ? (
-                                        <img
-                                            src={avatarPreview}
-                                            alt="Avatar"
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-purple-500/30">
-                                            {getInitials(editedProfile.firstName, editedProfile.lastName)}
-                                        </div>
-                                    )}
-                                    {editMode && (
-                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-2xl">
-                                            <Camera className="w-8 h-8 text-white" />
-                                        </div>
-                                    )}
-                                </div>
-                                {editMode && avatarPreview && (
-                                    <button
-                                        onClick={handleRemoveAvatar}
-                                        className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-all duration-200 shadow-lg hover:scale-110 active:scale-95"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                {editMode && (
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl">
+                                        <Camera className="w-6 h-6 text-white" />
+                                    </div>
                                 )}
                             </div>
+                            {editMode && avatarPreview && (
+                                <button onClick={() => { setAvatarPreview(null); setEditedProfile(p => ({ ...p, avatar: null })); }} className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow">
+                                    <Trash2 className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
 
-                            {/* Name & Role */}
-                            <div className="flex-1 md:mb-2">
-                                <h2 className={`text-2xl font-bold ${s.text}`}>
-                                    {profile.firstName || profile.lastName
-                                        ? `${profile.firstName} ${profile.lastName}`.trim()
-                                        : "No Name Set"}
-                                </h2>
-                                <p className={s.textMuted}>{profile.email || "No email"}</p>
-                                <div className="flex items-center gap-3 mt-3 flex-wrap">
-                                    <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 font-semibold">
-                                        <User className="w-3.5 h-3.5" />
-                                        Client
+                        {/* Name + meta */}
+                        <div className="flex-1 min-w-0 pb-1">
+                            <h2 className={`text-xl font-bold ${n.strong}`}>
+                                {profile.firstName || profile.lastName
+                                    ? `${profile.firstName} ${profile.lastName}`.trim()
+                                    : "No Name Set"}
+                            </h2>
+                            <p className={`text-sm ${n.secondary} mt-0.5`}>{profile.email || "No email"}</p>
+                            <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                <span className="text-[11px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold flex items-center gap-1">
+                                    <User className="w-3 h-3" />Client
+                                </span>
+                                {stats.memberSince && (
+                                    <span className={`text-xs ${n.tertiary} flex items-center gap-1`}>
+                                        <Calendar className="w-3 h-3" />Member since {fmtDate(stats.memberSince)}
                                     </span>
-                                    {stats.memberSince && (
-                                        <span className={`text-xs ${s.textSubtle} flex items-center gap-1`}>
-                                            <Calendar className="w-3.5 h-3.5" />
-                                            Member since {formatDate(stats.memberSince)}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Stats */}
-                            <div className="flex gap-6 md:mb-2">
-                                <div className="text-center group cursor-default">
-                                    <p className={`text-2xl font-bold ${s.text} group-hover:text-blue-500 transition-colors`}>{stats.projects}</p>
-                                    <p className={`text-xs ${s.textMuted}`}>Projects</p>
-                                </div>
-                                <div className="text-center group cursor-default">
-                                    <p className={`text-2xl font-bold ${s.text} group-hover:text-emerald-500 transition-colors`}>{formatHours(stats.totalHours)}</p>
-                                    <p className={`text-xs ${s.textMuted}`}>Hours</p>
-                                </div>
+                                )}
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Personal Information */}
-                <div className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={User} title="Personal Information" gradient="from-blue-500 to-blue-600" />
-
-                    <div className="grid gap-5 md:grid-cols-2">
-                        <InputField label="First Name" field="firstName" placeholder="Enter first name" icon={User} />
-                        <InputField label="Last Name" field="lastName" placeholder="Enter last name" icon={User} />
-                        <InputField label="Email" field="email" type="email" placeholder="Enter email" icon={Mail} disabled />
-                        <InputField label="Phone" field="phone" type="tel" placeholder="Enter phone number" icon={Phone} />
-                        <div className="md:col-span-2">
-                            <label className={`block text-sm font-semibold ${s.label} mb-2`}>Bio</label>
-                            <textarea
-                                value={editedProfile.bio}
-                                onChange={(e) => handleChange("bio", e.target.value)}
-                                placeholder="Tell us a little about yourself..."
-                                disabled={!editMode}
-                                rows={3}
-                                className={`w-full px-4 py-3 rounded-xl border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 resize-none ${!editMode ? "opacity-60 cursor-not-allowed" : "hover:border-blue-500/50"
-                                    }`}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Company & Address */}
-                <div className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={Building} title="Company & Address" gradient="from-emerald-500 to-emerald-600" />
-
-                    <div className="grid gap-5 md:grid-cols-2">
-                        <InputField label="Company" field="company" placeholder="Enter company name" icon={Building} />
-                        <div /> {/* Spacer */}
-                        <div className="md:col-span-2">
-                            <InputField label="Street Address" field="address" placeholder="Enter street address" icon={MapPin} />
-                        </div>
-                        <InputField label="City" field="city" placeholder="Enter city" />
-                        <InputField label="State / Province" field="state" placeholder="Enter state" />
-                        <InputField label="ZIP / Postal Code" field="zipCode" placeholder="Enter ZIP code" />
-                        <InputField label="Country" field="country" placeholder="Enter country" />
-                    </div>
-                </div>
-
-                {/* Account Information (Read-only) */}
-                <div className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={Shield} title="Account Information" gradient="from-purple-500 to-purple-600" />
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <div className={`p-4 ${s.cardInner} rounded-xl transition-all duration-200 hover:shadow-md group`}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                                    <User className="w-4 h-4 text-white" />
-                                </div>
-                                <p className={`text-xs font-medium ${s.textSubtle} uppercase tracking-wider`}>Customer ID</p>
+                        {/* Mini stats */}
+                        <div className="flex gap-6 pb-1">
+                            <div className="text-center">
+                                <p className={`text-2xl font-bold ${n.strong}`}>{stats.projects}</p>
+                                <p className={`text-xs ${n.tertiary}`}>Projects</p>
                             </div>
-                            <p className={`font-mono text-sm ${s.text}`}>{customerId || "N/A"}</p>
-                        </div>
-                        <div className={`p-4 ${s.cardInner} rounded-xl transition-all duration-200 hover:shadow-md group`}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                                    <Calendar className="w-4 h-4 text-white" />
-                                </div>
-                                <p className={`text-xs font-medium ${s.textSubtle} uppercase tracking-wider`}>Member Since</p>
-                            </div>
-                            <p className={`text-sm ${s.text}`}>{formatDate(stats.memberSince)}</p>
-                        </div>
-                        <div className={`p-4 ${s.cardInner} rounded-xl transition-all duration-200 hover:shadow-md group`}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                                    <Shield className="w-4 h-4 text-white" />
-                                </div>
-                                <p className={`text-xs font-medium ${s.textSubtle} uppercase tracking-wider`}>Account Type</p>
-                            </div>
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 text-sm font-semibold">
-                                <Briefcase className="w-3.5 h-3.5" />
-                                Client
-                            </span>
-                        </div>
-                    </div>
-
-                    <p className={`text-xs ${s.textMuted} mt-5 p-3 ${s.cardInner} rounded-xl flex items-center gap-2`}>
-                        <Info className="w-4 h-4 text-blue-500 shrink-0" />
-                        To change your email or account type, please contact your consultant or support.
-                    </p>
-                </div>
-
-                {/* Activity Summary */}
-                <div className={`${s.card} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg`}>
-                    <SectionHeader icon={Clock} title="Activity Summary" gradient="from-amber-500 to-amber-600" />
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <div className={`p-5 ${s.cardInner} rounded-xl flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 cursor-default group`}>
-                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                                <FolderOpen className="w-7 h-7 text-white" />
-                            </div>
-                            <div>
-                                <p className={`text-2xl font-bold ${s.text}`}>{stats.projects}</p>
-                                <p className={`text-sm ${s.textMuted}`}>Active Projects</p>
-                            </div>
-                        </div>
-                        <div className={`p-5 ${s.cardInner} rounded-xl flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 cursor-default group`}>
-                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                                <Clock className="w-7 h-7 text-white" />
-                            </div>
-                            <div>
-                                <p className={`text-2xl font-bold ${s.text}`}>{formatHours(stats.totalHours)}</p>
-                                <p className={`text-sm ${s.textMuted}`}>Total Hours</p>
-                            </div>
-                        </div>
-                        <div className={`p-5 ${s.cardInner} rounded-xl flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 cursor-default group`}>
-                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                                <Calendar className="w-7 h-7 text-white" />
-                            </div>
-                            <div>
-                                <p className={`text-2xl font-bold ${s.text}`}>
-                                    {stats.memberSince ? formatDate(stats.memberSince).split(" ")[0] : "N/A"}
-                                </p>
-                                <p className={`text-sm ${s.textMuted}`}>Member Since</p>
+                            <div className="text-center">
+                                <p className={`text-2xl font-bold ${n.strong}`}>{fmtHours(stats.totalHours)}</p>
+                                <p className={`text-xs ${n.tertiary}`}>Hours</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Personal Information */}
+            <Section icon={User} title="Personal Information" color="bg-blue-600">
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="First Name"    field="firstName" placeholder="First name"    icon={User} />
+                    <Field label="Last Name"     field="lastName"  placeholder="Last name"     icon={User} />
+                    <Field label="Email"         field="email"     type="email" placeholder="Email address" icon={Mail} disabled />
+                    <Field label="Phone"         field="phone"     type="tel"   placeholder="Phone number"  icon={Phone} />
+                    <div className="md:col-span-2">
+                        <label className={`text-[11px] uppercase tracking-wider ${n.label} block mb-1.5`}>Bio</label>
+                        <textarea value={editedProfile.bio} onChange={e => setEditedProfile(p => ({ ...p, bio: e.target.value }))}
+                            placeholder="Tell us a little about yourself…" disabled={!editMode} rows={3}
+                            className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm resize-none focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed`} />
+                    </div>
+                </div>
+            </Section>
+
+            {/* Company & Address */}
+            <Section icon={Building} title="Company & Address" color="bg-emerald-600">
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Company"          field="company"  placeholder="Company name"   icon={Building} />
+                    <div />
+                    <div className="md:col-span-2">
+                        <Field label="Street Address" field="address"  placeholder="Street address" icon={MapPin} />
+                    </div>
+                    <Field label="City"             field="city"     placeholder="City" />
+                    <Field label="State / Province" field="state"    placeholder="State" />
+                    <Field label="ZIP / Postal Code"field="zipCode"  placeholder="ZIP code" />
+                    <Field label="Country"          field="country"  placeholder="Country" />
+                </div>
+            </Section>
+
+            {/* Account Information */}
+            <Section icon={Shield} title="Account Information" color="bg-gray-600">
+                <div className="grid gap-3 md:grid-cols-3 mb-4">
+                    {[
+                        { label: "Customer ID",  value: customerId || "N/A", mono: true,  color: "bg-blue-600",    icon: User },
+                        { label: "Member Since", value: fmtDate(stats.memberSince),         mono: false, color: "bg-emerald-600", icon: Calendar },
+                        { label: "Account Type", value: null,                               mono: false, color: "bg-blue-600",    icon: Shield },
+                    ].map(item => (
+                        <div key={item.label} className={`${n.flat} p-4 rounded-xl`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className={`w-7 h-7 ${item.color} rounded-lg flex items-center justify-center`}>
+                                    <item.icon className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <span className={`text-[10px] uppercase tracking-wider ${n.tertiary}`}>{item.label}</span>
+                            </div>
+                            {item.value !== null
+                                ? <p className={`text-sm font-medium ${n.text} ${item.mono ? "font-mono" : ""}`}>{item.value}</p>
+                                : <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold inline-flex items-center gap-1"><Briefcase className="w-3 h-3" />Client</span>
+                            }
+                        </div>
+                    ))}
+                </div>
+                <div className={`${n.inset} p-3 rounded-xl flex items-start gap-2`}>
+                    <Info className={`w-4 h-4 ${n.label} flex-shrink-0 mt-0.5`} />
+                    <p className={`text-xs ${n.secondary}`}>To change your email or account type, contact your consultant or support.</p>
+                </div>
+            </Section>
+
+            {/* Activity Summary */}
+            <Section icon={Clock} title="Activity Summary" color="bg-amber-600">
+                <div className="grid gap-3 md:grid-cols-3">
+                    {[
+                        { label: "Active Projects", value: String(stats.projects),                       icon: FolderOpen, color: "bg-blue-600" },
+                        { label: "Total Hours",     value: fmtHours(stats.totalHours),                  icon: Clock,      color: "bg-emerald-600" },
+                        { label: "Member Since",    value: stats.memberSince ? fmtDate(stats.memberSince).split(" ")[0] : "N/A", icon: Calendar, color: "bg-blue-600" },
+                    ].map(st => (
+                        <div key={st.label} className={`${n.flat} ${n.edgeHover} p-4 rounded-2xl flex items-center gap-4 transition-all`}>
+                            <div className={`w-11 h-11 ${st.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                                <st.icon className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <p className={`text-xl font-bold ${n.strong}`}>{st.value}</p>
+                                <p className={`text-xs ${n.tertiary}`}>{st.label}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Section>
         </div>
     );
 };

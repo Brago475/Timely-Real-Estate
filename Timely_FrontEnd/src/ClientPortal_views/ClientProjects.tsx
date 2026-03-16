@@ -1,85 +1,85 @@
 // src/ClientPortal_views/ClientProjects.tsx
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
-    Inbox,
-    Star,
-    Archive,
-    Trash2,
-    RefreshCw,
-    Search,
-    ChevronDown,
-    MoreHorizontal,
-    Paperclip,
-    Send,
-    Calendar,
-    Clock,
-    User,
-    CheckCircle,
-    Circle,
-    ChevronRight,
-    X,
-    MessageSquare,
-    FileText,
-    Filter,
-    SortDesc,
-    Tag,
-    Flag,
-    Reply,
-    CornerUpLeft,
-    FolderOpen,
-    Download,
-    ExternalLink,
+    FolderOpen, Calendar, MapPin, Bed, Bath, Maximize,
+    ExternalLink, Globe, Search, X, RefreshCw, Filter,
+    Clock, Home, Building2, ChevronRight, Lock, Tag,
 } from "lucide-react";
 
 const API_BASE = "/api";
 
-type ClientProjectsProps = {
-    userName?: string;
-    userEmail?: string;
-    customerId?: string;
+const safeFetch = async (url: string) => {
+    try {
+        const r = await fetch(url);
+        if (!r.ok || !r.headers.get("content-type")?.includes("application/json")) return null;
+        return await r.json();
+    } catch { return null; }
 };
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface Project {
     projectId: string;
     projectCode: string;
     projectName: string;
     status: string;
+    priority?: string;
     description?: string;
+    startDate?: string;
+    endDate?: string;
     dateDue?: string;
-    dateStart?: string;
-    createdAt: string;
-    assignedBy?: string;
-    assignedByName?: string;
-    read: boolean;
-    starred: boolean;
-    archived: boolean;
-    flagged: boolean;
+    budget?: string;
+    createdAt?: string;
+    clientName?: string;
+    // Property fields
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    propertyType?: string;
+    bedrooms?: string;
+    bathrooms?: string;
+    sqft?: string;
+    lotSize?: string;
+    yearBuilt?: string;
+    amenities?: string[];
+    photos?: string[];
+    coverPhotoIndex?: number;
+    // Listing fields
+    isPublished?: boolean;
+    listingSlug?: string;
+    listingStatus?: string;
+    listingPrice?: string;
+    publishedAt?: string;
 }
 
-interface Comment {
-    id: string;
-    projectId: string;
-    author: string;
-    authorEmail: string;
-    authorRole: "client" | "consultant" | "admin";
-    content: string;
-    timestamp: string;
+interface ClientProjectsProps {
+    userName?: string;
+    userEmail?: string;
+    customerId?: string;
 }
 
-interface Attachment {
-    attachmentId: string;
-    fileName: string;
-    fileSize: string;
-    fileType: string;
-    uploadedBy: string;
-    createdAt: string;
-}
+// ─── Cover helpers (matches projects.tsx palette) ─────────────────────────────
 
-type ViewType = "inbox" | "starred" | "flagged" | "archived";
-type SortType = "date" | "name" | "status";
+const COVER_GRADIENTS = [
+    ["#0d1b2e", "#1a3a5c"], ["#111827", "#1e3a52"], ["#0f1f35", "#1c3554"],
+    ["#0c1a2e", "#163050"], ["#13202f", "#1b3349"],
+];
+const COVER_ACCENTS = [
+    "radial-gradient(circle at 20% 80%, rgba(59,130,246,0.25) 0%, transparent 60%)",
+    "radial-gradient(circle at 80% 20%, rgba(59,130,246,0.2) 0%, transparent 55%)",
+    "radial-gradient(circle at 50% 50%, rgba(37,99,235,0.18) 0%, transparent 65%)",
+];
 
-const STORAGE_KEY = "timely_client_projects_state";
+const getCoverGradient = (pid: string): React.CSSProperties => {
+    const hash   = pid.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    const [f, t] = COVER_GRADIENTS[hash % COVER_GRADIENTS.length];
+    const accent = COVER_ACCENTS[hash % COVER_ACCENTS.length];
+    return { background: `${accent}, linear-gradient(145deg, ${f} 0%, ${t} 100%)` };
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const ClientProjects: React.FC<ClientProjectsProps> = ({
     userName = "Client",
@@ -88,165 +88,86 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
 }) => {
     const { isDark } = useTheme();
 
-    // Modern theme with better hover states
-    const s = {
-        // Main backgrounds
-        bg: isDark ? "bg-slate-950" : "bg-gray-50",
-        sidebar: isDark ? "bg-slate-900" : "bg-white",
-        list: isDark ? "bg-slate-900" : "bg-white",
-        detail: isDark ? "bg-slate-950" : "bg-gray-50",
-
-        // Cards and items
-        card: isDark ? "bg-slate-800" : "bg-white",
-        cardHover: isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-50",
-        cardActive: isDark ? "bg-blue-600/20 border-l-blue-500" : "bg-blue-50 border-l-blue-500",
-        cardUnread: isDark ? "bg-slate-800" : "bg-white",
-
-        // Text
-        text: isDark ? "text-white" : "text-gray-900",
-        textSecondary: isDark ? "text-slate-400" : "text-gray-600",
-        textTertiary: isDark ? "text-slate-500" : "text-gray-400",
-
-        // Borders
-        border: isDark ? "border-slate-800" : "border-gray-200",
-        divider: isDark ? "border-slate-700" : "border-gray-200",
-
-        // Inputs
-        input: isDark
-            ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500"
-            : "bg-white border-gray-300 text-gray-900 placeholder-gray-400",
-
-        // Buttons
-        button: isDark
-            ? "bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white"
-            : "bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-900 border border-gray-300",
-        buttonPrimary: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white",
-
-        // Interactive states
-        clickable: "cursor-pointer active:scale-[0.98] transition-all duration-150",
-        hoverLift: "hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200",
-        hoverGlow: isDark ? "hover:shadow-blue-500/20" : "hover:shadow-blue-500/10",
+    const n = {
+        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
+        card:         isDark ? "neu-dark"           : "neu-light",
+        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
+        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
+        text:         isDark ? "text-white"         : "text-gray-900",
+        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
+        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
+        strong:       isDark ? "text-white"         : "text-black",
+        label:        isDark ? "text-blue-400"      : "text-blue-600",
+        link:         isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
+        divider:      isDark ? "border-gray-800"    : "border-gray-200",
+        modal:        isDark ? "bg-[#111111] border-gray-800" : "bg-[#e4e4e4] border-gray-300",
+        modalHead:    isDark ? "bg-[#111111]"       : "bg-[#e4e4e4]",
+        input:        isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
+        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        edgeHover: isDark
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
     };
 
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [comments, setComments] = useState<Comment[]>([]);
-    const [attachments, setAttachments] = useState<{ [key: string]: Attachment[] }>({});
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-
-    const [currentView, setCurrentView] = useState<ViewType>("inbox");
+    const [projects, setProjects]         = useState<Project[]>([]);
+    const [loading, setLoading]           = useState(true);
+    const [refreshing, setRefreshing]     = useState(false);
+    const [searchTerm, setSearchTerm]     = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [showFilters, setShowFilters]   = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [sortBy, setSortBy] = useState<SortType>("date");
 
-    const [newComment, setNewComment] = useState("");
-    const [sending, setSending] = useState(false);
-    const [showSortMenu, setShowSortMenu] = useState(false);
-
-    const commentsEndRef = useRef<HTMLDivElement>(null);
-
-    // Load data
-    useEffect(() => {
-        loadProjects();
-    }, [customerId]);
+    useEffect(() => { loadProjects(); }, [customerId]);
 
     const loadProjects = async () => {
         setRefreshing(true);
         try {
-            // Get project-client assignments from localStorage
+            // Get assigned project IDs from AssignmentService localStorage
+            const assignmentRaw  = JSON.parse(localStorage.getItem("timely_assignments") || "{}");
             const projectClients = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
-            const clientProjectIds = projectClients
+
+            const assignedIds: string[] = [];
+
+            // Format 1: timely_project_clients array
+            projectClients
                 .filter((pc: any) => String(pc.clientId) === String(customerId))
-                .map((pc: any) => String(pc.projectId));
+                .forEach((pc: any) => assignedIds.push(String(pc.projectId)));
 
-            // Get saved state (read, starred, etc.)
-            const savedState = JSON.parse(localStorage.getItem(`${STORAGE_KEY}_${customerId}`) || "{}");
-
-            // Fetch projects from API
-            const response = await fetch(`${API_BASE}/projects`);
-            if (response.ok) {
-                const data = await response.json();
-                const allProjects = data.data || [];
-
-                // Filter and enrich projects
-                const clientProjects: Project[] = await Promise.all(
-                    allProjects
-                        .filter((p: any) => clientProjectIds.includes(String(p.projectId)))
-                        .map(async (p: any) => {
-                            // Get project details
-                            let details: any = {};
-                            try {
-                                const res = await fetch(`${API_BASE}/project-details/${p.projectId}`);
-                                if (res.ok) {
-                                    const d = await res.json();
-                                    details = d.data || {};
-                                }
-                            } catch { }
-
-                            const assignment = projectClients.find(
-                                (pc: any) => String(pc.projectId) === String(p.projectId) && String(pc.clientId) === String(customerId)
-                            );
-
-                            const state = savedState[p.projectId] || {};
-
-                            return {
-                                projectId: p.projectId,
-                                projectCode: p.projectCode,
-                                projectName: p.projectName,
-                                status: p.status || "active",
-                                description: details.description || "",
-                                dateDue: details.dateDue,
-                                dateStart: details.dateStart,
-                                createdAt: assignment?.assignedAt || details.createdAt || new Date().toISOString(),
-                                assignedBy: assignment?.assignedBy || "",
-                                assignedByName: assignment?.assignedByName || "Admin",
-                                read: state.read ?? false,
-                                starred: state.starred ?? false,
-                                archived: state.archived ?? false,
-                                flagged: state.flagged ?? false,
-                            };
-                        })
-                );
-
-                clientProjects.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                setProjects(clientProjects);
-
-                // Load attachments
-                const attMap: { [key: string]: Attachment[] } = {};
-                for (const p of clientProjects) {
-                    try {
-                        const res = await fetch(`${API_BASE}/project-attachments/${p.projectId}`);
-                        if (res.ok) {
-                            const d = await res.json();
-                            attMap[p.projectId] = d.data || [];
-                        }
-                    } catch { }
-                }
-                setAttachments(attMap);
-
-                // Load comments
-                const allComments: Comment[] = [];
-                for (const p of clientProjects) {
-                    try {
-                        const res = await fetch(`${API_BASE}/project-comments/${p.projectId}`);
-                        if (res.ok) {
-                            const d = await res.json();
-                            (d.data || []).forEach((c: any) => {
-                                allComments.push({
-                                    id: c.commentId,
-                                    projectId: c.projectId,
-                                    author: c.author,
-                                    authorEmail: c.authorEmail || "",
-                                    authorRole: c.authorRole || "consultant",
-                                    content: c.commentText,
-                                    timestamp: c.createdAt,
-                                });
-                            });
-                        }
-                    } catch { }
-                }
-                setComments(allComments);
+            // Format 2: timely_assignments object
+            if (assignmentRaw.projectClients) {
+                assignmentRaw.projectClients
+                    .filter((pc: any) => String(pc.clientId) === String(customerId))
+                    .forEach((pc: any) => {
+                        if (!assignedIds.includes(String(pc.projectId))) assignedIds.push(String(pc.projectId));
+                    });
             }
+
+            // Format 3: per-project key timely_project_clients_<projectId>
+            const allLocalKeys = Object.keys(localStorage);
+            allLocalKeys.filter(k => k.startsWith("timely_project_clients_")).forEach(k => {
+                const projectId = k.replace("timely_project_clients_", "");
+                const data      = JSON.parse(localStorage.getItem(k) || "[]");
+                if (data.some((pc: any) => String(pc.clientId) === String(customerId)) && !assignedIds.includes(projectId)) {
+                    assignedIds.push(projectId);
+                }
+            });
+
+            // Load all projects: API + localStorage enrichment
+            const apiRes = await safeFetch(`${API_BASE}/projects`);
+            const apiProjects: Project[] = apiRes?.data || [];
+            const localProjects: Project[] = JSON.parse(localStorage.getItem("timely_projects") || "[]");
+
+            // Merge
+            const merged: Project[] = [...apiProjects];
+            localProjects.forEach(lp => {
+                const idx = merged.findIndex(ap => String(ap.projectId) === String(lp.projectId));
+                if (idx === -1) { merged.push(lp); }
+                else            { merged[idx] = { ...merged[idx], ...lp }; }
+            });
+
+            const assigned = merged.filter(p => assignedIds.includes(String(p.projectId)));
+            setProjects(assigned);
         } catch (e) {
             console.error("Error loading projects:", e);
         } finally {
@@ -255,685 +176,421 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
         }
     };
 
-    // Save state
-    const saveState = (updated: Project[]) => {
-        const state: any = {};
-        updated.forEach((p) => {
-            state[p.projectId] = {
-                read: p.read,
-                starred: p.starred,
-                archived: p.archived,
-                flagged: p.flagged,
-            };
-        });
-        localStorage.setItem(`${STORAGE_KEY}_${customerId}`, JSON.stringify(state));
-    };
-
-    // Actions
-    const markAsRead = (id: string) => {
-        const updated = projects.map((p) => (p.projectId === id ? { ...p, read: true } : p));
-        setProjects(updated);
-        saveState(updated);
-    };
-
-    const toggleStar = (id: string, e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        const updated = projects.map((p) => (p.projectId === id ? { ...p, starred: !p.starred } : p));
-        setProjects(updated);
-        saveState(updated);
-    };
-
-    const toggleFlag = (id: string, e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        const updated = projects.map((p) => (p.projectId === id ? { ...p, flagged: !p.flagged } : p));
-        setProjects(updated);
-        saveState(updated);
-    };
-
-    const archiveProject = (id: string) => {
-        const updated = projects.map((p) => (p.projectId === id ? { ...p, archived: true } : p));
-        setProjects(updated);
-        saveState(updated);
-        if (selectedProject?.projectId === id) setSelectedProject(null);
-    };
-
-    const unarchiveProject = (id: string) => {
-        const updated = projects.map((p) => (p.projectId === id ? { ...p, archived: false } : p));
-        setProjects(updated);
-        saveState(updated);
-    };
-
-    const openProject = (project: Project) => {
-        setSelectedProject(project);
-        if (!project.read) markAsRead(project.projectId);
-    };
-
-    // Send comment
-    const handleSendComment = async () => {
-        if (!newComment.trim() || !selectedProject) return;
-        setSending(true);
-
-        const comment: Comment = {
-            id: `cm_${Date.now()}`,
-            projectId: selectedProject.projectId,
-            author: userName,
-            authorEmail: userEmail,
-            authorRole: "client",
-            content: newComment.trim(),
-            timestamp: new Date().toISOString(),
-        };
-
-        setComments([...comments, comment]);
-
-        try {
-            await fetch(`${API_BASE}/project-comments`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    projectId: selectedProject.projectId,
-                    author: userName,
-                    commentText: newComment.trim(),
-                    performedBy: userEmail,
-                }),
-            });
-        } catch { }
-
-        setNewComment("");
-        setSending(false);
-        setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    };
-
-    // Filter & sort
     const filteredProjects = useMemo(() => {
-        let result = projects;
+        let list = projects;
+        if (searchTerm) list = list.filter(p =>
+            p.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.projectCode || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.city || "").toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        if (statusFilter !== "all") list = list.filter(p => p.status === statusFilter);
+        return list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    }, [projects, searchTerm, statusFilter]);
 
-        switch (currentView) {
-            case "starred": result = result.filter((p) => p.starred && !p.archived); break;
-            case "flagged": result = result.filter((p) => p.flagged && !p.archived); break;
-            case "archived": result = result.filter((p) => p.archived); break;
-            default: result = result.filter((p) => !p.archived); break;
-        }
+    const stats = useMemo(() => ({
+        total:     projects.length,
+        active:    projects.filter(p => p.status === "active" || p.status === "in_progress").length,
+        completed: projects.filter(p => p.status === "completed").length,
+        listed:    projects.filter(p => p.isPublished).length,
+    }), [projects]);
 
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase();
-            result = result.filter((p) =>
-                p.projectName.toLowerCase().includes(q) ||
-                p.projectCode.toLowerCase().includes(q) ||
-                p.description?.toLowerCase().includes(q)
-            );
-        }
+    const formatDate = (d?: string) => d
+        ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : null;
 
-        switch (sortBy) {
-            case "name": result.sort((a, b) => a.projectName.localeCompare(b.projectName)); break;
-            case "status": result.sort((a, b) => a.status.localeCompare(b.status)); break;
-            default: result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        }
+    const formatPrice = (p?: string) => p ? `$${Number(p).toLocaleString()}` : null;
 
-        return result;
-    }, [projects, currentView, searchQuery, sortBy]);
+    const statusBadge = (status: string) => ({
+        active:      "bg-emerald-500/10 text-emerald-500",
+        in_progress: "bg-emerald-500/10 text-emerald-500",
+        completed:   "bg-blue-500/10 text-blue-500",
+        pending:     "bg-amber-500/10 text-amber-500",
+        on_hold:     "bg-gray-500/10 text-gray-500",
+        planning:    "bg-blue-500/10 text-blue-400",
+        cancelled:   "bg-red-500/10 text-red-500",
+    }[status] || "bg-emerald-500/10 text-emerald-500");
 
-    const projectComments = useMemo(() => {
-        if (!selectedProject) return [];
-        return comments
-            .filter((c) => c.projectId === selectedProject.projectId)
-            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    }, [comments, selectedProject]);
+    const statusLabel = (status: string) => ({
+        active: "In Progress", in_progress: "In Progress",
+        completed: "Completed", pending: "Pending",
+        on_hold: "On Hold", planning: "Planning", cancelled: "Cancelled",
+    }[status] || "Active");
 
-    // Stats
-    const stats = {
-        unread: projects.filter((p) => !p.read && !p.archived).length,
-        starred: projects.filter((p) => p.starred && !p.archived).length,
-        flagged: projects.filter((p) => p.flagged && !p.archived).length,
-        archived: projects.filter((p) => p.archived).length,
+    const listingStatusColor = (s?: string): string => ({
+        active:  "bg-emerald-600 text-white",
+        pending: "bg-amber-600 text-white",
+        sold:    "bg-gray-600 text-white",
+    }[s || "active"] || "bg-emerald-600 text-white");
+
+    const getListingUrl = (slug: string) => `${window.location.origin}/listing/${slug}`;
+
+    // ── Project cover ─────────────────────────────────────────────────────────
+    const ProjectCover: React.FC<{ p: Project; className?: string }> = ({ p, className = "" }) => {
+        const src = p.photos && p.photos.length > 0 ? p.photos[p.coverPhotoIndex || 0] : null;
+        return src ? (
+            <img src={src} alt={p.projectName} className={`absolute inset-0 w-full h-full object-cover ${className}`} />
+        ) : (
+            <>
+                <div className={`absolute inset-0 ${className}`} style={getCoverGradient(p.projectId)} />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    {p.propertyType === "commercial"
+                        ? <Building2 className="w-16 h-16 opacity-[0.05] text-white" strokeWidth={1} />
+                        : <Home      className="w-16 h-16 opacity-[0.05] text-white" strokeWidth={1} />
+                    }
+                </div>
+            </>
+        );
     };
 
-    // Formatters
-    const formatDate = (d: string) => {
-        const date = new Date(d);
-        const now = new Date();
-        const diff = now.getTime() - date.getTime();
-        const days = Math.floor(diff / 86400000);
-
-        if (days === 0) return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-        if (days === 1) return "Yesterday";
-        if (days < 7) return date.toLocaleDateString("en-US", { weekday: "short" });
-        return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    };
-
-    const formatFullDate = (d: string) => {
-        if (!d) return "";
-        return new Date(d).toLocaleDateString("en-US", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-        });
-    };
-
-    const getStatusBadge = (status: string) => {
-        const styles: any = {
-            active: { bg: "bg-emerald-500/10", text: "text-emerald-500", label: "In Progress", color: "emerald" },
-            completed: { bg: "bg-blue-500/10", text: "text-blue-500", label: "Completed", color: "blue" },
-            pending: { bg: "bg-amber-500/10", text: "text-amber-500", label: "Pending", color: "amber" },
-            on_hold: { bg: "bg-gray-500/10", text: "text-gray-500", label: "On Hold", color: "gray" },
-        };
-        return styles[status] || styles.active;
-    };
-
-    const getViewIcon = (view: ViewType) => {
-        switch (view) {
-            case "inbox": return Inbox;
-            case "starred": return Star;
-            case "flagged": return Flag;
-            case "archived": return Archive;
-        }
-    };
-
-    const getViewLabel = (view: ViewType) => {
-        switch (view) {
-            case "inbox": return "Inbox";
-            case "starred": return "Starred";
-            case "flagged": return "Flagged";
-            case "archived": return "Archive";
-        }
-    };
+    // ─────────────────────────────────────────────────────────────────────────
+    if (loading) return (
+        <div className="flex items-center justify-center py-24">
+            <div className="text-center">
+                <RefreshCw className={`w-7 h-7 ${n.label} animate-spin mx-auto mb-3`} />
+                <p className={`${n.secondary} text-sm`}>Loading your projects…</p>
+            </div>
+        </div>
+    );
 
     return (
-        <div className={`${s.bg} min-h-full -mx-6 -mt-20 pt-20`}>
-            <div className="flex h-[calc(100vh-5rem)]">
-                {/* Left Sidebar - Folders */}
-                <div className={`w-56 ${s.sidebar} border-r ${s.border} flex flex-col shrink-0`}>
-                    <div className="p-4">
-                        <button
-                            onClick={loadProjects}
-                            disabled={refreshing}
-                            className={`w-full ${s.buttonPrimary} px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:shadow-md`}
-                        >
-                            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : "hover:rotate-180 transition-transform duration-500"}`} />
-                            {refreshing ? "Refreshing..." : "Refresh"}
-                        </button>
-                    </div>
+        <div className="space-y-6">
 
-                    <nav className="flex-1 px-3 space-y-1">
-                        <p className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider ${s.textTertiary}`}>
-                            Folders
-                        </p>
-                        {[
-                            { id: "inbox", label: "Inbox", icon: Inbox, count: stats.unread, color: "blue" },
-                            { id: "starred", label: "Starred", icon: Star, count: stats.starred, color: "amber" },
-                            { id: "flagged", label: "Flagged", icon: Flag, count: stats.flagged, color: "red" },
-                            { id: "archived", label: "Archive", icon: Archive, count: stats.archived, color: "gray" },
-                        ].map((item) => {
-                            const isActive = currentView === item.id;
-                            return (
-                                <button
-                                    key={item.id}
-                                    onClick={() => { setCurrentView(item.id as ViewType); setSelectedProject(null); }}
-                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all duration-200 active:scale-[0.98] group ${isActive
-                                            ? `bg-blue-600/20 text-blue-500 font-semibold shadow-md ${isDark ? "shadow-blue-500/10" : "shadow-blue-500/20"}`
-                                            : `${s.text} ${s.cardHover} hover:shadow-md`
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${isActive
-                                                ? "bg-blue-500 shadow-lg shadow-blue-500/30"
-                                                : `${isDark ? "bg-slate-700" : "bg-gray-100"} group-hover:scale-105`
-                                            }`}>
-                                            <item.icon className={`w-4 h-4 ${isActive ? "text-white" : s.textSecondary}`} />
-                                        </div>
-                                        {item.label}
-                                    </div>
-                                    {item.count !== undefined && item.count > 0 && (
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full transition-all ${isActive
-                                                ? "bg-blue-500 text-white"
-                                                : `${isDark ? "bg-slate-700" : "bg-gray-200"} ${s.textSecondary}`
-                                            }`}>
-                                            {item.count}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </nav>
+            {/* Header */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className={`text-xl font-semibold ${n.strong}`}>My Projects</h1>
+                    <p className={`text-sm ${n.secondary} mt-0.5`}>Properties and projects assigned to you</p>
+                </div>
+                <button onClick={loadProjects} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl`}>
+                    <RefreshCw className={`w-4 h-4 ${n.secondary} ${refreshing ? "animate-spin" : ""}`} />
+                </button>
+            </div>
 
-                    {/* Stats Footer */}
-                    <div className={`p-4 border-t ${s.border}`}>
-                        <div className={`p-3 rounded-xl ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
-                            <p className={`text-xs font-semibold ${s.textSecondary} mb-2`}>Summary</p>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="text-center">
-                                    <p className={`text-lg font-bold ${s.text}`}>{projects.filter(p => !p.archived).length}</p>
-                                    <p className={`text-xs ${s.textTertiary}`}>Active</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className={`text-lg font-bold ${s.text}`}>{stats.unread}</p>
-                                    <p className={`text-xs ${s.textTertiary}`}>Unread</p>
-                                </div>
-                            </div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                    { label: "Total",     value: stats.total,     dot: "bg-blue-500" },
+                    { label: "Active",    value: stats.active,    dot: "bg-emerald-500" },
+                    { label: "Completed", value: stats.completed, dot: "bg-blue-500" },
+                    { label: "Listings",  value: stats.listed,    dot: "bg-emerald-500" },
+                ].map((st, i) => (
+                    <div key={i} className={`${n.card} ${n.edgeHover} p-4 rounded-2xl transition-all`}>
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                            <span className={`text-[11px] uppercase tracking-widest ${n.tertiary}`}>{st.label}</span>
                         </div>
+                        <div className={`text-2xl font-semibold ${n.strong} tabular-nums`}>{st.value}</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Search + filter */}
+            <div className="flex gap-3">
+                <div className={`flex-1 ${n.flat} flex items-center gap-2 px-4 py-2.5 rounded-xl`}>
+                    <Search className={`w-4 h-4 ${n.tertiary} flex-shrink-0`} />
+                    <input type="text" placeholder="Search by name, code, or city…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full bg-transparent ${n.text} text-sm focus:outline-none`} />
+                    {searchTerm && <button onClick={() => setSearchTerm("")}><X className={`w-3.5 h-3.5 ${n.tertiary}`} /></button>}
+                </div>
+                <button onClick={() => setShowFilters(!showFilters)} className={`w-9 h-9 ${showFilters ? n.inset : n.flat} flex items-center justify-center rounded-xl`}>
+                    <Filter className={`w-4 h-4 ${showFilters ? n.label : n.secondary}`} />
+                </button>
+            </div>
+
+            {showFilters && (
+                <div className={`${n.card} p-4 rounded-2xl`}>
+                    <label className={`${n.tertiary} text-[11px] block mb-2 uppercase tracking-wider`}>Status</label>
+                    <div className="flex flex-wrap gap-2">
+                        {["all", "active", "in_progress", "completed", "pending", "on_hold"].map(s => (
+                            <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 rounded-lg text-xs capitalize transition-all ${statusFilter === s ? "bg-blue-600 text-white" : `${n.flat} ${n.secondary}`}`}>
+                                {s === "all" ? "All" : statusLabel(s)}
+                            </button>
+                        ))}
                     </div>
                 </div>
+            )}
 
-                {/* Middle - Project List */}
-                <div className={`w-96 ${s.list} border-r ${s.border} flex flex-col shrink-0`}>
-                    {/* Search & Filter Bar */}
-                    <div className={`p-4 border-b ${s.border}`}>
-                        <div className="relative group">
-                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${s.textTertiary} group-focus-within:text-blue-500 transition-colors`} />
-                            <input
-                                type="text"
-                                placeholder="Search projects..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${s.input} text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
-                            />
-                        </div>
-                        <div className="flex items-center justify-between mt-3">
-                            <span className={`text-xs font-medium ${s.textSecondary}`}>
-                                {filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""}
-                            </span>
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowSortMenu(!showSortMenu)}
-                                    className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ${s.button} transition-all duration-200 hover:shadow-md active:scale-95`}
-                                >
-                                    <SortDesc className="w-3.5 h-3.5" />
-                                    Sort
-                                    <ChevronDown className={`w-3 h-3 transition-transform ${showSortMenu ? "rotate-180" : ""}`} />
-                                </button>
-                                {showSortMenu && (
-                                    <div className={`absolute right-0 top-full mt-2 ${s.card} border ${s.border} rounded-xl shadow-xl py-2 z-10 min-w-[120px] animate-in fade-in slide-in-from-top-2 duration-200`}>
-                                        {[
-                                            { id: "date", label: "Date", icon: Calendar },
-                                            { id: "name", label: "Name", icon: FileText },
-                                            { id: "status", label: "Status", icon: Tag },
-                                        ].map((opt) => (
-                                            <button
-                                                key={opt.id}
-                                                onClick={() => { setSortBy(opt.id as SortType); setShowSortMenu(false); }}
-                                                className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 transition-all duration-150 ${s.cardHover} active:scale-[0.98] ${sortBy === opt.id ? "text-blue-500 font-semibold" : s.text
-                                                    }`}
+            {/* Project grid */}
+            {filteredProjects.length === 0 ? (
+                <div className={`${n.card} rounded-2xl text-center py-20`}>
+                    <FolderOpen className={`w-12 h-12 ${n.tertiary} mx-auto mb-4`} strokeWidth={1.5} />
+                    <p className={`${n.secondary} text-sm font-medium`}>
+                        {projects.length === 0 ? "No projects assigned yet" : "No projects match your search"}
+                    </p>
+                    <p className={`${n.tertiary} text-xs mt-1`}>Your agent will assign projects to your account</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {filteredProjects.map(p => {
+                        const price    = formatPrice(p.listingPrice);
+                        const location = [p.address, p.city, p.state].filter(Boolean).join(", ");
+
+                        return (
+                            <div key={p.projectId} className={`${n.card} rounded-2xl overflow-hidden ${n.edgeHover} transition-all flex flex-col`}>
+
+                                {/* Cover */}
+                                <div className="relative h-44 flex-shrink-0 overflow-hidden">
+                                    <ProjectCover p={p} />
+
+                                    {/* Status badge */}
+                                    <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${statusBadge(p.status)} backdrop-blur-sm bg-black/30 !text-white`}>
+                                        {statusLabel(p.status)}
+                                    </div>
+
+                                    {/* Listing badge */}
+                                    {p.isPublished && (
+                                        <div className={`absolute top-3 right-3 px-2 py-1 rounded-lg text-[10px] font-semibold ${listingStatusColor(p.listingStatus)} flex items-center gap-1`}>
+                                            <Globe className="w-2.5 h-2.5" />
+                                            {p.listingStatus === "sold" ? "Sold" : p.listingStatus === "pending" ? "Pending" : "For Sale"}
+                                        </div>
+                                    )}
+
+                                    {/* Price chip */}
+                                    {price && (
+                                        <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm rounded-lg text-white text-xs font-bold">
+                                            {price}
+                                        </div>
+                                    )}
+
+                                    {/* Photo count chip */}
+                                    {p.photos && p.photos.length > 0 && (
+                                        <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
+                                            <Home className="w-3 h-3" />{p.photos.length} photos
+                                        </div>
+                                    )}
+
+                                    <div className="absolute bottom-0 left-0 right-0 h-6" style={{ background: isDark ? "linear-gradient(to bottom, transparent, rgba(17,17,17,0.8))" : "linear-gradient(to bottom, transparent, rgba(228,228,228,0.7))" }} />
+                                </div>
+
+                                {/* Body */}
+                                <div className="p-4 flex flex-col flex-1 gap-2.5">
+                                    <div>
+                                        <h3 className={`${n.strong} font-semibold text-[15px] leading-snug`}>{p.projectName}</h3>
+                                        <p className={`${n.tertiary} text-[11px] font-mono mt-0.5`}>{p.projectCode}</p>
+                                    </div>
+
+                                    {location && (
+                                        <div className="flex items-center gap-1.5">
+                                            <MapPin className={`w-3 h-3 ${n.tertiary} flex-shrink-0`} />
+                                            <span className={`${n.secondary} text-xs truncate`}>{location}</span>
+                                        </div>
+                                    )}
+
+                                    {(p.bedrooms || p.bathrooms || p.sqft) && (
+                                        <div className={`flex items-center gap-3 text-[11px] ${n.tertiary}`}>
+                                            {p.bedrooms  && <span className="flex items-center gap-1"><Bed      className="w-3 h-3" />{p.bedrooms} bd</span>}
+                                            {p.bathrooms && <span className="flex items-center gap-1"><Bath     className="w-3 h-3" />{p.bathrooms} ba</span>}
+                                            {p.sqft      && <span className="flex items-center gap-1"><Maximize className="w-3 h-3" />{Number(p.sqft).toLocaleString()} sqft</span>}
+                                        </div>
+                                    )}
+
+                                    {p.propertyType && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Tag className={`w-3 h-3 ${n.tertiary}`} />
+                                            <span className={`${n.tertiary} text-xs capitalize`}>{p.propertyType.replace("_", " ")}</span>
+                                        </div>
+                                    )}
+
+                                    {p.description && <p className={`${n.secondary} text-xs leading-relaxed line-clamp-2`}>{p.description}</p>}
+
+                                    {(p.startDate || p.endDate || p.dateDue) && (
+                                        <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}>
+                                            <Calendar className="w-3 h-3 flex-shrink-0" />
+                                            <span>
+                                                {p.startDate ? formatDate(p.startDate) : "—"}
+                                                {(p.endDate || p.dateDue) && ` — ${formatDate(p.endDate || p.dateDue)}`}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <div className="flex-1" />
+
+                                    {/* Footer actions */}
+                                    <div className={`flex items-center justify-between pt-3 border-t ${n.divider}`}>
+                                        <button
+                                            onClick={() => setSelectedProject(p)}
+                                            className={`text-xs ${n.link} flex items-center gap-1`}
+                                        >
+                                            Details <ChevronRight className="w-3 h-3" />
+                                        </button>
+
+                                        {p.isPublished && p.listingSlug ? (
+                                            <a
+                                                href={getListingUrl(p.listingSlug)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-[11px] font-medium flex items-center gap-1.5`}
                                             >
-                                                <opt.icon className="w-4 h-4" />
-                                                {opt.label}
-                                                {sortBy === opt.id && <CheckCircle className="w-4 h-4 ml-auto" />}
-                                            </button>
+                                                <Globe className="w-3 h-3" />View Listing
+                                            </a>
+                                        ) : (
+                                            <div className={`flex items-center gap-1 text-[11px] ${n.tertiary}`}>
+                                                <Lock className="w-3 h-3" />No listing yet
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* ── Detail Modal ── */}
+            {selectedProject && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
+                    <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
+
+                        {/* Header with cover */}
+                        <div className="relative h-52 flex-shrink-0 overflow-hidden rounded-t-2xl">
+                            <ProjectCover p={selectedProject} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-5 flex items-end justify-between">
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">{selectedProject.projectName}</h2>
+                                    <p className="text-white/60 text-xs font-mono mt-0.5">{selectedProject.projectCode}</p>
+                                </div>
+                                <button onClick={() => setSelectedProject(null)} className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center">
+                                    <X className="w-4 h-4 text-white" />
+                                </button>
+                            </div>
+                            {selectedProject.isPublished && (
+                                <div className={`absolute top-3 right-3 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${listingStatusColor(selectedProject.listingStatus)} flex items-center gap-1`}>
+                                    <Globe className="w-2.5 h-2.5" />
+                                    {selectedProject.listingStatus === "sold" ? "Sold" : selectedProject.listingStatus === "pending" ? "Pending" : "For Sale"}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-5 space-y-5">
+
+                            {/* Status + price */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${statusBadge(selectedProject.status)}`}>
+                                    {statusLabel(selectedProject.status)}
+                                </span>
+                                {selectedProject.listingPrice && (
+                                    <span className={`text-xl font-bold ${n.strong}`}>{formatPrice(selectedProject.listingPrice)}</span>
+                                )}
+                            </div>
+
+                            {/* Property stats */}
+                            {(selectedProject.bedrooms || selectedProject.bathrooms || selectedProject.sqft || selectedProject.yearBuilt) && (
+                                <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3`}>
+                                    {selectedProject.bedrooms && (
+                                        <div className={`${n.flat} p-3 rounded-xl text-center`}>
+                                            <Bed className={`w-4 h-4 ${n.label} mx-auto mb-1`} />
+                                            <p className={`font-semibold ${n.strong}`}>{selectedProject.bedrooms}</p>
+                                            <p className={`text-[10px] ${n.tertiary}`}>Bedrooms</p>
+                                        </div>
+                                    )}
+                                    {selectedProject.bathrooms && (
+                                        <div className={`${n.flat} p-3 rounded-xl text-center`}>
+                                            <Bath className={`w-4 h-4 ${n.label} mx-auto mb-1`} />
+                                            <p className={`font-semibold ${n.strong}`}>{selectedProject.bathrooms}</p>
+                                            <p className={`text-[10px] ${n.tertiary}`}>Bathrooms</p>
+                                        </div>
+                                    )}
+                                    {selectedProject.sqft && (
+                                        <div className={`${n.flat} p-3 rounded-xl text-center`}>
+                                            <Maximize className={`w-4 h-4 ${n.label} mx-auto mb-1`} />
+                                            <p className={`font-semibold ${n.strong}`}>{Number(selectedProject.sqft).toLocaleString()}</p>
+                                            <p className={`text-[10px] ${n.tertiary}`}>Sq Ft</p>
+                                        </div>
+                                    )}
+                                    {selectedProject.yearBuilt && (
+                                        <div className={`${n.flat} p-3 rounded-xl text-center`}>
+                                            <Clock className={`w-4 h-4 ${n.label} mx-auto mb-1`} />
+                                            <p className={`font-semibold ${n.strong}`}>{selectedProject.yearBuilt}</p>
+                                            <p className={`text-[10px] ${n.tertiary}`}>Year Built</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Address */}
+                            {(selectedProject.address || selectedProject.city) && (
+                                <div className={`${n.flat} p-4 rounded-xl flex items-start gap-3`}>
+                                    <MapPin className={`w-4 h-4 ${n.label} flex-shrink-0 mt-0.5`} />
+                                    <div>
+                                        {selectedProject.address && <p className={`${n.text} text-sm font-medium`}>{selectedProject.address}</p>}
+                                        <p className={`${n.secondary} text-xs`}>{[selectedProject.city, selectedProject.state, selectedProject.zip].filter(Boolean).join(", ")}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Description */}
+                            {selectedProject.description && (
+                                <div>
+                                    <p className={`${n.label} text-[11px] uppercase tracking-wider mb-2`}>Description</p>
+                                    <p className={`${n.secondary} text-sm leading-relaxed`}>{selectedProject.description}</p>
+                                </div>
+                            )}
+
+                            {/* Amenities */}
+                            {selectedProject.amenities && selectedProject.amenities.length > 0 && (
+                                <div>
+                                    <p className={`${n.label} text-[11px] uppercase tracking-wider mb-2`}>Amenities</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedProject.amenities.map(a => (
+                                            <span key={a} className={`px-2.5 py-1 ${n.flat} rounded-lg text-xs ${n.secondary}`}>{a}</span>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Timeline */}
+                            {(selectedProject.startDate || selectedProject.endDate) && (
+                                <div className={`${n.flat} p-4 rounded-xl`}>
+                                    <p className={`${n.label} text-[11px] uppercase tracking-wider mb-3`}>Timeline</p>
+                                    <div className="flex gap-8">
+                                        {selectedProject.startDate && (
+                                            <div><p className={`${n.tertiary} text-[10px]`}>Start</p><p className={`${n.text} text-sm`}>{formatDate(selectedProject.startDate)}</p></div>
+                                        )}
+                                        {selectedProject.endDate && (
+                                            <div><p className={`${n.tertiary} text-[10px]`}>Target Close</p><p className={`${n.text} text-sm`}>{formatDate(selectedProject.endDate)}</p></div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Photo gallery strip */}
+                            {selectedProject.photos && selectedProject.photos.length > 1 && (
+                                <div>
+                                    <p className={`${n.label} text-[11px] uppercase tracking-wider mb-2`}>Photos</p>
+                                    <div className="flex gap-2 overflow-x-auto pb-1">
+                                        {selectedProject.photos.map((photo, i) => (
+                                            <div key={i} className="w-20 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                                <img src={photo} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* CTA */}
+                            <div className="flex gap-3 pt-2">
+                                <button onClick={() => setSelectedProject(null)} className={`flex-1 px-4 py-2.5 ${n.btnSecondary} rounded-xl text-sm`}>
+                                    Close
+                                </button>
+                                {selectedProject.isPublished && selectedProject.listingSlug ? (
+                                    <a
+                                        href={getListingUrl(selectedProject.listingSlug)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={`flex-1 px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}
+                                    >
+                                        <Globe className="w-4 h-4" />View Full Listing
+                                    </a>
+                                ) : (
+                                    <div className={`flex-1 px-4 py-2.5 ${n.flat} rounded-xl text-sm flex items-center justify-center gap-2 ${n.tertiary}`}>
+                                        <Lock className="w-4 h-4" />Listing not available yet
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
-
-                    {/* Project List */}
-                    <div className="flex-1 overflow-y-auto">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center py-16">
-                                <RefreshCw className={`w-8 h-8 text-blue-500 animate-spin mb-3`} />
-                                <p className={s.textSecondary}>Loading projects...</p>
-                            </div>
-                        ) : filteredProjects.length === 0 ? (
-                            <div className="text-center py-16">
-                                <div className={`w-16 h-16 rounded-2xl ${isDark ? "bg-slate-800" : "bg-gray-100"} flex items-center justify-center mx-auto mb-4`}>
-                                    <FolderOpen className={`w-8 h-8 ${s.textTertiary}`} />
-                                </div>
-                                <p className={`font-semibold ${s.text} mb-1`}>No projects</p>
-                                <p className={`text-sm ${s.textSecondary}`}>
-                                    {currentView === "inbox" ? "No projects in your inbox" : `No ${currentView} projects`}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-slate-800/50">
-                                {filteredProjects.map((project, index) => {
-                                    const isSelected = selectedProject?.projectId === project.projectId;
-                                    const hasAttachments = (attachments[project.projectId]?.length || 0) > 0;
-                                    const commentCount = comments.filter((c) => c.projectId === project.projectId).length;
-                                    const status = getStatusBadge(project.status);
-
-                                    return (
-                                        <div
-                                            key={project.projectId}
-                                            onClick={() => openProject(project)}
-                                            style={{ animationDelay: `${index * 30}ms` }}
-                                            className={`px-4 py-4 cursor-pointer transition-all duration-200 animate-in fade-in slide-in-from-left-2 group ${isSelected
-                                                    ? `${s.cardActive} border-l-4`
-                                                    : `${s.cardHover} border-l-4 border-l-transparent hover:border-l-blue-500/50`
-                                                } ${!project.read ? "bg-blue-500/5" : ""}`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                {/* Unread indicator / Avatar */}
-                                                <div className="relative">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm transition-all duration-200 group-hover:scale-105 ${project.status === "completed" ? "bg-gradient-to-br from-blue-500 to-blue-600" :
-                                                            project.status === "pending" ? "bg-gradient-to-br from-amber-500 to-amber-600" :
-                                                                "bg-gradient-to-br from-emerald-500 to-emerald-600"
-                                                        } shadow-lg ${project.status === "completed" ? "shadow-blue-500/20" :
-                                                            project.status === "pending" ? "shadow-amber-500/20" :
-                                                                "shadow-emerald-500/20"
-                                                        }`}>
-                                                        {project.projectName.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    {!project.read && (
-                                                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900 animate-pulse" />
-                                                    )}
-                                                </div>
-
-                                                {/* Content */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className={`text-xs font-medium ${s.textSecondary}`}>
-                                                            {project.assignedByName || "Admin"}
-                                                        </span>
-                                                        <span className={`text-xs ${s.textTertiary}`}>
-                                                            {formatDate(project.createdAt)}
-                                                        </span>
-                                                    </div>
-
-                                                    <p className={`text-sm font-semibold ${s.text} truncate group-hover:text-blue-500 transition-colors`}>
-                                                        {project.projectName}
-                                                    </p>
-
-                                                    <p className={`text-xs ${s.textSecondary} truncate mt-0.5`}>
-                                                        {project.description || project.projectCode}
-                                                    </p>
-
-                                                    {/* Meta row */}
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        {hasAttachments && (
-                                                            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
-                                                                <Paperclip className={`w-3 h-3 ${s.textTertiary}`} />
-                                                            </div>
-                                                        )}
-                                                        {commentCount > 0 && (
-                                                            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
-                                                                <MessageSquare className={`w-3 h-3 ${s.textTertiary}`} />
-                                                                <span className={`text-xs ${s.textTertiary}`}>{commentCount}</span>
-                                                            </div>
-                                                        )}
-                                                        <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${status.bg} ${status.text}`}>
-                                                            {status.label}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Actions */}
-                                                <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                    <button
-                                                        onClick={(e) => toggleStar(project.projectId, e)}
-                                                        className={`p-1.5 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 ${project.starred ? "bg-amber-500/20" : "hover:bg-slate-700/50"
-                                                            }`}
-                                                    >
-                                                        <Star className={`w-4 h-4 transition-colors ${project.starred ? "fill-amber-500 text-amber-500" : s.textTertiary}`} />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => toggleFlag(project.projectId, e)}
-                                                        className={`p-1.5 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 ${project.flagged ? "bg-red-500/20" : "hover:bg-slate-700/50"
-                                                            }`}
-                                                    >
-                                                        <Flag className={`w-4 h-4 transition-colors ${project.flagged ? "fill-red-500 text-red-500" : s.textTertiary}`} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
                 </div>
-
-                {/* Right - Project Detail */}
-                <div className={`flex-1 ${s.detail} flex flex-col min-w-0`}>
-                    {!selectedProject ? (
-                        <div className="flex-1 flex items-center justify-center">
-                            <div className="text-center">
-                                <div className={`w-24 h-24 rounded-3xl ${isDark ? "bg-slate-800" : "bg-gray-100"} flex items-center justify-center mx-auto mb-6`}>
-                                    <Inbox className={`w-12 h-12 ${s.textTertiary}`} />
-                                </div>
-                                <p className={`text-xl font-semibold ${s.text} mb-2`}>Select a project</p>
-                                <p className={s.textSecondary}>Choose a project from the list to view details</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Header */}
-                            <div className={`px-6 py-5 border-b ${s.border} ${s.card}`}>
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-start gap-4">
-                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg ${selectedProject.status === "completed" ? "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/20" :
-                                                selectedProject.status === "pending" ? "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/20" :
-                                                    "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20"
-                                            }`}>
-                                            {selectedProject.projectName.substring(0, 2).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <h1 className={`text-xl font-bold ${s.text}`}>
-                                                {selectedProject.projectName}
-                                            </h1>
-                                            <div className={`flex items-center gap-3 mt-1`}>
-                                                <span className={`text-sm ${s.textSecondary}`}>{selectedProject.projectCode}</span>
-                                                <span className={`text-sm px-2.5 py-1 rounded-lg font-medium ${getStatusBadge(selectedProject.status).bg} ${getStatusBadge(selectedProject.status).text}`}>
-                                                    {getStatusBadge(selectedProject.status).label}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => toggleStar(selectedProject.projectId)}
-                                            className={`p-2.5 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95 ${selectedProject.starred ? "bg-amber-500/20" : s.cardHover
-                                                }`}
-                                        >
-                                            <Star className={`w-5 h-5 ${selectedProject.starred ? "fill-amber-500 text-amber-500" : s.textTertiary}`} />
-                                        </button>
-                                        <button
-                                            onClick={() => toggleFlag(selectedProject.projectId)}
-                                            className={`p-2.5 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95 ${selectedProject.flagged ? "bg-red-500/20" : s.cardHover
-                                                }`}
-                                        >
-                                            <Flag className={`w-5 h-5 ${selectedProject.flagged ? "fill-red-500 text-red-500" : s.textTertiary}`} />
-                                        </button>
-                                        {selectedProject.archived ? (
-                                            <button
-                                                onClick={() => unarchiveProject(selectedProject.projectId)}
-                                                className={`p-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}
-                                            >
-                                                <Archive className={`w-5 h-5 text-blue-500`} />
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => archiveProject(selectedProject.projectId)}
-                                                className={`p-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95`}
-                                            >
-                                                <Archive className={`w-5 h-5 ${s.textTertiary}`} />
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => setSelectedProject(null)}
-                                            className={`p-2.5 rounded-xl ${s.cardHover} transition-all duration-200 hover:shadow-md active:scale-95 ml-2`}
-                                        >
-                                            <X className={`w-5 h-5 ${s.textTertiary}`} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* From / Date */}
-                                <div className={`flex items-center gap-4 mt-5 pt-5 border-t ${s.border}`}>
-                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold shadow-lg shadow-blue-500/20">
-                                        {(selectedProject.assignedByName || "A")[0]}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className={`font-semibold ${s.text}`}>{selectedProject.assignedByName || "Admin"}</p>
-                                        <p className={`text-sm ${s.textSecondary}`}>{formatFullDate(selectedProject.createdAt)}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Body */}
-                            <div className="flex-1 overflow-y-auto">
-                                {/* Project Description */}
-                                <div className={`px-6 py-6 border-b ${s.border}`}>
-                                    {selectedProject.description ? (
-                                        <p className={`${s.text} whitespace-pre-wrap leading-relaxed`}>
-                                            {selectedProject.description}
-                                        </p>
-                                    ) : (
-                                        <p className={`${s.textTertiary} italic`}>No description provided.</p>
-                                    )}
-
-                                    {/* Dates */}
-                                    {(selectedProject.dateStart || selectedProject.dateDue) && (
-                                        <div className={`flex items-center gap-4 mt-5 pt-5 border-t ${s.border}`}>
-                                            {selectedProject.dateStart && (
-                                                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
-                                                    <Calendar className={`w-4 h-4 text-blue-500`} />
-                                                    <div>
-                                                        <p className={`text-xs ${s.textTertiary}`}>Start</p>
-                                                        <p className={`text-sm font-medium ${s.text}`}>{new Date(selectedProject.dateStart).toLocaleDateString()}</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {selectedProject.dateDue && (
-                                                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
-                                                    <Clock className={`w-4 h-4 text-amber-500`} />
-                                                    <div>
-                                                        <p className={`text-xs ${s.textTertiary}`}>Due</p>
-                                                        <p className={`text-sm font-medium ${s.text}`}>{new Date(selectedProject.dateDue).toLocaleDateString()}</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Attachments */}
-                                    {(attachments[selectedProject.projectId]?.length || 0) > 0 && (
-                                        <div className={`mt-5 pt-5 border-t ${s.border}`}>
-                                            <p className={`text-sm font-semibold ${s.text} mb-3 flex items-center gap-2`}>
-                                                <Paperclip className="w-4 h-4 text-blue-500" />
-                                                Attachments ({attachments[selectedProject.projectId].length})
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {attachments[selectedProject.projectId].map((att) => (
-                                                    <div
-                                                        key={att.attachmentId}
-                                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${s.border} ${s.cardHover} cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 group`}
-                                                    >
-                                                        <div className={`w-10 h-10 rounded-lg ${isDark ? "bg-slate-700" : "bg-gray-100"} flex items-center justify-center`}>
-                                                            <FileText className={`w-5 h-5 ${s.textSecondary}`} />
-                                                        </div>
-                                                        <div>
-                                                            <p className={`text-sm font-medium ${s.text}`}>{att.fileName}</p>
-                                                            <p className={`text-xs ${s.textTertiary}`}>{att.fileSize}</p>
-                                                        </div>
-                                                        <Download className={`w-4 h-4 ${s.textTertiary} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Comments Section */}
-                                <div className="px-6 py-5">
-                                    <h3 className={`text-sm font-bold ${s.text} mb-4 flex items-center gap-2`}>
-                                        <MessageSquare className="w-4 h-4 text-blue-500" />
-                                        Conversation ({projectComments.length})
-                                    </h3>
-
-                                    {projectComments.length === 0 ? (
-                                        <div className={`text-center py-10 rounded-2xl border-2 border-dashed ${s.border}`}>
-                                            <MessageSquare className={`w-10 h-10 ${s.textTertiary} mx-auto mb-3`} />
-                                            <p className={`font-medium ${s.text}`}>No comments yet</p>
-                                            <p className={`text-sm ${s.textSecondary}`}>Start the conversation below</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {projectComments.map((comment, index) => {
-                                                const isOwn = comment.authorEmail === userEmail || comment.author === userName;
-                                                return (
-                                                    <div
-                                                        key={comment.id}
-                                                        style={{ animationDelay: `${index * 50}ms` }}
-                                                        className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 ${isOwn ? "flex-row-reverse" : ""}`}
-                                                    >
-                                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-lg ${isOwn
-                                                                ? "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/20"
-                                                                : "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/20"
-                                                            }`}>
-                                                            {comment.author[0]}
-                                                        </div>
-                                                        <div className={`max-w-[70%] ${isOwn ? "items-end" : ""}`}>
-                                                            <div className={`flex items-center gap-2 mb-1 ${isOwn ? "flex-row-reverse" : ""}`}>
-                                                                <span className={`text-sm font-semibold ${s.text}`}>{comment.author}</span>
-                                                                <span className={`text-xs ${s.textTertiary}`}>
-                                                                    {formatDate(comment.timestamp)}
-                                                                </span>
-                                                            </div>
-                                                            <div className={`px-4 py-3 rounded-2xl transition-all duration-200 hover:shadow-md ${isOwn
-                                                                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-md shadow-lg shadow-blue-500/20"
-                                                                    : `${s.card} border ${s.border} rounded-bl-md`
-                                                                }`}>
-                                                                <p className={`text-sm whitespace-pre-wrap leading-relaxed ${isOwn ? "text-white" : s.text}`}>
-                                                                    {comment.content}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            <div ref={commentsEndRef} />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Reply Box */}
-                            <div className={`px-6 py-4 border-t ${s.border} ${s.card}`}>
-                                <div className="flex items-start gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-lg shadow-blue-500/20">
-                                        {userName[0]}
-                                    </div>
-                                    <div className="flex-1">
-                                        <textarea
-                                            value={newComment}
-                                            onChange={(e) => setNewComment(e.target.value)}
-                                            placeholder="Write a reply..."
-                                            rows={2}
-                                            className={`w-full px-4 py-3 rounded-xl border ${s.input} text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none transition-all duration-200`}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                                                    handleSendComment();
-                                                }
-                                            }}
-                                        />
-                                        <div className="flex items-center justify-between mt-3">
-                                            <span className={`text-xs ${s.textTertiary}`}>
-                                                <kbd className={`px-1.5 py-0.5 rounded ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>Ctrl</kbd>
-                                                {" + "}
-                                                <kbd className={`px-1.5 py-0.5 rounded ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>Enter</kbd>
-                                                {" to send"}
-                                            </span>
-                                            <button
-                                                onClick={handleSendComment}
-                                                disabled={!newComment.trim() || sending}
-                                                className={`${s.buttonPrimary} px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-lg`}
-                                            >
-                                                {sending ? (
-                                                    <RefreshCw className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <Send className="w-4 h-4" />
-                                                )}
-                                                {sending ? "Sending..." : "Send"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
+            )}
         </div>
     );
 };
