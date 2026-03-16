@@ -7,6 +7,8 @@ import {
     Clock, Home, Building2, ChevronRight, Lock, Tag,
 } from "lucide-react";
 
+import { getAssignedProjects } from "./Clientassignmentservice";
+
 const API_BASE = "/api";
 
 const safeFetch = async (url: string) => {
@@ -124,49 +126,8 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
         setRefreshing(true);
         try {
             // Get assigned project IDs from AssignmentService localStorage
-            const assignmentRaw  = JSON.parse(localStorage.getItem("timely_assignments") || "{}");
-            const projectClients = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
-
-            const assignedIds: string[] = [];
-
-            // Format 1: timely_project_clients array
-            projectClients
-                .filter((pc: any) => String(pc.clientId) === String(customerId))
-                .forEach((pc: any) => assignedIds.push(String(pc.projectId)));
-
-            // Format 2: timely_assignments object
-            if (assignmentRaw.projectClients) {
-                assignmentRaw.projectClients
-                    .filter((pc: any) => String(pc.clientId) === String(customerId))
-                    .forEach((pc: any) => {
-                        if (!assignedIds.includes(String(pc.projectId))) assignedIds.push(String(pc.projectId));
-                    });
-            }
-
-            // Format 3: per-project key timely_project_clients_<projectId>
-            const allLocalKeys = Object.keys(localStorage);
-            allLocalKeys.filter(k => k.startsWith("timely_project_clients_")).forEach(k => {
-                const projectId = k.replace("timely_project_clients_", "");
-                const data      = JSON.parse(localStorage.getItem(k) || "[]");
-                if (data.some((pc: any) => String(pc.clientId) === String(customerId)) && !assignedIds.includes(projectId)) {
-                    assignedIds.push(projectId);
-                }
-            });
-
-            // Load all projects: API + localStorage enrichment
-            const apiRes = await safeFetch(`${API_BASE}/projects`);
-            const apiProjects: Project[] = apiRes?.data || [];
-            const localProjects: Project[] = JSON.parse(localStorage.getItem("timely_projects") || "[]");
-
-            // Merge
-            const merged: Project[] = [...apiProjects];
-            localProjects.forEach(lp => {
-                const idx = merged.findIndex(ap => String(ap.projectId) === String(lp.projectId));
-                if (idx === -1) { merged.push(lp); }
-                else            { merged[idx] = { ...merged[idx], ...lp }; }
-            });
-
-            const assigned = merged.filter(p => assignedIds.includes(String(p.projectId)));
+            // Use shared service — handles all formats, deduplicates
+            const assigned = await getAssignedProjects(customerId) as Project[];
             setProjects(assigned);
         } catch (e) {
             console.error("Error loading projects:", e);

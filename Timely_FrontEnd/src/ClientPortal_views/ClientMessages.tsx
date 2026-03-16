@@ -10,6 +10,7 @@ import {
     MessageCircle, FolderOpen, Smile, ChevronRight,
     ChevronLeft, Star, Trash2, Reply,
 } from "lucide-react";
+import { getAssignedProjectIds, getAssignedProjects } from "./Clientassignmentservice";
 
 const API_BASE = "/api";
 const STORAGE_KEY = "timely_client_messages_v2";
@@ -129,19 +130,10 @@ const ClientMessages: React.FC<ClientMessagesProps> = ({
     const loadConversations = async () => {
         setLoading(true);
         try {
-            // Get client's assigned projects
-            const pcRaw = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
-            const projectIds: string[] = pcRaw
-                .filter((x: any) => String(x.clientId) === String(customerId))
-                .map((x: any) => String(x.projectId));
+            // ── Use shared service — handles all localStorage formats, deduplicates ──
+            const assignedProjects = await getAssignedProjects(customerId);
 
-            const prRes = await fetch(`${API_BASE}/projects`);
-            const prData = prRes.ok ? await prRes.json() : { data: [] };
-            const localProjects: any[] = JSON.parse(localStorage.getItem("timely_projects") || "[]");
-            const allProjects = [...(prData.data || []), ...localProjects];
-
-            const convos: Conversation[] = allProjects
-                .filter(p => projectIds.includes(String(p.projectId)))
+            const convos: Conversation[] = assignedProjects
                 .map(p => {
                     const stored = JSON.parse(localStorage.getItem(`${STORAGE_KEY}_conv_${p.projectId}`) || "{}");
                     return {

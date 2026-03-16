@@ -16,6 +16,8 @@ import {
     CheckCircle, AlertCircle, Info, X,
 } from "lucide-react";
 
+import { getAssignedProjects } from "./Clientassignmentservice";
+
 const API_BASE = "/api";
 
 const safeFetch = async (url: string) => {
@@ -216,39 +218,8 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
     const loadClientData = async () => {
         setRefreshing(true);
         try {
-            // Projects assigned to this client
-            const projectClients = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
-            const clientProjectIds = projectClients
-                .filter((pc: any) => String(pc.clientId) === String(customerId))
-                .map((pc: any) => String(pc.projectId));
-
-            // Also check AssignmentService format
-            const assignmentData = JSON.parse(localStorage.getItem("timely_assignments") || "{}");
-            if (assignmentData.projectClients) {
-                assignmentData.projectClients.forEach((pc: any) => {
-                    if (String(pc.clientId) === String(customerId) && !clientProjectIds.includes(String(pc.projectId))) {
-                        clientProjectIds.push(String(pc.projectId));
-                    }
-                });
-            }
-
-            // Load all projects from localStorage (includes property/listing fields)
-            const localProjects: Project[] = JSON.parse(localStorage.getItem("timely_projects") || "[]");
-            const apiProjectsRes = await safeFetch(`${API_BASE}/projects`);
-            const apiProjects: Project[] = apiProjectsRes?.data || [];
-
-            // Merge: API base + local property/listing enrichment
-            const allProjects = [...apiProjects];
-            localProjects.forEach(lp => {
-                if (!allProjects.find(ap => String(ap.projectId) === String(lp.projectId))) {
-                    allProjects.push(lp);
-                } else {
-                    const idx = allProjects.findIndex(ap => String(ap.projectId) === String(lp.projectId));
-                    allProjects[idx] = { ...allProjects[idx], ...lp };
-                }
-            });
-
-            const clientProjects = allProjects.filter(p => clientProjectIds.includes(String(p.projectId)));
+            // Use shared service — handles all formats, deduplicates
+            const clientProjects = await getAssignedProjects(customerId);
             setProjects(clientProjects);
 
             // Assigned consultant

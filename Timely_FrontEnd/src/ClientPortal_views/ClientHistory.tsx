@@ -9,6 +9,8 @@ import {
     Activity, TrendingUp, Info,
 } from "lucide-react";
 
+import { getAssignedProjectIds } from "./Clientassignmentservice";
+
 const API_BASE = "/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -111,10 +113,8 @@ const ClientHistory: React.FC<ClientHistoryProps> = ({
         setLoading(true);
         const entries: HistoryEntry[] = [];
         try {
-            const projectClients = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
-            const clientProjectIds = new Set(
-                projectClients.filter((pc: any) => String(pc.clientId) === String(customerId)).map((pc: any) => String(pc.projectId))
-            );
+            // Use shared service — handles all formats, deduplicates
+            const clientProjectIds = new Set(getAssignedProjectIds(customerId));
 
             const auditRes = await fetch(`${API_BASE}/audit-logs/latest?limit=500`);
             if (auditRes.ok) {
