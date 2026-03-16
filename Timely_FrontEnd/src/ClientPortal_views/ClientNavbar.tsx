@@ -220,17 +220,18 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                     </div>
 
                     {/* ── Theme toggle: Sun in light mode, Moon in dark mode ── */}
-                    <button
-                        type="button"
-                        onClick={() => toggleTheme()}
-                        className={`w-9 h-9 rounded-xl ${n.flat} flex items-center justify-center transition-all`}
-                        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-                    >
-                        {isDark
-                            ? <Moon className={`w-4 h-4 ${n.secondary}`} />
-                            : <Sun  className={`w-4 h-4 ${n.secondary}`} />
-                        }
-                    </button>
+<button
+    type="button"
+    onClick={toggleTheme}
+    className={`relative w-14 h-7 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
+>
+    <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-300 flex items-center justify-center ${isDark ? "left-7" : "left-0.5"}`}>
+        {isDark
+            ? <Moon className="w-3.5 h-3.5 text-gray-700" />
+            : <Sun  className="w-3.5 h-3.5 text-amber-500" />
+        }
+    </span>
+</button>
 
                     {/* Notifications */}
                     <div className="relative" ref={notifRef}>
