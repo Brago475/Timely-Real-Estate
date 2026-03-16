@@ -1,66 +1,42 @@
 // src/ClientPortal_views/ClientSettings.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
     Bell, Shield, Eye, Lock, Calendar, Palette, Settings, User,
-    FileText, MessageCircle, FolderOpen, Mail, CheckCircle, AlertCircle,
-    Info, X, Save, RotateCcw, Moon, Sun, Trash2, Key, Smartphone,
-    Monitor, LogOut, Download, ExternalLink, HelpCircle, AlertTriangle,
-    Video, Image, Globe, Phone, LayoutGrid, List, SortAsc, EyeOff,
-    Zap, Flag, RefreshCw, ChevronRight, Clock,
+    FileText, MessageCircle, FolderOpen, Mail, CheckCircle,
+    AlertCircle, Info, X, Save, RotateCcw, Moon, Sun, Trash2,
+    Key, Smartphone, Monitor, LogOut, Download, ExternalLink,
+    HelpCircle, Flag, RefreshCw, ChevronRight, Clock, Globe,
+    Zap, AlertTriangle,
 } from "lucide-react";
 
-type ClientSettingsProps = { userName?: string; userEmail?: string; customerId?: string; };
-
-type SectionId =
-    | "appearance" | "security" | "notifications"
-    | "projects" | "documents" | "communication"
-    | "privacy" | "support";
-
-// ─── Settings State ───────────────────────────────────────────────────────────
+type ClientSettingsProps = { userName?: string; userEmail?: string; customerId?: string; onLogout?: () => void; };
+type SectionId = "appearance" | "security" | "notifications" | "projects" | "documents" | "communication" | "privacy" | "support";
 
 interface SettingsState {
-    // Appearance
-    darkMode: boolean;
-    // Notifications — Project
-    notif_statusChanges: boolean;
-    notif_filesUploaded: boolean;
-    notif_comments: boolean;
-    notif_milestones: boolean;
-    // Notifications — Communication
-    notif_consultantMessages: boolean;
-    notif_documentRequests: boolean;
+    notif_statusChanges: boolean; notif_filesUploaded: boolean;
+    notif_comments: boolean; notif_milestones: boolean;
+    notif_consultantMessages: boolean; notif_documentRequests: boolean;
     notif_appointmentReminders: boolean;
-    // Notifications — Delivery
-    notif_email: boolean;
-    notif_inApp: boolean;
-    // Project Preferences
+    notif_email: boolean; notif_inApp: boolean;
     proj_defaultView: "cards" | "list";
     proj_sortOrder: "date" | "name" | "status";
-    proj_hideCompleted: boolean;
-    proj_autoPlayVideos: boolean;
-    // Documents & Media
-    doc_allowImageUploads: boolean;
-    doc_allowVideoUploads: boolean;
+    proj_hideCompleted: boolean; proj_autoPlayVideos: boolean;
+    doc_allowImageUploads: boolean; doc_allowVideoUploads: boolean;
     doc_fileVisibility: "consultants" | "all";
     doc_allowDownloads: boolean;
-    // Communication
-    comm_allowMessaging: boolean;
-    comm_emailForMessages: boolean;
+    comm_allowMessaging: boolean; comm_emailForMessages: boolean;
     comm_allowMeetingScheduling: boolean;
     comm_meetingPlatform: "zoom" | "google_meet" | "phone";
-    // Date format
     dateFormat: string;
 }
 
 interface Toast { id: string; message: string; type: "success" | "error" | "info"; }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
+interface SessionEntry { device: string; browser: string; location: string; time: string; clientId: string; sessionId: string; }
 
 const STORAGE_KEY = "timely_client_settings_v2";
 
 const DEFAULTS: SettingsState = {
-    darkMode: false,
     notif_statusChanges: true, notif_filesUploaded: true,
     notif_comments: true, notif_milestones: true,
     notif_consultantMessages: true, notif_documentRequests: true,
@@ -75,23 +51,36 @@ const DEFAULTS: SettingsState = {
     dateFormat: "MM/DD/YYYY",
 };
 
-// ─── Sidebar nav config ───────────────────────────────────────────────────────
-
 const NAV: { id: SectionId; label: string; icon: React.ComponentType<{ className?: string }>; danger?: boolean }[] = [
-    { id: "appearance",    label: "Appearance",     icon: Palette },
-    { id: "security",      label: "Security",        icon: Shield },
-    { id: "notifications", label: "Notifications",   icon: Bell },
-    { id: "projects",      label: "My Projects",     icon: FolderOpen },
-    { id: "documents",     label: "Documents",       icon: FileText },
-    { id: "communication", label: "Communication",   icon: MessageCircle },
-    { id: "privacy",       label: "Privacy & Data",  icon: Eye, danger: true },
-    { id: "support",       label: "Support",         icon: HelpCircle },
+    { id: "appearance",    label: "Appearance",    icon: Palette },
+    { id: "security",      label: "Security",       icon: Shield },
+    { id: "notifications", label: "Notifications",  icon: Bell },
+    { id: "projects",      label: "My Projects",    icon: FolderOpen },
+    { id: "documents",     label: "Documents",      icon: FileText },
+    { id: "communication", label: "Communication",  icon: MessageCircle },
+    { id: "support",       label: "Support",        icon: HelpCircle },
+    { id: "privacy",       label: "Privacy & Data", icon: Eye, danger: true },
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Detect current device from userAgent ─────────────────────────────────────
+const detectDevice = (): { label: string; IconComponent: React.ComponentType<{ className?: string }> } => {
+    const ua = navigator.userAgent;
+    let label = "Unknown Device";
+    let IconComponent: React.ComponentType<{ className?: string }> = Monitor;
+    if (/iPhone/i.test(ua))       { label = "iPhone";    IconComponent = Smartphone; }
+    else if (/iPad/i.test(ua))    { label = "iPad";      IconComponent = Smartphone; }
+    else if (/Android/i.test(ua)) { label = "Android";   IconComponent = Smartphone; }
+    else if (/Mac/i.test(ua))     { label = "Mac";       IconComponent = Monitor; }
+    else if (/Windows/i.test(ua)) { label = "Windows PC";IconComponent = Monitor; }
+    else if (/Linux/i.test(ua))   { label = "Linux";     IconComponent = Monitor; }
+    const browser = /Edg/i.test(ua) ? "Edge" : /Chrome/i.test(ua) ? "Chrome" : /Safari/i.test(ua) ? "Safari" : /Firefox/i.test(ua) ? "Firefox" : "Browser";
+    return { label: `${label} · ${browser}`, IconComponent };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ClientSettings: React.FC<ClientSettingsProps> = ({
-    userName = "Client", userEmail = "", customerId = "",
+    userName = "Client", userEmail = "", customerId = "", onLogout,
 }) => {
     const { isDark, toggleTheme } = useTheme();
 
@@ -105,7 +94,7 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
         strong:        isDark ? "text-white"      : "text-black",
         label:         isDark ? "text-blue-400"   : "text-blue-600",
         divider:       isDark ? "border-gray-800" : "border-gray-200",
-        input:         isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        input:         isDark ? "bg-transparent border-gray-700 text-white placeholder-gray-600" : "bg-transparent border-gray-300 text-gray-900 placeholder-gray-400",
         btnPrimary:    "bg-blue-600 hover:bg-blue-500 text-white",
         rowHover:      isDark ? "hover:bg-gray-800/40" : "hover:bg-gray-50",
         sidebarActive: isDark ? "bg-blue-600/10 text-blue-400 border-blue-500" : "bg-blue-50 text-blue-600 border-blue-500",
@@ -113,24 +102,40 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
         tag:           isDark ? "bg-gray-800 text-gray-400 text-[10px] px-2 py-0.5 rounded-md font-medium" : "bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded-md font-medium",
     };
 
-    const [settings,      setSettings]      = useState<SettingsState>(DEFAULTS);
-    const [hasChanges,    setHasChanges]    = useState(false);
-    const [saving,        setSaving]        = useState(false);
-    const [toasts,        setToasts]        = useState<Toast[]>([]);
-    const [activeSection, setActiveSection] = useState<SectionId>("appearance");
+    const [settings,       setSettings]       = useState<SettingsState>(DEFAULTS);
+    const [hasChanges,     setHasChanges]     = useState(false);
+    const [saving,         setSaving]         = useState(false);
+    const [toasts,         setToasts]         = useState<Toast[]>([]);
+    const [activeSection,  setActiveSection]  = useState<SectionId>("appearance");
+
     // Security state
-    const [showChangePw,  setShowChangePw]  = useState(false);
-    const [currentPw,     setCurrentPw]     = useState("");
-    const [newPw,         setNewPw]         = useState("");
-    const [confirmPw,     setConfirmPw]     = useState("");
-    const [pwSaving,      setPwSaving]      = useState(false);
+    const [showChangePw,   setShowChangePw]   = useState(false);
+    const [currentPw,      setCurrentPw]      = useState("");
+    const [newPw,          setNewPw]          = useState("");
+    const [confirmPw,      setConfirmPw]      = useState("");
+    const [pwSaving,       setPwSaving]       = useState(false);
+
+    // Delete account confirm
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText]  = useState("");
+    const [deletingAccount,   setDeletingAccount]   = useState(false);
+
+    // Active sessions from localStorage (backend will populate later)
+    const [otherSessions, setOtherSessions] = useState<SessionEntry[]>([]);
+    const currentDevice = useMemo(() => detectDevice(), []);
 
     useEffect(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) setSettings({ ...DEFAULTS, ...JSON.parse(saved) });
         } catch {}
-    }, []);
+
+        // Load other sessions (written by backend on login, cleared on logout)
+        try {
+            const sessions: SessionEntry[] = JSON.parse(localStorage.getItem("timely_active_sessions") || "[]");
+            setOtherSessions(sessions.filter(s => String(s.clientId) === String(customerId)));
+        } catch {}
+    }, [customerId]);
 
     const showToast = (msg: string, type: Toast["type"] = "success") => {
         const id = `t_${Date.now()}`;
@@ -153,10 +158,12 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
     };
 
     const handleChangePassword = () => {
-        if (!currentPw || !newPw || !confirmPw) { showToast("Fill all fields", "error"); return; }
+        if (!currentPw || !newPw || !confirmPw) { showToast("Please fill all fields", "error"); return; }
         if (newPw !== confirmPw) { showToast("Passwords don't match", "error"); return; }
-        if (newPw.length < 8) { showToast("Password must be at least 8 characters", "error"); return; }
+        if (newPw.length < 8)   { showToast("Password must be at least 8 characters", "error"); return; }
+        if (newPw === currentPw){ showToast("New password must differ from current", "error"); return; }
         setPwSaving(true);
+        // Backend will handle this — placeholder success for now
         setTimeout(() => {
             showToast("Password updated successfully");
             setCurrentPw(""); setNewPw(""); setConfirmPw("");
@@ -164,7 +171,38 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
         }, 600);
     };
 
-    // ── Reusable sub-components ───────────────────────────────────────────────
+    const handleSignOutSession = (sessionId: string) => {
+        const updated = otherSessions.filter(s => s.sessionId !== sessionId);
+        setOtherSessions(updated);
+        const all: SessionEntry[] = JSON.parse(localStorage.getItem("timely_active_sessions") || "[]");
+        localStorage.setItem("timely_active_sessions", JSON.stringify(all.filter(s => s.sessionId !== sessionId)));
+        showToast("Session signed out", "info");
+    };
+
+    const handleSignOutAll = () => {
+        setOtherSessions([]);
+        const all: SessionEntry[] = JSON.parse(localStorage.getItem("timely_active_sessions") || "[]");
+        localStorage.setItem("timely_active_sessions", JSON.stringify(all.filter(s => String(s.clientId) !== String(customerId))));
+        showToast("All other sessions signed out", "info");
+    };
+
+    const handleDeleteAccount = () => {
+        if (deleteConfirmText !== "DELETE") { showToast("Type DELETE to confirm", "error"); return; }
+        setDeletingAccount(true);
+        setTimeout(() => {
+            // Clear all client data from localStorage
+            const keysToRemove = Object.keys(localStorage).filter(k => k.includes(customerId) || k.includes("timely_client"));
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+            localStorage.removeItem("timely_user");
+            localStorage.removeItem("timely_authenticated");
+            showToast("Account deleted", "info");
+            setDeletingAccount(false);
+            setShowDeleteConfirm(false);
+            setTimeout(() => onLogout?.(), 1000);
+        }, 800);
+    };
+
+    // ── Sub-components ────────────────────────────────────────────────────────
 
     const Toggle: React.FC<{ enabled: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ enabled, onChange, disabled }) => (
         <button type="button" onClick={() => !disabled && onChange(!enabled)} disabled={disabled}
@@ -177,7 +215,7 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
     const Row: React.FC<{ title: string; desc?: string; last?: boolean; tag?: string; children: React.ReactNode }> = ({ title, desc, last, tag, children }) => (
         <div className={`flex items-center justify-between py-4 ${!last ? `border-b ${n.divider}` : ""}`}>
             <div className="min-w-0 flex-1 pr-8">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <p className={`text-sm font-medium ${n.text}`}>{title}</p>
                     {tag && <span className={n.tag}>{tag}</span>}
                 </div>
@@ -196,10 +234,10 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
     );
 
     const GroupLabel: React.FC<{ label: string }> = ({ label }) => (
-        <p className={`text-[10px] uppercase tracking-widest ${n.label} mb-0 mt-1 px-5 pt-4 pb-2`}>{label}</p>
+        <p className={`text-[10px] uppercase tracking-widest ${n.label} px-5 pt-4 pb-2`}>{label}</p>
     );
 
-    const Input: React.FC<{ label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string }> = ({ label, type = "text", value, onChange, placeholder }) => (
+    const InputField: React.FC<{ label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string }> = ({ label, type = "text", value, onChange, placeholder }) => (
         <div>
             <label className={`text-[11px] uppercase tracking-wider ${n.label} block mb-1.5`}>{label}</label>
             <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
@@ -218,17 +256,11 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
         </div>
     );
 
-    // ── Mock session data ─────────────────────────────────────────────────────
-    const sessions = [
-        { device: "MacBook Pro", location: "Newark, NJ", time: "Active now", current: true, icon: Monitor },
-        { device: "iPhone 15",   location: "Newark, NJ", time: "2 hours ago", current: false, icon: Smartphone },
-    ];
+    // ── Section content ───────────────────────────────────────────────────────
 
-    // ─────────────────────────────────────────────────────────────────────────
     const renderSection = () => {
         switch (activeSection) {
 
-            // ── Appearance ────────────────────────────────────────────────────
             case "appearance": return (
                 <SectionWrap title="Appearance" desc="Customize how Timely looks on your device.">
                     <div className={`${n.card} rounded-2xl px-5`}>
@@ -244,7 +276,6 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                 </SectionWrap>
             );
 
-            // ── Security ──────────────────────────────────────────────────────
             case "security": return (
                 <SectionWrap title="Account Security" desc="Manage your password, active sessions, and login activity.">
                     <div className="space-y-4">
@@ -264,12 +295,11 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                                 </div>
                                 <ChevronRight className={`w-4 h-4 ${n.tertiary} transition-transform ${showChangePw ? "rotate-90" : ""}`} />
                             </button>
-
                             {showChangePw && (
-                                <div className={`px-5 pb-5 border-t ${n.divider} pt-5 space-y-3`}>
-                                    <Input label="Current Password" type="password" value={currentPw} onChange={setCurrentPw} placeholder="Enter current password" />
-                                    <Input label="New Password"     type="password" value={newPw}     onChange={setNewPw}     placeholder="Min. 8 characters" />
-                                    <Input label="Confirm Password" type="password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat new password" />
+                                <div className={`px-5 pb-5 pt-4 border-t ${n.divider} space-y-3`}>
+                                    <InputField label="Current Password" type="password" value={currentPw} onChange={setCurrentPw} placeholder="Enter current password" />
+                                    <InputField label="New Password"     type="password" value={newPw}     onChange={setNewPw}     placeholder="Min. 8 characters" />
+                                    <InputField label="Confirm Password" type="password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat new password" />
                                     <div className="flex gap-2 pt-1">
                                         <button onClick={() => { setShowChangePw(false); setCurrentPw(""); setNewPw(""); setConfirmPw(""); }}
                                             className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary}`}>Cancel</button>
@@ -292,80 +322,99 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
 
                         {/* Active sessions */}
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
-                            <div className={`px-5 py-4 border-b ${n.divider} flex items-center gap-3`}>
+                            <div className={`px-5 py-4 border-b ${n.divider} flex items-center gap-2`}>
                                 <Monitor className={`w-4 h-4 ${n.label}`} />
                                 <p className={`font-semibold ${n.text} text-sm`}>Active Sessions</p>
                             </div>
-                            {sessions.map((s, i) => (
-                                <div key={i} className={`px-5 py-4 flex items-center justify-between ${i < sessions.length - 1 ? `border-b ${n.divider}` : ""}`}>
+
+                            {/* Current session — detected from userAgent */}
+                            <div className={`px-5 py-4 ${otherSessions.length > 0 ? `border-b ${n.divider}` : ""} flex items-center justify-between`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-9 h-9 ${n.flat} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                                        <currentDevice.IconComponent className={`w-4 h-4 ${n.secondary}`} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <p className={`text-sm font-medium ${n.text}`}>{currentDevice.label}</p>
+                                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-semibold">This device</span>
+                                        </div>
+                                        <p className={`text-xs ${n.tertiary} mt-0.5`}>Active now</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Other sessions from localStorage (populated by backend) */}
+                            {otherSessions.map((s, i) => (
+                                <div key={s.sessionId} className={`px-5 py-4 flex items-center justify-between ${i < otherSessions.length - 1 ? `border-b ${n.divider}` : ""}`}>
                                     <div className="flex items-center gap-3">
                                         <div className={`w-9 h-9 ${n.flat} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                                            <s.icon className={`w-4 h-4 ${n.secondary}`} />
+                                            <Monitor className={`w-4 h-4 ${n.secondary}`} />
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-2">
-                                                <p className={`text-sm font-medium ${n.text}`}>{s.device}</p>
-                                                {s.current && <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-semibold">This device</span>}
-                                            </div>
+                                            <p className={`text-sm font-medium ${n.text}`}>{s.device} · {s.browser}</p>
                                             <p className={`text-xs ${n.tertiary} flex items-center gap-1.5 mt-0.5`}>
                                                 <Globe className="w-3 h-3" />{s.location} · <Clock className="w-3 h-3" />{s.time}
                                             </p>
                                         </div>
                                     </div>
-                                    {!s.current && (
-                                        <button className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
-                                            <LogOut className="w-3.5 h-3.5" />Sign out
-                                        </button>
-                                    )}
+                                    <button onClick={() => handleSignOutSession(s.sessionId)} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
+                                        <LogOut className="w-3.5 h-3.5" />Sign out
+                                    </button>
                                 </div>
                             ))}
-                            <div className={`px-5 py-3 border-t ${n.divider}`}>
-                                <button className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors">
-                                    <LogOut className="w-3.5 h-3.5" />Sign out all other sessions
-                                </button>
-                            </div>
+
+                            {otherSessions.length === 0 && (
+                                <div className={`px-5 py-3 border-t ${n.divider}`}>
+                                    <p className={`text-xs ${n.tertiary}`}>No other active sessions</p>
+                                </div>
+                            )}
+
+                            {otherSessions.length > 0 && (
+                                <div className={`px-5 py-3 border-t ${n.divider}`}>
+                                    <button onClick={handleSignOutAll} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors">
+                                        <LogOut className="w-3.5 h-3.5" />Sign out all other sessions
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Email verification */}
+                        {/* Email verification — shows actual email */}
                         <div className={`${n.card} rounded-2xl px-5`}>
-                            <Row title="Email Verification" desc={`Verified as ${userEmail || "unknown"}`} last>
-                                <span className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 font-semibold flex items-center gap-1">
-                                    <CheckCircle className="w-3 h-3" />Verified
-                                </span>
+                            <Row title="Email Verification" desc={userEmail ? `Verified as ${userEmail}` : "No email on file"} last>
+                                {userEmail
+                                    ? <span className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 font-semibold flex items-center gap-1"><CheckCircle className="w-3 h-3" />Verified</span>
+                                    : <span className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-semibold flex items-center gap-1"><AlertCircle className="w-3 h-3" />Not set</span>
+                                }
                             </Row>
                         </div>
                     </div>
                 </SectionWrap>
             );
 
-            // ── Notifications ─────────────────────────────────────────────────
             case "notifications": return (
                 <SectionWrap title="Notification Preferences" desc="Control what you get notified about and how you receive it.">
                     <div className="space-y-4">
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Project Updates" />
                             <div className="px-5">
-                                <Row title="Status Changes"    desc="When a project status is updated."><Toggle enabled={settings.notif_statusChanges} onChange={v => update("notif_statusChanges", v)} /></Row>
-                                <Row title="Files Uploaded"    desc="When new files are added to your projects."><Toggle enabled={settings.notif_filesUploaded} onChange={v => update("notif_filesUploaded", v)} /></Row>
-                                <Row title="New Comments"      desc="When someone comments on a project."><Toggle enabled={settings.notif_comments} onChange={v => update("notif_comments", v)} /></Row>
-                                <Row title="Milestone Reached" desc="When a project milestone is completed." last><Toggle enabled={settings.notif_milestones} onChange={v => update("notif_milestones", v)} /></Row>
+                                <Row title="Status Changes"     desc="When a project status is updated."><Toggle enabled={settings.notif_statusChanges} onChange={v => update("notif_statusChanges", v)} /></Row>
+                                <Row title="Files Uploaded"     desc="When new files are added to your projects."><Toggle enabled={settings.notif_filesUploaded} onChange={v => update("notif_filesUploaded", v)} /></Row>
+                                <Row title="New Comments"       desc="When someone comments on a project."><Toggle enabled={settings.notif_comments} onChange={v => update("notif_comments", v)} /></Row>
+                                <Row title="Milestone Reached"  desc="When a project milestone is completed." last><Toggle enabled={settings.notif_milestones} onChange={v => update("notif_milestones", v)} /></Row>
                             </div>
                         </div>
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Communication" />
                             <div className="px-5">
-                                <Row title="Consultant Messages"  desc="When your consultant sends you a message."><Toggle enabled={settings.notif_consultantMessages} onChange={v => update("notif_consultantMessages", v)} /></Row>
-                                <Row title="Document Requests"    desc="When documents are requested from you."><Toggle enabled={settings.notif_documentRequests} onChange={v => update("notif_documentRequests", v)} /></Row>
+                                <Row title="Consultant Messages"   desc="When your consultant sends you a message."><Toggle enabled={settings.notif_consultantMessages} onChange={v => update("notif_consultantMessages", v)} /></Row>
+                                <Row title="Document Requests"     desc="When documents are requested from you."><Toggle enabled={settings.notif_documentRequests} onChange={v => update("notif_documentRequests", v)} /></Row>
                                 <Row title="Appointment Reminders" desc="Reminders for scheduled meetings." last><Toggle enabled={settings.notif_appointmentReminders} onChange={v => update("notif_appointmentReminders", v)} /></Row>
                             </div>
                         </div>
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Delivery Method" />
                             <div className="px-5">
-                                <Row title="Email Notifications" desc="Receive notifications to your inbox."><Toggle enabled={settings.notif_email} onChange={v => update("notif_email", v)} /></Row>
+                                <Row title="Email Notifications"  desc="Receive notifications to your inbox."><Toggle enabled={settings.notif_email} onChange={v => update("notif_email", v)} /></Row>
                                 <Row title="In-App Notifications" desc="Show notifications inside the portal." last><Toggle enabled={settings.notif_inApp} onChange={v => update("notif_inApp", v)} /></Row>
                             </div>
                         </div>
@@ -373,27 +422,23 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                 </SectionWrap>
             );
 
-            // ── Project Preferences ───────────────────────────────────────────
             case "projects": return (
                 <SectionWrap title="My Projects Preferences" desc="Control how your projects are displayed and organized.">
                     <div className="space-y-4">
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Display" />
                             <div className="px-5">
-                                <Row title="Default View" desc="How projects are shown by default.">
-                                    <RadioGroup value={settings.proj_defaultView} onChange={v => update("proj_defaultView", v as any)}
-                                        options={[{ value: "cards", label: "Cards" }, { value: "list", label: "List" }]} />
+                                <Row title="Default View"  desc="How projects are shown by default.">
+                                    <RadioGroup value={settings.proj_defaultView} onChange={v => update("proj_defaultView", v as any)} options={[{ value: "cards", label: "Cards" }, { value: "list", label: "List" }]} />
                                 </Row>
                                 <Row title="Sort Order" desc="Default order for your project list.">
-                                    <RadioGroup value={settings.proj_sortOrder} onChange={v => update("proj_sortOrder", v as any)}
-                                        options={[{ value: "date", label: "Date" }, { value: "name", label: "Name" }, { value: "status", label: "Status" }]} />
+                                    <RadioGroup value={settings.proj_sortOrder} onChange={v => update("proj_sortOrder", v as any)} options={[{ value: "date", label: "Date" }, { value: "name", label: "Name" }, { value: "status", label: "Status" }]} />
                                 </Row>
                                 <Row title="Hide Completed" desc="Don't show completed projects by default." last>
                                     <Toggle enabled={settings.proj_hideCompleted} onChange={v => update("proj_hideCompleted", v)} />
                                 </Row>
                             </div>
                         </div>
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Media" />
                             <div className="px-5">
@@ -406,34 +451,26 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                 </SectionWrap>
             );
 
-            // ── Documents & Media ─────────────────────────────────────────────
             case "documents": return (
                 <SectionWrap title="Documents & Media" desc="Control uploads, visibility, and download permissions.">
                     <div className="space-y-4">
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Uploads" />
                             <div className="px-5">
-                                <Row title="Allow Image Uploads" desc="Upload images to your projects and requests.">
-                                    <Toggle enabled={settings.doc_allowImageUploads} onChange={v => update("doc_allowImageUploads", v)} />
-                                </Row>
-                                <Row title="Allow Video Uploads" desc="Upload video files (may affect storage)." last>
-                                    <Toggle enabled={settings.doc_allowVideoUploads} onChange={v => update("doc_allowVideoUploads", v)} />
-                                </Row>
+                                <Row title="Allow Image Uploads" desc="Upload images to your projects and requests."><Toggle enabled={settings.doc_allowImageUploads} onChange={v => update("doc_allowImageUploads", v)} /></Row>
+                                <Row title="Allow Video Uploads" desc="Upload video files (may affect storage)." last><Toggle enabled={settings.doc_allowVideoUploads} onChange={v => update("doc_allowVideoUploads", v)} /></Row>
                             </div>
                         </div>
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Privacy" />
                             <div className="px-5">
                                 <Row title="File Visibility" desc="Who can view your uploaded files." last>
-                                    <RadioGroup value={settings.doc_fileVisibility} onChange={v => update("doc_fileVisibility", v as any)}
-                                        options={[{ value: "consultants", label: "Consultants only" }, { value: "all", label: "All members" }]} />
+                                    <RadioGroup value={settings.doc_fileVisibility} onChange={v => update("doc_fileVisibility", v as any)} options={[{ value: "consultants", label: "Consultants only" }, { value: "all", label: "All members" }]} />
                                 </Row>
                             </div>
                         </div>
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
-                            <GroupLabel label="Download Settings" />
+                            <GroupLabel label="Downloads" />
                             <div className="px-5">
                                 <Row title="Allow Downloads" desc="Let files be downloaded from the portal." last>
                                     <Toggle enabled={settings.doc_allowDownloads} onChange={v => update("doc_allowDownloads", v)} />
@@ -444,22 +481,16 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                 </SectionWrap>
             );
 
-            // ── Communication ─────────────────────────────────────────────────
             case "communication": return (
                 <SectionWrap title="Communication Settings" desc="Control messaging and meeting preferences with your consultant.">
                     <div className="space-y-4">
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Messaging" />
                             <div className="px-5">
-                                <Row title="Allow Consultant Messaging" desc="Let your consultant initiate conversations.">
-                                    <Toggle enabled={settings.comm_allowMessaging} onChange={v => update("comm_allowMessaging", v)} />
-                                </Row>
-                                <Row title="Email for New Messages" desc="Get an email when you receive a new message." last>
-                                    <Toggle enabled={settings.comm_emailForMessages} onChange={v => update("comm_emailForMessages", v)} />
-                                </Row>
+                                <Row title="Allow Consultant Messaging" desc="Let your consultant initiate conversations."><Toggle enabled={settings.comm_allowMessaging} onChange={v => update("comm_allowMessaging", v)} /></Row>
+                                <Row title="Email for New Messages"    desc="Get an email when you receive a new message." last><Toggle enabled={settings.comm_emailForMessages} onChange={v => update("comm_emailForMessages", v)} /></Row>
                             </div>
                         </div>
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Meetings" />
                             <div className="px-5">
@@ -467,12 +498,7 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                                     <Toggle enabled={settings.comm_allowMeetingScheduling} onChange={v => update("comm_allowMeetingScheduling", v)} />
                                 </Row>
                                 <Row title="Preferred Platform" desc="Your preferred meeting platform." last>
-                                    <RadioGroup value={settings.comm_meetingPlatform} onChange={v => update("comm_meetingPlatform", v as any)}
-                                        options={[
-                                            { value: "zoom",        label: "Zoom" },
-                                            { value: "google_meet", label: "Google Meet" },
-                                            { value: "phone",       label: "Phone" },
-                                        ]} />
+                                    <RadioGroup value={settings.comm_meetingPlatform} onChange={v => update("comm_meetingPlatform", v as any)} options={[{ value: "zoom", label: "Zoom" }, { value: "google_meet", label: "Google Meet" }, { value: "phone", label: "Phone" }]} />
                                 </Row>
                             </div>
                         </div>
@@ -480,11 +506,54 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                 </SectionWrap>
             );
 
-            // ── Privacy & Data ────────────────────────────────────────────────
+            case "support": return (
+                <SectionWrap title="Support" desc="Get help, report issues, or share feedback with our team.">
+                    <div className="space-y-4">
+                        <div className={`${n.card} rounded-2xl overflow-hidden`}>
+                            {[
+                                { label: "Contact Support",  desc: "Reach out to our support team directly.", icon: Mail,       href: "mailto:support@timely.com", external: true },
+                                { label: "Report a Problem", desc: "Something not working? Let us know.",     icon: Flag,       href: "#" },
+                                { label: "Help Center",      desc: "Browse guides and FAQs.",                  icon: HelpCircle, href: "#", external: true },
+                                { label: "Feature Request",  desc: "Have an idea? We'd love to hear it.",     icon: Zap,        href: "#" },
+                            ].map((item, i, arr) => (
+                                <a key={item.label} href={item.href} target={item.external ? "_blank" : undefined} rel="noreferrer"
+                                    className={`flex items-center justify-between px-5 py-4 ${n.rowHover} transition-colors cursor-pointer ${i < arr.length - 1 ? `border-b ${n.divider}` : ""}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-9 h-9 ${n.flat} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                                            <item.icon className={`w-4 h-4 ${n.secondary}`} />
+                                        </div>
+                                        <div>
+                                            <p className={`text-sm font-medium ${n.text}`}>{item.label}</p>
+                                            <p className={`text-xs ${n.tertiary}`}>{item.desc}</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className={`w-4 h-4 ${n.tertiary}`} />
+                                </a>
+                            ))}
+                        </div>
+
+                        {/* Legal links */}
+                        <div className={`${n.card} rounded-2xl overflow-hidden`}>
+                            <GroupLabel label="Legal" />
+                            <div className="px-5">
+                                {[
+                                    { label: "Privacy Policy",    last: false },
+                                    { label: "Terms of Service",  last: false },
+                                    { label: "Data Usage Policy", last: true  },
+                                ].map(link => (
+                                    <Row key={link.label} title={link.label} last={link.last}>
+                                        <a href="#" className={`text-xs ${n.label} flex items-center gap-1`}>View <ExternalLink className="w-3 h-3" /></a>
+                                    </Row>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </SectionWrap>
+            );
+
             case "privacy": return (
                 <SectionWrap title="Privacy & Data" desc="Control your data and understand how it's used." danger>
                     <div className="space-y-4">
-
                         <div className={`${n.card} rounded-2xl overflow-hidden`}>
                             <GroupLabel label="Your Data" />
                             <div className="px-5">
@@ -496,62 +565,19 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                             </div>
                         </div>
 
-                        <div className={`${n.card} rounded-2xl overflow-hidden`}>
-                            <GroupLabel label="Legal" />
-                            <div className="px-5">
-                                {[
-                                    { label: "Privacy Policy",    href: "#" },
-                                    { label: "Terms of Service",  href: "#" },
-                                    { label: "Data Usage Policy", href: "#", last: true },
-                                ].map((link, i, arr) => (
-                                    <Row key={link.label} title={link.label} desc="" last={i === arr.length - 1}>
-                                        <a href={link.href} className={`text-xs ${n.label} flex items-center gap-1`}>
-                                            View <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                    </Row>
-                                ))}
-                            </div>
-                        </div>
-
+                        {/* Delete account — opens confirmation modal */}
                         <div className={`${n.card} rounded-2xl border border-red-500/20`}>
                             <div className="px-5 py-5 flex items-center justify-between gap-6">
                                 <div>
-                                    <p className={`text-sm font-semibold ${n.text}`}>Request Account Deletion</p>
+                                    <p className={`text-sm font-semibold ${n.text}`}>Delete Account</p>
                                     <p className={`text-xs ${n.tertiary} mt-0.5`}>Permanently removes your account and all associated data.</p>
                                 </div>
-                                <button className="px-4 py-2 rounded-xl text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all flex-shrink-0">
+                                <button onClick={() => { setDeleteConfirmText(""); setShowDeleteConfirm(true); }}
+                                    className="px-4 py-2 rounded-xl text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all flex-shrink-0">
                                     Delete Account
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </SectionWrap>
-            );
-
-            // ── Support ───────────────────────────────────────────────────────
-            case "support": return (
-                <SectionWrap title="Support" desc="Get help, report issues, or share feedback with our team.">
-                    <div className={`${n.card} rounded-2xl overflow-hidden`}>
-                        {[
-                            { label: "Contact Support",   desc: "Reach out to our support team directly.",       icon: Mail,         action: "mailto:support@timely.com", external: true },
-                            { label: "Report a Problem",  desc: "Something not working? Let us know.",            icon: Flag,         action: "#" },
-                            { label: "Help Center",       desc: "Browse guides and FAQs.",                        icon: HelpCircle,   action: "#", external: true },
-                            { label: "Feature Request",   desc: "Have an idea? We'd love to hear it.",            icon: Zap,          action: "#" },
-                        ].map((item, i, arr) => (
-                            <a key={item.label} href={item.action} target={item.external ? "_blank" : undefined} rel="noreferrer"
-                                className={`flex items-center justify-between px-5 py-4 ${n.rowHover} transition-colors cursor-pointer ${i < arr.length - 1 ? `border-b ${n.divider}` : ""}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-9 h-9 ${n.flat} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                                        <item.icon className={`w-4 h-4 ${n.secondary}`} />
-                                    </div>
-                                    <div>
-                                        <p className={`text-sm font-medium ${n.text}`}>{item.label}</p>
-                                        <p className={`text-xs ${n.tertiary}`}>{item.desc}</p>
-                                    </div>
-                                </div>
-                                <ChevronRight className={`w-4 h-4 ${n.tertiary}`} />
-                            </a>
-                        ))}
                     </div>
                 </SectionWrap>
             );
@@ -575,7 +601,56 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                 ))}
             </div>
 
-            {/* Header */}
+            {/* Delete Account Confirm Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
+                    <div className={`${isDark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-200"} border rounded-2xl max-w-md w-full overflow-hidden`}>
+                        <div className={`px-5 py-4 border-b ${n.divider} flex items-center gap-3`}>
+                            <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <AlertTriangle className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                                <p className={`font-semibold ${n.text}`}>Delete Account</p>
+                                <p className={`text-xs ${n.tertiary}`}>This action cannot be undone</p>
+                            </div>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className={`${n.inset} p-4 rounded-xl`}>
+                                <p className={`text-sm ${n.secondary} leading-relaxed`}>
+                                    This will permanently delete your account, all your projects, documents, messages, and data. <span className="text-red-400 font-medium">There is no way to recover this.</span>
+                                </p>
+                            </div>
+                            <div>
+                                <label className={`text-xs ${n.tertiary} block mb-2`}>
+                                    Type <span className={`font-mono font-bold ${n.text}`}>DELETE</span> to confirm
+                                </label>
+                                <input
+                                    type="text"
+                                    value={deleteConfirmText}
+                                    onChange={e => setDeleteConfirmText(e.target.value)}
+                                    placeholder="Type DELETE"
+                                    className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none ${deleteConfirmText === "DELETE" ? "border-red-500" : "focus:border-gray-500"} transition-colors`}
+                                />
+                            </div>
+                        </div>
+                        <div className={`px-5 py-4 border-t ${n.divider} flex gap-2 justify-end`}>
+                            <button onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}
+                                className={`px-4 py-2 ${n.flat} rounded-xl text-sm ${n.secondary}`}>
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteAccount}
+                                disabled={deleteConfirmText !== "DELETE" || deletingAccount}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-sm flex items-center gap-1.5 transition-all">
+                                {deletingAccount ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                {deletingAccount ? "Deleting…" : "Yes, Delete My Account"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Page header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className={`text-xl font-semibold ${n.strong}`}>Settings</h1>
@@ -597,10 +672,8 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
 
             {/* Two-column layout */}
             <div className="flex gap-5 items-start">
-
-                {/* Sidebar */}
                 <nav className={`${n.card} rounded-2xl p-2 w-52 flex-shrink-0 sticky top-20`}>
-                    {NAV.map((item, i) => (
+                    {NAV.map(item => (
                         <button key={item.id} onClick={() => setActiveSection(item.id)}
                             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border-l-2 mb-0.5 last:mb-0 font-medium
                                 ${item.danger
@@ -612,11 +685,7 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                         </button>
                     ))}
                 </nav>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                    {renderSection()}
-                </div>
+                <div className="flex-1 min-w-0">{renderSection()}</div>
             </div>
         </div>
     );
