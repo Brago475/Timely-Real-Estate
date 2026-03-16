@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
-    Sun, Moon, Bell, Mail, Shield, Eye, Lock, Globe,
-    Calendar, Palette, Settings, User, FileText, MessageCircle,
-    FolderOpen, CheckCircle, AlertCircle, Info, X, Save, RotateCcw,
+    Bell, Shield, Eye, Lock, Calendar, Palette,
+    Settings, User, FileText, MessageCircle, FolderOpen, Mail,
+    CheckCircle, AlertCircle, Info, X, Save, RotateCcw,
+    Moon, Sun, Trash2,
 } from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type ClientSettingsProps = { userName?: string; userEmail?: string; customerId?: string; };
+type SectionId = "appearance" | "notifications" | "privacy" | "preferences" | "account" | "danger";
 
 interface SettingsState {
     emailNotifications: boolean;
@@ -25,19 +25,12 @@ interface SettingsState {
 interface Toast { id: string; message: string; type: "success" | "error" | "info"; }
 
 const STORAGE_KEY = "timely_client_settings";
-
 const DEFAULTS: SettingsState = {
-    emailNotifications: true,
-    projectUpdates: true,
-    messageAlerts: true,
-    documentAlerts: true,
-    weeklyDigest: false,
-    showActivityStatus: true,
-    allowConsultantContact: true,
+    emailNotifications: true, projectUpdates: true,
+    messageAlerts: true, documentAlerts: true, weeklyDigest: false,
+    showActivityStatus: true, allowConsultantContact: true,
     dateFormat: "MM/DD/YYYY",
 };
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 const ClientSettings: React.FC<ClientSettingsProps> = ({
     userName = "Client", userEmail = "", customerId = "",
@@ -45,26 +38,26 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
     const { isDark, toggleTheme } = useTheme();
 
     const n = {
-        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
-        card:         isDark ? "neu-dark"           : "neu-light",
-        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
-        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
-        text:         isDark ? "text-white"         : "text-gray-900",
-        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
-        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
-        strong:       isDark ? "text-white"         : "text-black",
-        label:        isDark ? "text-blue-400"      : "text-blue-600",
-        divider:      isDark ? "border-gray-800"    : "border-gray-200",
-        input:        isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
-        btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
-        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
-        btnDanger:    "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white",
+        card:          isDark ? "neu-dark"        : "neu-light",
+        flat:          isDark ? "neu-dark-flat"   : "neu-light-flat",
+        inset:         isDark ? "neu-dark-inset"  : "neu-light-inset",
+        text:          isDark ? "text-white"      : "text-gray-900",
+        secondary:     isDark ? "text-gray-300"   : "text-gray-600",
+        tertiary:      isDark ? "text-gray-500"   : "text-gray-400",
+        strong:        isDark ? "text-white"      : "text-black",
+        label:         isDark ? "text-blue-400"   : "text-blue-600",
+        divider:       isDark ? "border-gray-800" : "border-gray-200",
+        input:         isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        btnPrimary:    "bg-blue-600 hover:bg-blue-500 text-white",
+        sidebarActive: isDark ? "bg-blue-600/10 text-blue-400 border-blue-500" : "bg-blue-50 text-blue-600 border-blue-500",
+        sidebarIdle:   isDark ? "text-gray-400 hover:bg-gray-800/50 border-transparent" : "text-gray-500 hover:bg-gray-50 border-transparent",
     };
 
-    const [settings, setSettings]   = useState<SettingsState>(DEFAULTS);
-    const [hasChanges, setHasChanges] = useState(false);
-    const [saving, setSaving]       = useState(false);
-    const [toasts, setToasts]       = useState<Toast[]>([]);
+    const [settings,       setSettings]       = useState<SettingsState>(DEFAULTS);
+    const [hasChanges,     setHasChanges]     = useState(false);
+    const [saving,         setSaving]         = useState(false);
+    const [toasts,         setToasts]         = useState<Toast[]>([]);
+    const [activeSection,  setActiveSection]  = useState<SectionId>("appearance");
 
     useEffect(() => {
         try {
@@ -73,9 +66,9 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
         } catch {}
     }, []);
 
-    const showToast = (message: string, type: Toast["type"] = "success") => {
+    const showToast = (msg: string, type: Toast["type"] = "success") => {
         const id = `t_${Date.now()}`;
-        setToasts(p => [...p, { id, message, type }]);
+        setToasts(p => [...p, { id, message: msg, type }]);
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
     };
 
@@ -87,88 +80,163 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
     const save = () => {
         setSaving(true);
         setTimeout(() => {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-                setHasChanges(false);
-                showToast("Settings saved", "success");
-            } catch { showToast("Failed to save", "error"); }
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); setHasChanges(false); showToast("Settings saved"); }
+            catch { showToast("Failed to save", "error"); }
             setSaving(false);
         }, 400);
     };
 
-    const reset = () => { setSettings(DEFAULTS); setHasChanges(true); showToast("Reset to defaults", "info"); };
-
-    // ── Shared sub-components ────────────────────────────────────────────────
-
+    // ── Toggle — matches navbar pill ──────────────────────────────────────────
     const Toggle: React.FC<{ enabled: boolean; onChange: (v: boolean) => void }> = ({ enabled, onChange }) => (
-        <button onClick={() => onChange(!enabled)}
-            className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-emerald-500" : (isDark ? "bg-gray-700" : "bg-gray-300")}`}>
-            <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? "translate-x-6" : "translate-x-0.5"}`} />
+        <button type="button" onClick={() => onChange(!enabled)}
+            className={`relative w-14 h-7 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none ${enabled ? "bg-blue-600" : isDark ? "bg-gray-700" : "bg-gray-200"}`}>
+            <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-300 ${enabled ? "left-7" : "left-0.5"}`} />
         </button>
     );
 
-    const SettingRow: React.FC<{
-        icon: React.ComponentType<{ className?: string }>;
-        title: string;
-        description: string;
-        children: React.ReactNode;
-        color?: string;
-    }> = ({ icon: Icon, title, description, children, color = "bg-blue-600" }) => (
-        <div className={`flex items-center justify-between py-4 border-b ${n.divider} last:border-0`}>
-            <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                    <Icon className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                    <p className={`text-sm font-medium ${n.text}`}>{title}</p>
-                    <p className={`text-xs ${n.tertiary} mt-0.5`}>{description}</p>
-                </div>
+    // ── Row ───────────────────────────────────────────────────────────────────
+    const Row: React.FC<{ title: string; desc: string; last?: boolean; children: React.ReactNode }> = ({ title, desc, last, children }) => (
+        <div className={`flex items-center justify-between py-4 ${!last ? `border-b ${n.divider}` : ""}`}>
+            <div className="min-w-0 flex-1 pr-8">
+                <p className={`text-sm font-medium ${n.text}`}>{title}</p>
+                {desc && <p className={`text-xs ${n.tertiary} mt-0.5`}>{desc}</p>}
             </div>
+            <div className="flex-shrink-0">{children}</div>
+        </div>
+    );
+
+    // ── Sidebar nav ───────────────────────────────────────────────────────────
+    const NAV: { id: SectionId; label: string; icon: React.ComponentType<{ className?: string }>; danger?: boolean }[] = [
+        { id: "appearance",    label: "Appearance",    icon: Palette },
+        { id: "notifications", label: "Notifications", icon: Bell },
+        { id: "privacy",       label: "Privacy",       icon: Shield },
+        { id: "preferences",   label: "Preferences",  icon: Settings },
+        { id: "account",       label: "Account Info",  icon: User },
+        { id: "danger",        label: "Danger Zone",  icon: Trash2, danger: true },
+    ];
+
+    // ── Section content ───────────────────────────────────────────────────────
+    const renderSection = () => {
+        switch (activeSection) {
+            case "appearance": return (
+                <SectionWrap title="Appearance" desc="Customize how Timely looks on your device.">
+                    <div className={`${n.card} rounded-2xl px-5`}>
+                        <Row title="Dark Mode" desc="Switch between light and dark interface theme." last>
+                            <button type="button" onClick={toggleTheme}
+                                className={`relative w-14 h-7 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none ${isDark ? "bg-blue-600" : "bg-gray-200"}`}>
+                                <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-300 flex items-center justify-center ${isDark ? "left-7" : "left-0.5"}`}>
+                                    {isDark ? <Moon className="w-3 h-3 text-blue-600" /> : <Sun className="w-3 h-3 text-amber-500" />}
+                                </span>
+                            </button>
+                        </Row>
+                    </div>
+                </SectionWrap>
+            );
+
+            case "notifications": return (
+                <SectionWrap title="Notifications" desc="Control which notifications you receive.">
+                    <div className={`${n.card} rounded-2xl px-5`}>
+                        <Row title="Email Notifications"  desc="Receive updates and alerts via email."><Toggle enabled={settings.emailNotifications} onChange={v => update("emailNotifications", v)} /></Row>
+                        <Row title="Project Updates"      desc="Get notified when your projects change status."><Toggle enabled={settings.projectUpdates} onChange={v => update("projectUpdates", v)} /></Row>
+                        <Row title="Message Alerts"       desc="Get notified when you receive new messages."><Toggle enabled={settings.messageAlerts} onChange={v => update("messageAlerts", v)} /></Row>
+                        <Row title="Document Alerts"      desc="Get notified when documents are uploaded."><Toggle enabled={settings.documentAlerts} onChange={v => update("documentAlerts", v)} /></Row>
+                        <Row title="Weekly Digest"        desc="A summary of your activity delivered weekly." last><Toggle enabled={settings.weeklyDigest} onChange={v => update("weeklyDigest", v)} /></Row>
+                    </div>
+                </SectionWrap>
+            );
+
+            case "privacy": return (
+                <SectionWrap title="Privacy" desc="Manage who can see your information and contact you.">
+                    <div className={`${n.card} rounded-2xl px-5`}>
+                        <Row title="Show Activity Status"    desc="Let consultants see when you're active in the portal."><Toggle enabled={settings.showActivityStatus} onChange={v => update("showActivityStatus", v)} /></Row>
+                        <Row title="Allow Consultant Contact" desc="Allow your assigned consultant to initiate contact." last><Toggle enabled={settings.allowConsultantContact} onChange={v => update("allowConsultantContact", v)} /></Row>
+                    </div>
+                </SectionWrap>
+            );
+
+            case "preferences": return (
+                <SectionWrap title="Preferences" desc="Customize how information is displayed.">
+                    <div className={`${n.card} rounded-2xl px-5`}>
+                        <Row title="Date Format" desc="Choose how dates appear throughout the portal." last>
+                            <select value={settings.dateFormat} onChange={e => update("dateFormat", e.target.value)}
+                                className={`px-3 py-2 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`}>
+                                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                            </select>
+                        </Row>
+                    </div>
+                </SectionWrap>
+            );
+
+            case "account": return (
+                <SectionWrap title="Account Information" desc="Your account details — contact support to make changes.">
+                    <div className={`${n.card} rounded-2xl px-5 mb-4`}>
+                        <Row title="Full Name"    desc=""><span className={`text-sm ${n.secondary}`}>{userName}</span></Row>
+                        <Row title="Email"        desc=""><span className={`text-sm ${n.secondary} truncate max-w-48`}>{userEmail}</span></Row>
+                        <Row title="Customer ID"  desc=""><span className={`text-sm font-mono ${n.secondary}`}>{customerId || "N/A"}</span></Row>
+                        <Row title="Account Type" desc="" last><span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold">Client</span></Row>
+                    </div>
+                    <div className={`${n.inset} p-4 rounded-2xl flex items-start gap-3`}>
+                        <Info className={`w-4 h-4 ${n.label} flex-shrink-0 mt-0.5`} />
+                        <p className={`text-xs ${n.secondary} leading-relaxed`}>To update your email or account type, please reach out to your consultant or contact support.</p>
+                    </div>
+                </SectionWrap>
+            );
+
+            case "danger": return (
+                <SectionWrap title="Danger Zone" desc="These actions are permanent and cannot be undone." danger>
+                    <div className={`${n.card} rounded-2xl border border-red-500/20`}>
+                        <div className="px-5 py-5 flex items-center justify-between gap-6">
+                            <div>
+                                <p className={`text-sm font-semibold ${n.text}`}>Delete Account</p>
+                                <p className={`text-xs ${n.tertiary} mt-0.5`}>Permanently removes your account and all associated data.</p>
+                            </div>
+                            <button className="px-4 py-2 rounded-xl text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all flex-shrink-0">
+                                Delete Account
+                            </button>
+                        </div>
+                    </div>
+                </SectionWrap>
+            );
+
+            default: return null;
+        }
+    };
+
+    // ── Section wrapper ───────────────────────────────────────────────────────
+    const SectionWrap: React.FC<{ title: string; desc: string; danger?: boolean; children: React.ReactNode }> = ({ title, desc, danger, children }) => (
+        <div>
+            <h2 className={`text-base font-semibold mb-1 ${danger ? "text-red-400" : n.strong}`}>{title}</h2>
+            <p className={`text-xs ${n.tertiary} mb-5 leading-relaxed`}>{desc}</p>
             {children}
         </div>
     );
 
-    const Section: React.FC<{
-        icon: React.ComponentType<{ className?: string }>;
-        title: string;
-        color: string;
-        children: React.ReactNode;
-    }> = ({ icon: Icon, title, color, children }) => (
-        <section className={`${n.card} rounded-2xl p-5`}>
-            <div className="flex items-center gap-3 mb-4">
-                <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center`}>
-                    <Icon className="w-4 h-4 text-white" />
-                </div>
-                <h2 className={`font-semibold ${n.strong}`}>{title}</h2>
-            </div>
-            {children}
-        </section>
-    );
-
-    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
 
             {/* Toasts */}
-            <div className="fixed top-4 right-4 z-[10000] space-y-2">
+            <div className="fixed top-4 right-4 z-[10000] space-y-2 pointer-events-none">
                 {toasts.map(t => (
-                    <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm`}>
-                        {t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : t.type === "error" ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Info className="w-4 h-4 text-blue-400" />}
+                    <div key={t.id} className={`${n.card} pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl text-sm shadow-lg`}>
+                        {t.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" /> : t.type === "error" ? <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" /> : <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />}
                         <span className={n.text}>{t.message}</span>
-                        <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))}><X className={`w-3.5 h-3.5 ${n.tertiary}`} /></button>
                     </div>
                 ))}
             </div>
 
-            {/* Header */}
-            <div className="flex items-start justify-between">
+            {/* Page header */}
+            <div className="flex items-center justify-between">
                 <div>
                     <h1 className={`text-xl font-semibold ${n.strong}`}>Settings</h1>
-                    <p className={`text-sm ${n.secondary} mt-0.5`}>Manage your preferences</p>
+                    <p className={`text-sm ${n.secondary} mt-0.5`}>Manage your account preferences</p>
                 </div>
                 {hasChanges && (
                     <div className="flex items-center gap-2">
-                        <button onClick={reset} className={`px-3 py-2 ${n.flat} rounded-xl text-sm ${n.secondary} flex items-center gap-1.5`}>
+                        <button onClick={() => { setSettings(DEFAULTS); setHasChanges(true); showToast("Reset to defaults", "info"); }}
+                            className={`px-3 py-2 ${n.flat} rounded-xl text-sm ${n.secondary} flex items-center gap-1.5`}>
                             <RotateCcw className="w-3.5 h-3.5" />Reset
                         </button>
                         <button onClick={save} disabled={saving} className={`px-4 py-2 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-1.5 disabled:opacity-70`}>
@@ -179,108 +247,29 @@ const ClientSettings: React.FC<ClientSettingsProps> = ({
                 )}
             </div>
 
-            {/* Appearance */}
-            <Section icon={Palette} title="Appearance" color="bg-blue-600">
-                <SettingRow icon={isDark ? Moon : Sun} title="Dark Mode" description="Toggle between light and dark theme" color={isDark ? "bg-indigo-600" : "bg-amber-500"}>
-                    <Toggle enabled={isDark} onChange={toggleTheme} />
-                </SettingRow>
-            </Section>
+            {/* Two-column layout */}
+            <div className="flex gap-5 items-start">
 
-            {/* Notifications */}
-            <Section icon={Bell} title="Notifications" color="bg-blue-600">
-                <SettingRow icon={Mail}          title="Email Notifications" description="Receive notifications via email"               color="bg-rose-600">
-                    <Toggle enabled={settings.emailNotifications} onChange={v => update("emailNotifications", v)} />
-                </SettingRow>
-                <SettingRow icon={FolderOpen}    title="Project Updates"    description="Get notified when your projects are updated"   color="bg-emerald-600">
-                    <Toggle enabled={settings.projectUpdates}    onChange={v => update("projectUpdates", v)} />
-                </SettingRow>
-                <SettingRow icon={MessageCircle} title="Message Alerts"     description="Get notified when you receive new messages"    color="bg-pink-600">
-                    <Toggle enabled={settings.messageAlerts}     onChange={v => update("messageAlerts", v)} />
-                </SettingRow>
-                <SettingRow icon={FileText}      title="Document Alerts"    description="Get notified when documents are uploaded"      color="bg-cyan-600">
-                    <Toggle enabled={settings.documentAlerts}    onChange={v => update("documentAlerts", v)} />
-                </SettingRow>
-                <SettingRow icon={Mail}          title="Weekly Digest"      description="Receive a weekly summary of activity"          color="bg-violet-600">
-                    <Toggle enabled={settings.weeklyDigest}      onChange={v => update("weeklyDigest", v)} />
-                </SettingRow>
-            </Section>
-
-            {/* Privacy */}
-            <Section icon={Shield} title="Privacy" color="bg-emerald-600">
-                <SettingRow icon={Eye}  title="Show Activity Status"     description="Let consultants see when you're online"                color="bg-blue-600">
-                    <Toggle enabled={settings.showActivityStatus}     onChange={v => update("showActivityStatus", v)} />
-                </SettingRow>
-                <SettingRow icon={Lock} title="Allow Consultant Contact" description="Allow assigned consultants to contact you directly"   color="bg-amber-600">
-                    <Toggle enabled={settings.allowConsultantContact} onChange={v => update("allowConsultantContact", v)} />
-                </SettingRow>
-            </Section>
-
-            {/* Preferences */}
-            <Section icon={Settings} title="Preferences" color="bg-amber-600">
-                <div className="flex items-center justify-between py-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
-                            <Calendar className="w-4 h-4 text-white" />
-                        </div>
-                        <div>
-                            <p className={`text-sm font-medium ${n.text}`}>Date Format</p>
-                            <p className={`text-xs ${n.tertiary} mt-0.5`}>Choose how dates are displayed</p>
-                        </div>
-                    </div>
-                    <select value={settings.dateFormat} onChange={e => update("dateFormat", e.target.value)}
-                        className={`px-3 py-2 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`}>
-                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                    </select>
-                </div>
-            </Section>
-
-            {/* Account Info */}
-            <Section icon={User} title="Account Information" color="bg-gray-600">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                    {[
-                        { label: "Name",        value: userName,   mono: false },
-                        { label: "Email",       value: userEmail,  mono: false },
-                        { label: "Customer ID", value: customerId || "N/A", mono: true },
-                    ].map(item => (
-                        <div key={item.label} className={`${n.flat} p-4 rounded-xl`}>
-                            <p className={`text-[10px] uppercase tracking-wider ${n.tertiary} mb-1`}>{item.label}</p>
-                            <p className={`text-sm font-medium ${n.text} ${item.mono ? "font-mono" : ""} truncate`}>{item.value}</p>
-                        </div>
+                {/* Sidebar nav */}
+                <nav className={`${n.card} rounded-2xl p-2 w-48 flex-shrink-0 sticky top-20`}>
+                    {NAV.map(item => (
+                        <button key={item.id} onClick={() => setActiveSection(item.id)}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border-l-2 mb-0.5 last:mb-0 font-medium
+                                ${item.danger
+                                    ? `border-transparent ${activeSection === item.id ? "bg-red-500/10 text-red-400 border-red-400" : "text-red-400 hover:bg-red-500/10"} mt-1`
+                                    : activeSection === item.id ? n.sidebarActive : n.sidebarIdle
+                                }`}>
+                            <item.icon className="w-4 h-4 flex-shrink-0" />
+                            {item.label}
+                        </button>
                     ))}
-                    <div className={`${n.flat} p-4 rounded-xl`}>
-                        <p className={`text-[10px] uppercase tracking-wider ${n.tertiary} mb-1`}>Account Type</p>
-                        <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold">Client</span>
-                    </div>
-                </div>
-                <div className={`${n.inset} p-3 rounded-xl flex items-start gap-2`}>
-                    <Info className={`w-4 h-4 ${n.label} flex-shrink-0 mt-0.5`} />
-                    <p className={`text-xs ${n.secondary}`}>To update your account information, please contact your consultant or support.</p>
-                </div>
-            </Section>
+                </nav>
 
-            {/* Danger Zone */}
-            <section className={`${n.card} rounded-2xl p-5 border border-red-500/20`}>
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center">
-                        <AlertCircle className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="font-semibold text-red-400">Danger Zone</h2>
-                        <p className={`text-xs ${n.tertiary}`}>Irreversible actions</p>
-                    </div>
+                {/* Section content */}
+                <div className="flex-1 min-w-0">
+                    {renderSection()}
                 </div>
-                <div className={`${n.inset} p-4 rounded-xl flex items-center justify-between`}>
-                    <div>
-                        <p className={`text-sm font-medium ${n.text}`}>Delete Account</p>
-                        <p className={`text-xs ${n.tertiary} mt-0.5`}>Permanently delete your account and all data</p>
-                    </div>
-                    <button className={`px-4 py-2 ${n.btnDanger} rounded-xl text-sm font-medium transition-all`}>
-                        Delete Account
-                    </button>
-                </div>
-            </section>
+            </div>
         </div>
     );
 };
