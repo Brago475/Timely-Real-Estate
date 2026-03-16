@@ -3,11 +3,9 @@ import React from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
     Home, FolderOpen, History, FileText, MessageCircle,
-    Settings, User, LogOut, ChevronLeft, ChevronRight, HelpCircle,
+    Settings, User, LogOut, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import timelyLogo from "../assets/Timely_logo.png";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type ClientSidebarProps = {
     sidebarToggle: boolean;
@@ -19,16 +17,10 @@ type ClientSidebarProps = {
     userEmail?: string;
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 const ClientSidebar: React.FC<ClientSidebarProps> = ({
-    sidebarToggle,
-    setSidebarToggle,
-    activePage,
-    onNavigate,
-    onLogout,
-    userName = "Client",
-    userEmail = "",
+    sidebarToggle, setSidebarToggle,
+    activePage, onNavigate, onLogout,
+    userName = "Client", userEmail = "",
 }) => {
     const { isDark } = useTheme();
     const collapsed = sidebarToggle;
@@ -62,14 +54,14 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
     ];
 
     const bottomItems = [
-        { id: "settings", label: "Settings",     icon: Settings },
-        { id: "profile",  label: "Profile",      icon: User },
-        { id: "help",     label: "Help & Support", icon: HelpCircle },
+        { id: "settings", label: "Settings", icon: Settings },
+        { id: "profile",  label: "Profile",  icon: User },
     ];
 
-    const NavItem: React.FC<{ id: string; label: string; icon: React.ComponentType<{ className?: string }>; isLogout?: boolean }> = ({
-        id, label, icon: Icon, isLogout = false,
-    }) => {
+    const NavItem: React.FC<{
+        id: string; label: string;
+        icon: React.ComponentType<{ className?: string }>; isLogout?: boolean;
+    }> = ({ id, label, icon: Icon, isLogout = false }) => {
         const isActive = activePage === id;
         return (
             <li
@@ -127,9 +119,7 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
                             <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.label}`}>Menu</p>
                         )}
                         <ul>
-                            {navItems.map(item => (
-                                <NavItem key={item.id} {...item} />
-                            ))}
+                            {navItems.map(item => <NavItem key={item.id} {...item} />)}
                         </ul>
                     </div>
 
@@ -138,9 +128,7 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
                             <p className={`px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] ${n.tertiary}`}>Account</p>
                         )}
                         <ul>
-                            {bottomItems.map(item => (
-                                <NavItem key={item.id} {...item} />
-                            ))}
+                            {bottomItems.map(item => <NavItem key={item.id} {...item} />)}
                         </ul>
                     </div>
                 </div>
