@@ -2,13 +2,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
-    Menu, Search, Bell, ChevronRight, Settings, LogOut, User,
+    Search, Bell, ChevronRight, Settings, LogOut, User,
     Home, X, FolderOpen, History, FileText, MessageCircle,
-    HelpCircle, CheckCircle, AlertTriangle, Info, Sun, Moon,
-    Clock, Trash2,
+    HelpCircle, CheckCircle, AlertTriangle, Info, Moon, Sun,
+    Clock,
 } from "lucide-react";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type ClientNavbarProps = {
     sidebarToggle: boolean;
@@ -21,11 +19,9 @@ type ClientNavbarProps = {
     customerId?: string;
 };
 
-interface Project { projectId: string; projectCode: string; projectName: string; status: string; }
+interface Project      { projectId: string; projectCode: string; projectName: string; status: string; }
 interface Notification { id: string; type: "success" | "warning" | "info"; message: string; time: string; read: boolean; }
-interface SearchResult  { type: string; id: string; name: string; subtitle: string; }
-
-// ─── Component ────────────────────────────────────────────────────────────────
+interface SearchResult { type: string; id: string; name: string; subtitle: string; }
 
 const ClientNavbar: React.FC<ClientNavbarProps> = ({
     sidebarToggle, setSidebarToggle,
@@ -35,19 +31,18 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
     const { isDark, toggleTheme } = useTheme();
 
     const n = {
-        navbar:    isDark ? "bg-[#0a0a0a] border-gray-800"  : "bg-[#e4e4e4] border-gray-200",
-        card:      isDark ? "neu-dark"         : "neu-light",
-        flat:      isDark ? "neu-dark-flat"    : "neu-light-flat",
-        inset:     isDark ? "neu-dark-inset"   : "neu-light-inset",
-        text:      isDark ? "text-white"       : "text-gray-900",
-        secondary: isDark ? "text-gray-300"    : "text-gray-600",
-        tertiary:  isDark ? "text-gray-500"    : "text-gray-400",
-        strong:    isDark ? "text-white"       : "text-black",
-        label:     isDark ? "text-blue-400"    : "text-blue-600",
-        divider:   isDark ? "border-gray-800"  : "border-gray-200",
-        dropdown:  isDark ? "bg-[#111111] border-gray-800" : "bg-[#e4e4e4] border-gray-300",
-        btnHover:  isDark ? "hover:bg-gray-800" : "hover:bg-black/10",
-        rowHover:  isDark ? "hover:bg-gray-800" : "hover:bg-black/5",
+        navbar:   isDark ? "bg-[#0a0a0a] border-gray-800" : "bg-white border-gray-200",
+        dropdown: isDark ? "bg-[#111111] border-gray-800" : "bg-white border-gray-200",
+        flat:     isDark ? "neu-dark-flat"  : "neu-light-flat",
+        inset:    isDark ? "neu-dark-inset" : "neu-light-inset",
+        text:     isDark ? "text-white"      : "text-gray-900",
+        secondary:isDark ? "text-gray-300"   : "text-gray-600",
+        tertiary: isDark ? "text-gray-500"   : "text-gray-400",
+        strong:   isDark ? "text-white"      : "text-black",
+        label:    isDark ? "text-blue-400"   : "text-blue-600",
+        divider:  isDark ? "border-gray-800" : "border-gray-200",
+        btnHover: isDark ? "hover:bg-gray-800" : "hover:bg-gray-100",
+        rowHover: isDark ? "hover:bg-gray-800" : "hover:bg-gray-50",
     };
 
     const [showSearch,        setShowSearch]        = useState(false);
@@ -64,22 +59,20 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
     const userMenuRef        = useRef<HTMLDivElement>(null);
 
     const pageInfo: Record<string, { title: string; icon: React.ReactNode }> = {
-        dashboard: { title: "Dashboard", icon: <Home       className="w-4 h-4" /> },
-        projects:  { title: "Projects",  icon: <FolderOpen className="w-4 h-4" /> },
-        history:   { title: "History",   icon: <History    className="w-4 h-4" /> },
-        documents: { title: "Documents", icon: <FileText   className="w-4 h-4" /> },
-        messages:  { title: "Messages",  icon: <MessageCircle className="w-4 h-4" /> },
-        settings:  { title: "Settings",  icon: <Settings   className="w-4 h-4" /> },
-        profile:   { title: "Profile",   icon: <User       className="w-4 h-4" /> },
-        help:      { title: "Help & Support", icon: <HelpCircle className="w-4 h-4" /> },
+        dashboard: { title: "Dashboard",     icon: <Home          className="w-4 h-4" /> },
+        projects:  { title: "Projects",      icon: <FolderOpen    className="w-4 h-4" /> },
+        history:   { title: "History",       icon: <History       className="w-4 h-4" /> },
+        documents: { title: "Documents",     icon: <FileText      className="w-4 h-4" /> },
+        messages:  { title: "Messages",      icon: <MessageCircle className="w-4 h-4" /> },
+        settings:  { title: "Settings",      icon: <Settings      className="w-4 h-4" /> },
+        profile:   { title: "Profile",       icon: <User          className="w-4 h-4" /> },
+        help:      { title: "Help & Support", icon: <HelpCircle   className="w-4 h-4" /> },
     };
-
     const currentPage = pageInfo[activePage] || pageInfo.dashboard;
 
-    // Load projects
     useEffect(() => {
         if (!customerId) return;
-        const load = async () => {
+        (async () => {
             try {
                 const pc  = JSON.parse(localStorage.getItem("timely_project_clients") || "[]");
                 const ids = pc.filter((x: any) => String(x.clientId) === String(customerId)).map((x: any) => String(x.projectId));
@@ -87,11 +80,9 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                 const d   = await r.json();
                 if (d?.data) setProjects(d.data.filter((p: Project) => ids.includes(String(p.projectId))));
             } catch {}
-        };
-        load();
+        })();
     }, [customerId]);
 
-    // Load notifications
     useEffect(() => {
         const stored = localStorage.getItem("timely_client_notifications");
         if (stored) { setNotifications(JSON.parse(stored)); return; }
@@ -103,20 +94,16 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
         localStorage.setItem("timely_client_notifications", JSON.stringify(defaults));
     }, []);
 
-    // Click outside
     useEffect(() => {
         const handle = (e: MouseEvent) => {
-            if (notifRef.current      && !notifRef.current.contains(e.target as Node))           setShowNotifications(false);
-            if (userMenuRef.current   && !userMenuRef.current.contains(e.target as Node))        setShowUserMenu(false);
-            if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-                setShowSearch(false); setSearchQuery(""); setSearchResults([]);
-            }
+            if (notifRef.current           && !notifRef.current.contains(e.target as Node))           setShowNotifications(false);
+            if (userMenuRef.current        && !userMenuRef.current.contains(e.target as Node))        setShowUserMenu(false);
+            if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) { setShowSearch(false); setSearchQuery(""); setSearchResults([]); }
         };
         document.addEventListener("mousedown", handle);
         return () => document.removeEventListener("mousedown", handle);
     }, []);
 
-    // Keyboard shortcuts
     useEffect(() => {
         const handle = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowSearch(true); }
@@ -128,7 +115,6 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
 
     useEffect(() => { if (showSearch) searchRef.current?.focus(); }, [showSearch]);
 
-    // Search
     useEffect(() => {
         if (!searchQuery.trim()) { setSearchResults([]); return; }
         const q = searchQuery.toLowerCase();
@@ -137,17 +123,16 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
             if (p.projectName.toLowerCase().includes(q) || (p.projectCode || "").toLowerCase().includes(q))
                 results.push({ type: "project", id: p.projectId, name: p.projectName, subtitle: p.projectCode || "Project" });
         });
-        const pages = [
-            { name: "Dashboard",     id: "dashboard", subtitle: "Home overview" },
-            { name: "Projects",      id: "projects",  subtitle: "View your projects" },
-            { name: "History",       id: "history",   subtitle: "Activity log" },
-            { name: "Documents",     id: "documents", subtitle: "Your files" },
-            { name: "Messages",      id: "messages",  subtitle: "Communication" },
-            { name: "Settings",      id: "settings",  subtitle: "Preferences" },
-            { name: "Profile",       id: "profile",   subtitle: "Your profile" },
-            { name: "Help",          id: "help",      subtitle: "Get assistance" },
-        ];
-        pages.forEach(p => {
+        [
+            { name: "Dashboard", id: "dashboard", subtitle: "Home overview" },
+            { name: "Projects",  id: "projects",  subtitle: "View your projects" },
+            { name: "History",   id: "history",   subtitle: "Activity log" },
+            { name: "Documents", id: "documents", subtitle: "Your files" },
+            { name: "Messages",  id: "messages",  subtitle: "Communication" },
+            { name: "Settings",  id: "settings",  subtitle: "Preferences" },
+            { name: "Profile",   id: "profile",   subtitle: "Your profile" },
+            { name: "Help",      id: "help",      subtitle: "Get assistance" },
+        ].forEach(p => {
             if (p.name.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q))
                 results.push({ type: "page", id: p.id, name: p.name, subtitle: p.subtitle });
         });
@@ -155,19 +140,12 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
     }, [searchQuery, projects]);
 
     const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
-
-    const saveNotifs = (updated: Notification[]) => {
-        setNotifications(updated);
-        localStorage.setItem("timely_client_notifications", JSON.stringify(updated));
-    };
-
+    const saveNotifs  = (u: Notification[]) => { setNotifications(u); localStorage.setItem("timely_client_notifications", JSON.stringify(u)); };
     const markRead    = (id: string) => saveNotifs(notifications.map(n => n.id === id ? { ...n, read: true } : n));
     const markAllRead = ()            => saveNotifs(notifications.map(n => ({ ...n, read: true })));
     const deleteNotif = (id: string) => saveNotifs(notifications.filter(n => n.id !== id));
     const clearAll    = ()            => saveNotifs([]);
-
-    const initials = (name: string) =>
-        (name || "C").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+    const initials    = (name: string) => (name || "C").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
     const NotifIcon: React.FC<{ type: string }> = ({ type }) => {
         if (type === "success") return <CheckCircle   className="w-4 h-4 text-emerald-400" />;
@@ -175,7 +153,29 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
         return <Info className="w-4 h-4 text-blue-400" />;
     };
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Pill toggle — matches reference image ─────────────────────────────────
+    // dark mode:  black pill, moon icon left, white knob right
+    // light mode: orange pill, sun icon left, white knob right
+    const ThemeToggle = () => (
+        <button
+            onClick={toggleTheme}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            className="relative inline-flex w-14 h-7 rounded-full flex-shrink-0 focus:outline-none transition-colors duration-300"
+            style={{ backgroundColor: isDark ? "#1c1c1e" : "#f97316", border: isDark ? "1px solid #374151" : "1px solid #ea580c" }}
+        >
+            {/* icon shown on the left (always) */}
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                {isDark
+                    ? <Moon className="w-3.5 h-3.5 text-white/60" />
+                    : <Sun  className="w-3.5 h-3.5 text-white" />
+                }
+            </span>
+
+            {/* white knob: left = light mode (OFF), right = dark mode (ON) */}
+            <span className={`absolute top-0.5 bottom-0.5 aspect-square bg-white rounded-full shadow-md transition-all duration-300 ${isDark ? "right-0.5" : "left-0.5"}`} />
+        </button>
+    );
+
     return (
         <header className={`fixed top-0 right-0 z-30 h-16 border-b transition-all duration-300 ${n.navbar} ${sidebarToggle ? "left-20" : "left-64"}`}>
             <nav className="flex items-center justify-between px-6 h-full">
@@ -193,7 +193,7 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                 </div>
 
                 {/* Right — actions */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
 
                     {/* Search */}
                     <div className="relative" ref={searchContainerRef}>
@@ -201,21 +201,16 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                             <div className="relative">
                                 <div className={`flex items-center gap-2 px-3 py-2 ${n.inset} rounded-xl`}>
                                     <Search className={`w-4 h-4 ${n.tertiary} flex-shrink-0`} />
-                                    <input
-                                        ref={searchRef}
-                                        type="text"
-                                        placeholder="Search projects, pages…"
-                                        value={searchQuery}
+                                    <input ref={searchRef} type="text" placeholder="Search projects, pages…" value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
-                                        className={`w-56 bg-transparent ${n.text} text-sm focus:outline-none`}
-                                    />
-                                    <kbd className={`hidden sm:inline-flex px-1.5 py-0.5 text-[10px] rounded ${isDark ? "bg-gray-800 text-gray-500" : "bg-black/10 text-gray-500"}`}>ESC</kbd>
+                                        className={`w-56 bg-transparent ${n.text} text-sm focus:outline-none`} />
+                                    <kbd className={`hidden sm:inline-flex px-1.5 py-0.5 text-[10px] rounded ${isDark ? "bg-gray-800 text-gray-500" : "bg-gray-100 text-gray-400"}`}>ESC</kbd>
                                 </div>
-                                {/* Results */}
                                 {searchResults.length > 0 && (
                                     <div className={`absolute top-full right-0 mt-2 w-72 ${n.dropdown} border rounded-2xl shadow-xl overflow-hidden z-50`}>
                                         {searchResults.map((r, i) => (
-                                            <button key={`${r.type}_${r.id}_${i}`} onClick={() => { onNavigate(r.type === "project" ? "projects" : r.id); setShowSearch(false); setSearchQuery(""); setSearchResults([]); }}
+                                            <button key={`${r.type}_${r.id}_${i}`}
+                                                onClick={() => { onNavigate(r.type === "project" ? "projects" : r.id); setShowSearch(false); setSearchQuery(""); setSearchResults([]); }}
                                                 className={`w-full px-4 py-3 flex items-center gap-3 ${n.rowHover} transition-colors text-left`}>
                                                 <div className={`w-8 h-8 ${n.flat} rounded-lg flex items-center justify-center flex-shrink-0`}>
                                                     {r.type === "project" ? <FolderOpen className="w-3.5 h-3.5 text-amber-400" /> : <Home className="w-3.5 h-3.5 text-blue-400" />}
@@ -240,15 +235,13 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                             <button onClick={() => setShowSearch(true)} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${n.btnHover} ${n.secondary} transition-all`}>
                                 <Search className="w-4 h-4" />
                                 <span className={`hidden md:inline text-sm ${n.tertiary}`}>Search</span>
-                                <kbd className={`hidden md:inline-flex px-1.5 py-0.5 text-[10px] rounded ${isDark ? "bg-gray-800 text-gray-500" : "bg-black/10 text-gray-500"}`}>⌘K</kbd>
+                                <kbd className={`hidden md:inline-flex px-1.5 py-0.5 text-[10px] rounded ${isDark ? "bg-gray-800 text-gray-500" : "bg-gray-100 text-gray-400"}`}>⌘K</kbd>
                             </button>
                         )}
                     </div>
 
-                    {/* Theme toggle */}
-                    <button onClick={toggleTheme} className={`w-9 h-9 rounded-xl ${n.flat} flex items-center justify-center ${n.secondary} transition-all`}>
-                        {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                    </button>
+                    {/* Pill toggle */}
+                    <ThemeToggle />
 
                     {/* Notifications */}
                     <div className="relative" ref={notifRef}>
@@ -263,12 +256,12 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                         </button>
 
                         {showNotifications && (
-                            <div className={`absolute right-0 top-full mt-2 w-88 ${n.dropdown} border rounded-2xl shadow-xl overflow-hidden z-50`} style={{ width: 340 }}>
+                            <div className={`absolute right-0 top-full mt-2 ${n.dropdown} border rounded-2xl shadow-xl overflow-hidden z-50`} style={{ width: 340 }}>
                                 <div className={`px-4 py-3 border-b ${n.divider} flex items-center justify-between`}>
                                     <div className="flex items-center gap-2">
                                         <Bell className={`w-4 h-4 ${n.label}`} />
                                         <span className={`${n.text} font-semibold text-sm`}>Notifications</span>
-                                        {unreadCount > 0 && <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-600 text-white">{unreadCount} new</span>}
+                                        {unreadCount > 0 && <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-600 text-white font-bold">{unreadCount} new</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {unreadCount > 0 && <button onClick={markAllRead} className={`text-xs ${n.label}`}>Mark all read</button>}
@@ -304,7 +297,7 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                     </div>
 
                     {/* Separator */}
-                    <div className={`w-px h-6 mx-1 ${isDark ? "bg-gray-800" : "bg-gray-300"}`} />
+                    <div className={`w-px h-6 ${isDark ? "bg-gray-800" : "bg-gray-200"}`} />
 
                     {/* User menu */}
                     <div className="relative" ref={userMenuRef}>
@@ -321,7 +314,6 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
 
                         {showUserMenu && (
                             <div className={`absolute right-0 top-full mt-2 w-64 ${n.dropdown} border rounded-2xl shadow-xl overflow-hidden z-50`}>
-                                {/* User header */}
                                 <div className={`px-4 py-4 border-b ${n.divider}`}>
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-sm">
@@ -336,13 +328,11 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                                         Client Account
                                     </span>
                                 </div>
-
-                                {/* Menu items */}
                                 <div className="py-1.5">
                                     {[
-                                        { label: "Profile",       page: "profile",   icon: User },
-                                        { label: "Settings",      page: "settings",  icon: Settings },
-                                        { label: "Help & Support",page: "help",      icon: HelpCircle },
+                                        { label: "Profile",        page: "profile",  icon: User },
+                                        { label: "Settings",       page: "settings", icon: Settings },
+                                        { label: "Help & Support", page: "help",     icon: HelpCircle },
                                     ].map(item => (
                                         <button key={item.page} onClick={() => { setShowUserMenu(false); onNavigate(item.page); }}
                                             className={`w-full px-4 py-2.5 flex items-center gap-3 ${n.rowHover} transition-colors`}>
@@ -351,8 +341,6 @@ const ClientNavbar: React.FC<ClientNavbarProps> = ({
                                         </button>
                                     ))}
                                 </div>
-
-                                {/* Logout */}
                                 <div className={`py-1.5 border-t ${n.divider}`}>
                                     <button onClick={() => { setShowUserMenu(false); onLogout?.(); }}
                                         className={`w-full px-4 py-2.5 flex items-center gap-3 text-red-400 ${isDark ? "hover:bg-red-500/10" : "hover:bg-red-50"} transition-colors`}>
