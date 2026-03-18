@@ -93,23 +93,16 @@ const getCurrentUser = (): CurrentUser | null => {
 };
 
 const checkAccess = (project: Project, user: CurrentUser): boolean => {
-    // Admins always have access
     if (user.role === 'admin') return true;
-
     const pid = String(project.projectId);
-
-    // Consultants — check assignment
     if (user.role === 'consultant' && user.consultantId) {
         const assignedProjects = AssignmentService.getProjectsForConsultant(user.consultantId);
         return assignedProjects.includes(pid);
     }
-
-    // Clients — check assignment
     if (user.role === 'client' && user.customerId) {
         const assignedProjects = AssignmentService.getProjectsForClient(user.customerId);
         return assignedProjects.includes(pid);
     }
-
     return false;
 };
 
@@ -126,15 +119,17 @@ const ListingView: React.FC = () => {
     const [galleryIndex, setGalleryIndex] = useState(0);
     const [activePhoto, setActivePhoto]   = useState(0);
 
-    useEffect(() => {
+    useEffect(() => { (async () => {
         // 1. Check auth
         const user = getCurrentUser();
         if (!user) { setNotLoggedIn(true); return; }
 
-        // 2. Find project by slug
+        // 2. Find project by slug from API
         try {
-            const all: Project[] = JSON.parse(localStorage.getItem('timely_projects') || '[]');
-            const found = all.find(p => p.isPublished && p.listingSlug === slug);
+            const res = await fetch('/api/projects');
+            const data = res.ok ? await res.json() : null;
+            const all: Project[] = data?.data || [];
+            const found = all.find((p: any) => p.isPublished && p.listingSlug === slug);
             if (!found) { setNotFound(true); return; }
 
             // 3. Check assignment
@@ -143,7 +138,7 @@ const ListingView: React.FC = () => {
             setProject(found);
             setActivePhoto(found.coverPhotoIndex || 0);
         } catch { setNotFound(true); }
-    }, [slug]);
+    })(); }, [slug]);
 
     // Keyboard nav for gallery
     useEffect(() => {
@@ -275,7 +270,6 @@ const ListingView: React.FC = () => {
                     <Globe style={{ width: 15, height: 15, color: C.blue }} />
                     <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Timely Real Estate</span>
                 </div>
-                {/* Private badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 99, fontSize: 11, color: '#93c5fd', fontWeight: 600 }}>
                     <Lock style={{ width: 11, height: 11 }} /> Private Listing
                 </div>
@@ -294,10 +288,8 @@ const ListingView: React.FC = () => {
                     </div>
                 )}
 
-                {/* Gradient overlay */}
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,18,0.96) 0%, rgba(8,12,18,0.25) 50%, transparent 100%)' }} />
 
-                {/* Hero content */}
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 40px' }}>
                     <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, animation: 'fadeUp 0.5s ease' }}>
                         <div>
@@ -323,7 +315,6 @@ const ListingView: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Gallery button */}
                 {photos.length > 1 && (
                     <button onClick={() => { setGalleryIndex(activePhoto); setGalleryOpen(true); }} style={{ position: 'absolute', bottom: 20, right: 40, padding: '8px 14px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', border: `1px solid ${C.border}`, borderRadius: 8, color: 'white', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
                         <Layers style={{ width: 13, height: 13 }} />View all {photos.length} photos
@@ -349,7 +340,6 @@ const ListingView: React.FC = () => {
                     {/* ── Left: Property details ── */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-                        {/* Quick stat boxes */}
                         {(project.bedrooms || project.bathrooms || project.sqft || project.yearBuilt) && (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12 }}>
                                 {project.bedrooms && (
@@ -389,7 +379,6 @@ const ListingView: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Description */}
                         {project.description && (
                             <div style={card}>
                                 <span style={sLabel}>About this property</span>
@@ -397,7 +386,6 @@ const ListingView: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Property details row */}
                         {(project.propertyType || project.yearBuilt || project.lotSize || price) && (
                             <div style={card}>
                                 <span style={sLabel}>Property Details</span>
@@ -442,7 +430,6 @@ const ListingView: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Amenities */}
                         {project.amenities && project.amenities.length > 0 && (
                             <div style={card}>
                                 <span style={sLabel}>Amenities & Features</span>
@@ -456,7 +443,6 @@ const ListingView: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Location */}
                         {location && (
                             <div style={card}>
                                 <span style={sLabel}>Location</span>
@@ -467,7 +453,6 @@ const ListingView: React.FC = () => {
                                         {(project.city || project.state) && <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{[project.city, project.state, project.zip].filter(Boolean).join(', ')}</p>}
                                     </div>
                                 </div>
-                                {/* Map placeholder */}
                                 <div style={{ marginTop: 16, height: 180, background: 'rgba(255,255,255,0.03)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${C.border}` }}>
                                     <div style={{ textAlign: 'center', color: C.dim }}>
                                         <MapPin style={{ width: 24, height: 24, marginBottom: 6, opacity: 0.4 }} />
@@ -481,34 +466,25 @@ const ListingView: React.FC = () => {
                     {/* ── Right: Project summary card (sticky) ── */}
                     <div style={{ position: 'sticky', top: 80, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                        {/* Summary */}
                         <div style={card}>
                             <span style={sLabel}>Project Summary</span>
-
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                {/* Status */}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <span style={{ fontSize: 13, color: C.muted }}>Listing Status</span>
                                     <span style={{ padding: '4px 10px', background: statusColor, borderRadius: 99, fontSize: 12, fontWeight: 700, color: 'white' }}>{statusLabel}</span>
                                 </div>
-
-                                {/* Price */}
                                 {price && (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: 13, color: C.muted }}>Asking Price</span>
                                         <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{price}</span>
                                     </div>
                                 )}
-
-                                {/* Property type */}
                                 {project.propertyType && (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: 13, color: C.muted }}>Property Type</span>
                                         <span style={{ fontSize: 13, color: C.text, textTransform: 'capitalize' }}>{project.propertyType.replace('_', ' ')}</span>
                                     </div>
                                 )}
-
-                                {/* Beds / Baths */}
                                 {(project.bedrooms || project.bathrooms) && (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: 13, color: C.muted }}>Bed / Bath</span>
@@ -517,16 +493,12 @@ const ListingView: React.FC = () => {
                                         </span>
                                     </div>
                                 )}
-
-                                {/* Sqft */}
                                 {project.sqft && (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: 13, color: C.muted }}>Square Feet</span>
                                         <span style={{ fontSize: 13, color: C.text }}>{Number(project.sqft).toLocaleString()}</span>
                                     </div>
                                 )}
-
-                                {/* Project dates */}
                                 {(project.startDate || project.endDate) && (
                                     <>
                                         <div style={{ height: 1, background: C.border, margin: '2px 0' }} />
@@ -544,7 +516,6 @@ const ListingView: React.FC = () => {
                                         )}
                                     </>
                                 )}
-
                                 {project.publishedAt && (
                                     <>
                                         <div style={{ height: 1, background: C.border, margin: '2px 0' }} />
@@ -557,7 +528,6 @@ const ListingView: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* CTA — go to messages */}
                         <div style={{ ...card, padding: 20 }}>
                             <p style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: '0 0 6px' }}>Have questions?</p>
                             <p style={{ fontSize: 12, color: C.muted, margin: '0 0 16px', lineHeight: 1.5 }}>
@@ -572,7 +542,6 @@ const ListingView: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Private notice */}
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 12 }}>
                             <Lock style={{ width: 13, height: 13, color: '#93c5fd', flexShrink: 0, marginTop: 2 }} />
                             <p style={{ fontSize: 11, color: '#7dd3fc', margin: 0, lineHeight: 1.5 }}>
