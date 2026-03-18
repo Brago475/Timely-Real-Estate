@@ -54,8 +54,7 @@ const AdminMessages: React.FC<Props> = ({ adminEmail = "", adminName = "Admin", 
     const showToast = (msg: string, type: "success" | "error" | "info" = "success") => { const id = genId("t"); setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000); };
 
     useEffect(() => { loadMessages(); loadClients(); loadConsultants(); }, []);
-    const loadClients = async () => { try { const r = await fetch(`${API_BASE}/users-report`); if (r.ok) { const d = await r.json(); setClients(d.data || []); } } catch {} };
-    const loadConsultants = async () => { try { const r = await fetch(`${API_BASE}/consultants`); if (r.ok) { const d = await r.json(); setConsultants(d.data || []); } } catch {} };
+const loadClients = async () => { try { const r = await fetch(`${API_BASE}/orgs/me`); if (r.ok) { const d = await r.json(); const members = d.data?.members || []; setClients(members.filter((m: any) => m.role === "client").map((m: any) => ({ customerId: String(m.userId), firstName: m.name.split(" ")[0] || "", lastName: m.name.split(" ").slice(1).join(" ") || "", email: m.email }))); } } catch {} };    const loadConsultants = async () => { try { const r = await fetch(`${API_BASE}/consultants`); if (r.ok) { const d = await r.json(); setConsultants(d.data || []); } } catch {} };
 
     const loadMessages = () => {
         setLoading(true);
@@ -70,6 +69,7 @@ const AdminMessages: React.FC<Props> = ({ adminEmail = "", adminName = "Admin", 
         const map = new Map<string, Thread>();
         messages.forEach(msg => {
             if ((msg.deleted || msg.archived) && currentView !== "archived") return;
+            if (!msg.from || !msg.to) return;
             if (msg.from.role === "system") return;
             const isAdmin = msg.from.role === "admin";
             const isFromOther = msg.from.role === "client" || msg.from.role === "consultant";
@@ -120,8 +120,7 @@ const AdminMessages: React.FC<Props> = ({ adminEmail = "", adminName = "Admin", 
         showToast("Sent!"); setComposeBody(""); setComposeSubject(""); setComposeTo(""); setShowCompose(false); setSending(false); setSelectedThread(tid);
     };
 
-    const stats = useMemo(() => ({ unread: messages.filter(m => !m.read && (m.from.role === "client" || m.from.role === "consultant") && !m.archived && !m.deleted).length, starred: threads.filter(t => t.starred).length, total: threads.length }), [messages, threads]);
-
+    const stats = useMemo(() => ({ unread: messages.filter(m => m.from && !m.read && (m.from.role === "client" || m.from.role === "consultant") && !m.archived && !m.deleted).length, starred: threads.filter(t => t.starred).length, total: threads.length }), [messages, threads]);
     useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [threadMsgs]);
     useEffect(() => { if (selectedThread) markRead(selectedThread); }, [selectedThread]);
 
