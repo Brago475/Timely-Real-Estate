@@ -105,7 +105,7 @@ const ClientsPage = () => {
     useEffect(() => { loadAllData(); }, []);
 
     const loadAllData = async () => { setRefreshing(true); await Promise.all([loadClients(), loadConsultants(), loadProjects()]); AssignmentService.syncClientConsultantsFromAPI(); setRefreshing(false); };
-    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data) { const ext = JSON.parse(localStorage.getItem(STORAGE_KEYS.clientsExtended) || '{}'); setClients(d.data.map((c: Client) => ({ ...c, ...ext[c.customerId] }))); } };
+    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) { const ext = JSON.parse(localStorage.getItem(STORAGE_KEYS.clientsExtended) || '{}'); setClients(d.data.members.map((c: Client) => ({ ...c, ...ext[c.customerId] }))); } };
     const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
     const loadProjects = async () => { const d = await safeFetch(`${API_BASE}/projects`); if (d?.data) setProjects(d.data); };
 
