@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Users, Briefcase, FolderOpen, Mail, Shield, Clock, AlertTriangle, RefreshCw, Search, Key, UserCheck, BarChart3, PieChart, Send, Check, X, Download, Megaphone, Ban, CheckCircle, XCircle, Plus, Edit2, Trash2, Timer, FileText, MessageCircle, Info } from "lucide-react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import AdminDocumentRequests from "./AdminDocumentRequests";
-import AdminMessages from "./AdminMessages";
+import Messages from "./Messages";
 
 const API_BASE = "";
 type UserRole = "admin" | "consultant" | "client";
@@ -309,7 +309,8 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
 
                 {/* ═══ DELEGATED VIEWS ═══ */}
                 {currentView === "documents" && <AdminDocumentRequests adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
-                {currentView === "messages" && <AdminMessages adminEmail={adminEmail} adminName={adminName} onNavigate={onNavigate} />}
+                {currentView === "messages" && <Messages userRole="admin" />}
+
 
                 </div>
             </div>

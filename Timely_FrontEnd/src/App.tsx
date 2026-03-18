@@ -20,6 +20,7 @@ import SettingsPage from "./Tabs/settings";
 import ConsultantMessages from "./Tabs/ConsultantMessages";
 import ListingView from "./Pages/ListingView";
 import timelyLogo from "./assets/Timely_logo.png";
+import Messages from "./Tabs/Messages";
 
 type UserRole = "admin" | "consultant" | "client";
 type UserInfo = { customerId: string; consultantId?: string; email: string; name: string; role?: UserRole; };
@@ -166,7 +167,7 @@ function AppContent() {
             case "consultants":  return <ConsultantsPage userRole={currentRole} />;
             case "reports":      return <ReportsTab />;
             case "hours":        return <HoursPage />;
-            case "messages":     return <ConsultantMessages consultantId={consultantId} consultantEmail={userData?.email || ""} consultantName={userData?.name || "Consultant"} />;
+            case "messages":     return <Messages userRole={currentRole} />;
             case "admin":        return <AdminTab onNavigate={handleNavigation} />;
             case "InviteMembers":return <InviteMembers />;
             case "settings":     return <SettingsPage />;
