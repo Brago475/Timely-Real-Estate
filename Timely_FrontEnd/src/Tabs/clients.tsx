@@ -273,7 +273,6 @@ const ClientsPage = () => {
 
                 {/* Client List */}
                 <div className={`${n.card} p-1.5 space-y-1.5`}>
-                    {/* Table Header */}
                     <div className={`${n.flat} grid grid-cols-12 gap-4 px-4 py-3`}>
                         <div className={`col-span-3 flex items-center gap-1 cursor-pointer text-xs ${n.label}`} onClick={() => toggleSort('name')}>Client {getSortIcon('name')}</div>
                         <div className={`col-span-2 text-xs ${n.label}`}>Consultants</div>
@@ -319,7 +318,6 @@ const ClientsPage = () => {
                             <button onClick={() => { setShowCreateModal(false); resetForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-4">
-                            {/* Personal */}
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider flex items-center gap-1.5 mb-3`}><User className="w-3.5 h-3.5" />Personal</span>
                                 <div className="grid grid-cols-3 gap-3">
@@ -330,7 +328,6 @@ const ClientsPage = () => {
                                 <div className="mt-3"><label className={`${n.label} text-[11px] block mb-1`}>Email (auto)</label><div className={`px-3 py-2.5 ${n.inset} rounded-xl ${n.secondary} text-sm`}>{companyEmail || 'Enter names...'}</div></div>
                                 <div className="mt-3"><label className={`${n.label} text-[11px] block mb-1`}>Phone</label><input type="tel" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} /></div>
                             </div>
-                            {/* Account */}
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider flex items-center gap-1.5 mb-3`}><Briefcase className="w-3.5 h-3.5" />Account</span>
                                 <label className={`${n.label} text-[11px] block mb-1`}>Temp Password *</label>
@@ -339,7 +336,6 @@ const ClientsPage = () => {
                                     <button type="button" onClick={generatePassword} className={`px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm`}>Generate</button>
                                 </div>
                             </div>
-                            {/* Status & Type */}
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider flex items-center gap-1.5 mb-3`}><TrendingUp className="w-3.5 h-3.5" />Status & Type</span>
                                 <div className="grid grid-cols-2 gap-3">
@@ -347,7 +343,6 @@ const ClientsPage = () => {
                                     <div><label className={`${n.label} text-[11px] block mb-1`}>Type</label><select value={clientForm.clientType} onChange={(e) => setClientForm({ ...clientForm, clientType: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`}><option value="buyer">Buyer</option><option value="renter">Renter</option><option value="seller">Seller</option><option value="investor">Investor</option></select></div>
                                 </div>
                             </div>
-                            {/* Requirements */}
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider flex items-center gap-1.5 mb-3`}><Home className="w-3.5 h-3.5" />Requirements</span>
                                 <div className="grid grid-cols-2 gap-3">
@@ -357,7 +352,6 @@ const ClientsPage = () => {
                                     <div><label className={`${n.label} text-[11px] block mb-1`}>Budget Max</label><input type="number" value={clientForm.budgetMax} onChange={(e) => setClientForm({ ...clientForm, budgetMax: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm`} /></div>
                                 </div>
                             </div>
-                            {/* Follow-up */}
                             <div>
                                 <span className={`${n.label} text-[11px] uppercase tracking-wider flex items-center gap-1.5 mb-3`}><Calendar className="w-3.5 h-3.5" />Follow-up</span>
                                 <div className="grid grid-cols-2 gap-3">
@@ -390,13 +384,11 @@ const ClientsPage = () => {
                             </div>
                         </div>
                         <div className="p-5 space-y-5">
-                            {/* Status + Type */}
                             <div className="flex items-center gap-3 flex-wrap">
                                 <span className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${n.badge}`}>{fmtStatus(selectedClient.status || 'new_lead')}</span>
                                 <span className={`${n.secondary} flex items-center gap-1.5 text-sm`}>{getTypeIcon(selectedClient.clientType || 'buyer')}{fmtStatus(selectedClient.clientType || 'buyer')}</span>
                                 {selectedClient.phone && <span className={`${n.secondary} flex items-center gap-1.5 text-sm`}><Phone className="w-3.5 h-3.5" />{selectedClient.phone}</span>}
                             </div>
-                            {/* Action buttons */}
                             <div className="flex flex-wrap gap-2">
                                 {canEdit && <button onClick={() => { setShowDetailsModal(false); setShowEditModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Edit2 className="w-3.5 h-3.5" />Edit</button>}
                                 {canAssign && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Users className="w-3.5 h-3.5" />Consultants</button>}
@@ -404,7 +396,6 @@ const ClientsPage = () => {
                                 {isConsultant && selectedClient.email && <a href={`mailto:${selectedClient.email}`} className={`px-4 py-2.5 ${n.btnPrimary} rounded-xl text-sm flex items-center gap-2`}><Mail className="w-3.5 h-3.5" />Email</a>}
                                 {isConsultant && selectedClient.phone && <a href={`tel:${selectedClient.phone}`} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Phone className="w-3.5 h-3.5" />Call</a>}
                             </div>
-                            {/* Requirements */}
                             <div className={`${n.card} p-4`}>
                                 <span className={`${n.label} text-[11px]`}>Requirements</span>
                                 <div className="grid grid-cols-2 gap-4 mt-2">
@@ -413,19 +404,15 @@ const ClientsPage = () => {
                                     <div className="col-span-2"><p className={`${n.tertiary} text-[10px]`}>Locations</p><p className={`${n.text} text-sm`}>{selectedClient.preferredLocations || '—'}</p></div>
                                 </div>
                             </div>
-                            {/* Consultants */}
                             <div className={`${n.card} p-4`}>
                                 <div className="flex items-center justify-between mb-2"><span className={`${n.label} text-[11px]`}>Consultants</span>{canAssign && <button onClick={() => { setShowDetailsModal(false); setShowConsultantsModal(true); }} className={`${n.link} text-xs`}>Manage</button>}</div>
                                 {getClientConsultants(selectedClient.customerId).length === 0 ? <p className={`${n.tertiary} text-xs`}>None assigned</p> : <div className="flex flex-wrap gap-1.5">{getClientConsultants(selectedClient.customerId).map(c => <span key={c.consultantId} className={`px-2.5 py-1 ${n.flat} ${n.text} text-xs rounded-lg`}>{c.firstName} {c.lastName}</span>)}</div>}
                             </div>
-                            {/* Projects */}
                             <div className={`${n.card} p-4`}>
                                 <div className="flex items-center justify-between mb-2"><span className={`${n.label} text-[11px]`}>Projects</span>{canAssign && <button onClick={() => { setShowDetailsModal(false); setShowProjectsModal(true); }} className={`${n.link} text-xs`}>Manage</button>}</div>
                                 {getClientProjects(selectedClient.customerId).length === 0 ? <p className={`${n.tertiary} text-xs`}>None assigned</p> : <div className="space-y-1.5">{getClientProjects(selectedClient.customerId).map(p => <div key={p.projectId} className={`px-3 py-2 ${n.flat} ${n.text} text-sm rounded-lg`}>{p.projectName}</div>)}</div>}
                             </div>
-                            {/* Notes */}
                             {selectedClient.notes && <div className={`${n.card} p-4`}><span className={`${n.label} text-[11px]`}>Notes</span><p className={`${n.text} text-sm mt-1 leading-relaxed`}>{selectedClient.notes}</p></div>}
-                            {/* Timeline */}
                             <div className={`${n.card} p-4`}>
                                 <span className={`${n.label} text-[11px]`}>Timeline</span>
                                 <div className="flex gap-6 mt-2">
