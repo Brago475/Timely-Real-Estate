@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTheme } from "./ThemeContext";
 import { getGradient } from "../Style_Components/Navbar";
-import { Heart, Trash2, Send, RefreshCw, AlertCircle, X, AlertTriangle } from "lucide-react";
+import { Heart, Trash2, Send, RefreshCw, AlertCircle, X } from "lucide-react";
 
 const API_BASE = "/api";
 
@@ -156,28 +156,25 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
     const initials = (name: string) =>
         name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 
+    const isStaff = (role: string) => role === "admin" || role === "owner";
+
     return (
         <div className={className}>
             {/* Delete Confirmation Modal */}
             {deleteTarget && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4" onClick={() => !deleting && setDeleteTarget(null)}>
                     <div className={`${n.modal} border rounded-2xl w-full max-w-sm animate-fadeIn`} onClick={e => e.stopPropagation()}>
-                        {/* Icon */}
                         <div className="pt-6 pb-2 flex justify-center">
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isDark ? "bg-red-500/15" : "bg-red-50"}`}>
                                 <Trash2 className={`w-5 h-5 ${isDark ? "text-red-400" : "text-red-500"}`} />
                             </div>
                         </div>
-
-                        {/* Content */}
                         <div className="px-6 pb-2 text-center">
                             <h3 className={`text-lg font-semibold ${n.text} mb-1`}>Delete Post</h3>
                             <p className={`text-sm ${n.secondary}`}>
                                 This will permanently remove this post from the team feed. This action cannot be undone.
                             </p>
                         </div>
-
-                        {/* Preview */}
                         <div className={`mx-6 my-3 p-3 rounded-xl ${isDark ? "bg-white/5" : "bg-gray-50"} border ${n.divider}`}>
                             <div className="flex items-center gap-2 mb-1.5">
                                 <div className={`w-5 h-5 bg-gradient-to-br ${getGradient(deleteTarget.authorName, deleteTarget.authorEmail)} rounded-full flex items-center justify-center text-[7px] font-semibold text-white`}>
@@ -188,8 +185,6 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
                             </div>
                             <p className={`text-xs ${n.secondary} line-clamp-2`}>{deleteTarget.content}</p>
                         </div>
-
-                        {/* Actions */}
                         <div className="px-6 pb-6 pt-2 flex gap-3">
                             <button
                                 onClick={() => setDeleteTarget(null)}
@@ -238,7 +233,7 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
                         }}
                     />
                     <div className="flex justify-between items-center mt-2">
-                        <span className={`text-[10px] ${n.tertiary}`}>⌘ + Enter to post</span>
+                        <span className={`text-[10px] ${n.tertiary}`}>Cmd + Enter to post</span>
                         <button
                             onClick={handlePost}
                             disabled={!newPost.trim() || posting}
@@ -280,9 +275,9 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
                                         <span className={`text-sm font-medium ${n.text} ${gb} transition-colors`}>
                                             {post.authorName}
                                         </span>
-                                        {post.authorRole === "admin" && (
+                                        {isStaff(post.authorRole) && (
                                             <span className={`text-[9px] px-1.5 py-0.5 rounded ${isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-100 text-blue-700"}`}>
-                                                Admin
+                                                {post.authorRole === "owner" ? "Owner" : "Admin"}
                                             </span>
                                         )}
                                         <span className={`text-[11px] ${n.tertiary}`}>
@@ -306,7 +301,7 @@ const TeamFeed: React.FC<TeamFeedProps> = ({
                                             {post.likes > 0 && <span>{post.likes}</span>}
                                         </button>
 
-                                        {(post.authorEmail === userEmail || userRole === "admin") && (
+                                        {(post.authorEmail === userEmail || userRole === "admin" || isStaff(userRole || "")) && (
                                             <button
                                                 onClick={() => setDeleteTarget(post)}
                                                 className={`text-[11px] ${n.tertiary} hover:text-red-400 transition-colors`}

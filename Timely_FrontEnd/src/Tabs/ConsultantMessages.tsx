@@ -6,19 +6,16 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
     MessageCircle, Send, Search, Inbox, Star, Trash2, Archive,
-    X, ChevronLeft, RefreshCw, CheckCheck, Mail, Reply,
-    AlertCircle, CheckCircle, Plus, Users, User, Clock,
+    X, RefreshCw, CheckCheck, Mail,
+    AlertCircle, CheckCircle, Plus, Users, User,
     Shield, Briefcase
 } from "lucide-react";
 
 const API_BASE = "/api";
 
-// Generate unique ID
-const generateId = (prefix: string): string => {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
+const generateId = (prefix: string): string =>
+    `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-// Format time helper
 const formatTime = (ts: string) => {
     const date = new Date(ts);
     const now = new Date();
@@ -33,18 +30,8 @@ const formatTime = (ts: string) => {
 interface Message {
     id: string;
     threadId: string;
-    from: {
-        name: string;
-        email: string;
-        role: "client" | "consultant" | "admin" | "system";
-        id?: string;
-    };
-    to: {
-        name: string;
-        email: string;
-        role?: string;
-        id?: string;
-    };
+    from: { name: string; email: string; role: "client" | "consultant" | "admin" | "system"; id?: string; };
+    to: { name: string; email: string; role?: string; id?: string; };
     subject: string;
     body: string;
     timestamp: string;
@@ -111,7 +98,6 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
         buttonPrimary: "bg-blue-600 hover:bg-blue-700 text-white",
     };
 
-    // State
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentView, setCurrentView] = useState<ViewType>("inbox");
@@ -119,13 +105,11 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
     const [searchQuery, setSearchQuery] = useState("");
     const [toasts, setToasts] = useState<Toast[]>([]);
 
-    // Contacts
     const [assignedClients, setAssignedClients] = useState<Contact[]>([]);
     const [otherConsultants, setOtherConsultants] = useState<Contact[]>([]);
     const [admins, setAdmins] = useState<Contact[]>([]);
     const [loadingContacts, setLoadingContacts] = useState(true);
 
-    // Compose state
     const [showCompose, setShowCompose] = useState(false);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [composeTo, setComposeTo] = useState("");
@@ -135,14 +119,12 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
 
     const messageEndRef = useRef<HTMLDivElement>(null);
 
-    // Toast
     const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
         const id = generateId("toast");
         setToasts((prev) => [...prev, { id, message, type }]);
         setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
     };
 
-    // Load data
     useEffect(() => {
         loadMessages();
         loadContacts();
@@ -151,88 +133,61 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
     const loadContacts = async () => {
         setLoadingContacts(true);
         const clients: Contact[] = [];
-        const consultants: Contact[] = [];
+        const consultantsList: Contact[] = [];
         const adminList: Contact[] = [];
 
         try {
-            // 1. Get assigned clients for this consultant
-            const ccRes = await fetch(`${API_BASE}/client-consultants?consultantId=${consultantId}`);
-            if (ccRes.ok) {
-                const ccData = await ccRes.json();
-                const assignedClientIds = new Set((ccData.data || []).map((cc: any) => cc.clientId));
+            // Use /api/orgs/me to get all org members in one call
+            const orgRes = await fetch(`${API_BASE}/orgs/me`);
+            if (orgRes.ok) {
+                const orgData = await orgRes.json();
+                const members = orgData.data?.members || [];
 
-                // Get client details
-                if (assignedClientIds.size > 0) {
-                    const usersRes = await fetch(`${API_BASE}/users-report`);
-                    if (usersRes.ok) {
-                        const usersData = await usersRes.json();
-                        (usersData.data || []).forEach((u: any) => {
-                            if (assignedClientIds.has(u.customerId)) {
-                                clients.push({
-                                    id: u.customerId,
-                                    name: `${u.firstName} ${u.lastName}`,
-                                    email: u.email,
-                                    role: "client",
-                                });
-                            }
-                        });
+                members.forEach((m: any) => {
+                    // Skip self
+                    if (m.email === consultantEmail) return;
+
+                    const contact: Contact = {
+                        id: String(m.userId),
+                        name: m.name,
+                        email: m.email,
+                        role: (m.role === "owner" || m.role === "admin") ? "admin" : m.role,
+                    };
+
+                    if (m.role === "client") {
+                        clients.push(contact);
+                    } else if (m.role === "consultant") {
+                        consultantsList.push(contact);
+                    } else if (m.role === "admin" || m.role === "owner") {
+                        adminList.push(contact);
                     }
+                });
+            }
+
+            // Filter clients to only assigned ones
+            if (clients.length > 0) {
+                try {
+                    const ccRes = await fetch(`${API_BASE}/client-consultants?consultantId=${consultantId}`);
+                    if (ccRes.ok) {
+                        const ccData = await ccRes.json();
+                        const assignedIds = new Set((ccData.data || []).map((cc: any) => cc.clientId));
+                        // Only keep assigned clients
+                        const assigned = clients.filter(c => assignedIds.has(c.id));
+                        setAssignedClients(assigned);
+                    } else {
+                        setAssignedClients(clients);
+                    }
+                } catch {
+                    setAssignedClients(clients);
                 }
+            } else {
+                setAssignedClients([]);
             }
-
-            // 2. Get other consultants
-            const consultantsRes = await fetch(`${API_BASE}/consultants`);
-            if (consultantsRes.ok) {
-                const consultantsData = await consultantsRes.json();
-                (consultantsData.data || []).forEach((c: any) => {
-                    // Exclude self
-                    if (c.consultantId !== consultantId) {
-                        // Check if admin
-                        if (c.role === "admin" || c.role === "Admin") {
-                            adminList.push({
-                                id: c.consultantId,
-                                name: `${c.firstName} ${c.lastName}`,
-                                email: c.email,
-                                role: "admin",
-                            });
-                        } else {
-                            consultants.push({
-                                id: c.consultantId,
-                                name: `${c.firstName} ${c.lastName}`,
-                                email: c.email,
-                                role: "consultant",
-                            });
-                        }
-                    }
-                });
-            }
-
-            // 3. Get admins from users-report
-            const usersRes = await fetch(`${API_BASE}/users-report`);
-            if (usersRes.ok) {
-                const usersData = await usersRes.json();
-                (usersData.data || []).forEach((u: any) => {
-                    if (u.role === "admin") {
-                        // Check if already added
-                        const exists = adminList.some(a => a.email === u.email);
-                        if (!exists) {
-                            adminList.push({
-                                id: u.customerId,
-                                name: `${u.firstName} ${u.lastName}`,
-                                email: u.email,
-                                role: "admin",
-                            });
-                        }
-                    }
-                });
-            }
-
         } catch (e) {
             console.error("Error loading contacts:", e);
         }
 
-        setAssignedClients(clients);
-        setOtherConsultants(consultants);
+        setOtherConsultants(consultantsList);
         setAdmins(adminList);
         setLoadingContacts(false);
     };
@@ -240,26 +195,17 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
     const loadMessages = () => {
         setLoading(true);
         try {
-            // Load consultant's messages
             const stored = localStorage.getItem(`timely_consultant_messages_${consultantId}`);
             if (stored) {
                 setMessages(JSON.parse(stored));
             } else {
-                // Welcome message
                 const welcomeMessage: Message = {
                     id: generateId("msg"),
                     threadId: "thread_welcome",
-                    from: {
-                        name: "Timely",
-                        email: "system@timely.com",
-                        role: "system",
-                    },
-                    to: {
-                        name: consultantName,
-                        email: consultantEmail,
-                    },
+                    from: { name: "Timely", email: "system@timely.com", role: "system" },
+                    to: { name: consultantName, email: consultantEmail },
                     subject: "Welcome to Timely Messages",
-                    body: `Hi ${consultantName.split(" ")[0]},\n\nWelcome to Timely Messages! Here you can:\n\n• Message your assigned clients directly\n• Communicate with other consultants\n• Contact administrators\n\nAll messages are stored securely within the platform.\n\nBest regards,\nTimely`,
+                    body: `Hi ${consultantName.split(" ")[0]},\n\nWelcome to Timely Messages! Here you can:\n\n- Message your assigned clients directly\n- Communicate with other consultants\n- Contact administrators\n\nAll messages are stored securely within the platform.\n\nBest regards,\nTimely`,
                     timestamp: new Date().toISOString(),
                     read: false,
                     starred: false,
@@ -281,61 +227,45 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
         localStorage.setItem(`timely_consultant_messages_${consultantId}`, JSON.stringify(newMessages));
     };
 
-    // Save to recipient's inbox
     const saveToRecipientInbox = (message: Message, recipient: Contact) => {
         if (recipient.role === "client") {
-            // Save to client's messages
-            const clientMsgsKey = `timely_client_messages_${recipient.id}`;
-            const clientMsgs = JSON.parse(localStorage.getItem(clientMsgsKey) || "[]");
-            clientMsgs.push({ ...message, read: false });
-            localStorage.setItem(clientMsgsKey, JSON.stringify(clientMsgs));
+            const key = `timely_client_messages_${recipient.id}`;
+            const msgs = JSON.parse(localStorage.getItem(key) || "[]");
+            msgs.push({ ...message, read: false });
+            localStorage.setItem(key, JSON.stringify(msgs));
         } else if (recipient.role === "admin") {
-            // Save to admin messages
             const adminMsgs = JSON.parse(localStorage.getItem("timely_admin_messages") || "[]");
             adminMsgs.push({ ...message, read: false });
             localStorage.setItem("timely_admin_messages", JSON.stringify(adminMsgs));
-
-            // Also to global
             const globalMsgs = JSON.parse(localStorage.getItem("timely_global_messages") || "[]");
             globalMsgs.push({ ...message, read: false });
             localStorage.setItem("timely_global_messages", JSON.stringify(globalMsgs));
         } else if (recipient.role === "consultant") {
-            // Save to other consultant's messages
-            const consultantMsgsKey = `timely_consultant_messages_${recipient.id}`;
-            const consultantMsgs = JSON.parse(localStorage.getItem(consultantMsgsKey) || "[]");
-            consultantMsgs.push({ ...message, read: false });
-            localStorage.setItem(consultantMsgsKey, JSON.stringify(consultantMsgs));
+            const key = `timely_consultant_messages_${recipient.id}`;
+            const msgs = JSON.parse(localStorage.getItem(key) || "[]");
+            msgs.push({ ...message, read: false });
+            localStorage.setItem(key, JSON.stringify(msgs));
         }
     };
 
-    // Get threads
     const threads = useMemo(() => {
         const threadMap = new Map<string, Thread>();
-
         messages.forEach((msg) => {
             if (msg.deleted && currentView !== "archived") return;
             if (msg.archived && currentView !== "archived") return;
-
-            const existing = threadMap.get(msg.threadId);
-
-            // Determine other participant
             const isFromMe = msg.from.email === consultantEmail;
             const participantName = isFromMe ? msg.to.name : msg.from.name;
             const participantEmail = isFromMe ? msg.to.email : msg.from.email;
             const participantRole = isFromMe ? (msg.to.role || "unknown") : msg.from.role;
-
+            const existing = threadMap.get(msg.threadId);
             if (!existing) {
                 threadMap.set(msg.threadId, {
-                    id: msg.threadId,
-                    subject: msg.subject,
-                    participantName,
-                    participantEmail,
-                    participantRole,
+                    id: msg.threadId, subject: msg.subject,
+                    participantName, participantEmail, participantRole,
                     lastMessage: msg.body.substring(0, 100),
                     lastMessageTime: msg.timestamp,
                     unreadCount: msg.read ? 0 : 1,
-                    starred: msg.starred,
-                    messageCount: 1,
+                    starred: msg.starred, messageCount: 1,
                 });
             } else {
                 if (new Date(msg.timestamp) > new Date(existing.lastMessageTime)) {
@@ -347,184 +277,101 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                 existing.messageCount++;
             }
         });
-
         return Array.from(threadMap.values()).sort(
             (a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
         );
     }, [messages, currentView, consultantEmail]);
 
-    // Filter threads
     const filteredThreads = useMemo(() => {
         let result = threads;
-
         switch (currentView) {
-            case "starred":
-                result = result.filter((t) => t.starred);
-                break;
-            case "archived":
-                result = threads.filter((t) =>
-                    messages.some((m) => m.threadId === t.id && (m.deleted || m.archived))
-                );
-                break;
-            case "inbox":
-            default:
-                result = result.filter((t) => !messages.some((m) => m.threadId === t.id && m.archived));
-                break;
+            case "starred": result = result.filter((t) => t.starred); break;
+            case "archived": result = threads.filter((t) => messages.some((m) => m.threadId === t.id && (m.deleted || m.archived))); break;
+            default: result = result.filter((t) => !messages.some((m) => m.threadId === t.id && m.archived)); break;
         }
-
         if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            result = result.filter(
-                (t) =>
-                    t.subject.toLowerCase().includes(query) ||
-                    t.lastMessage.toLowerCase().includes(query) ||
-                    t.participantName.toLowerCase().includes(query)
-            );
+            const q = searchQuery.toLowerCase();
+            result = result.filter((t) => t.subject.toLowerCase().includes(q) || t.lastMessage.toLowerCase().includes(q) || t.participantName.toLowerCase().includes(q));
         }
-
         return result;
     }, [threads, currentView, searchQuery, messages]);
 
-    // Get messages for selected thread
     const threadMessages = useMemo(() => {
         if (!selectedThread) return [];
-        return messages
-            .filter((m) => m.threadId === selectedThread)
-            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        return messages.filter((m) => m.threadId === selectedThread).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     }, [messages, selectedThread]);
 
-    // Get selected thread info
-    const selectedThreadInfo = useMemo(() => {
-        return threads.find(t => t.id === selectedThread);
-    }, [threads, selectedThread]);
+    const selectedThreadInfo = useMemo(() => threads.find(t => t.id === selectedThread), [threads, selectedThread]);
 
-    // Mark thread as read
     const markThreadAsRead = (threadId: string) => {
-        const updated = messages.map((m) =>
-            m.threadId === threadId ? { ...m, read: true } : m
-        );
+        const updated = messages.map((m) => m.threadId === threadId ? { ...m, read: true } : m);
         saveMessages(updated);
     };
 
-    // Toggle star
     const toggleStar = (threadId: string) => {
-        const updated = messages.map((m) =>
-            m.threadId === threadId ? { ...m, starred: !m.starred } : m
-        );
+        const updated = messages.map((m) => m.threadId === threadId ? { ...m, starred: !m.starred } : m);
         saveMessages(updated);
     };
 
-    // Archive thread
     const archiveThread = (threadId: string) => {
-        const updated = messages.map((m) =>
-            m.threadId === threadId ? { ...m, archived: true } : m
-        );
+        const updated = messages.map((m) => m.threadId === threadId ? { ...m, archived: true } : m);
         saveMessages(updated);
         showToast("Thread archived", "success");
         setSelectedThread(null);
     };
 
-    // Delete thread
     const deleteThread = (threadId: string) => {
-        const updated = messages.map((m) =>
-            m.threadId === threadId ? { ...m, deleted: true } : m
-        );
+        const updated = messages.map((m) => m.threadId === threadId ? { ...m, deleted: true } : m);
         saveMessages(updated);
         showToast("Thread deleted", "success");
         setSelectedThread(null);
     };
 
-    // Find contact by email
-    const findContact = (email: string): Contact | undefined => {
-        return [...assignedClients, ...otherConsultants, ...admins].find(c => c.email === email);
-    };
+    const findContact = (email: string): Contact | undefined =>
+        [...assignedClients, ...otherConsultants, ...admins].find(c => c.email === email);
 
-    // Send message
     const handleSendMessage = () => {
-        if (!composeBody.trim()) {
-            showToast("Please enter a message", "error");
-            return;
-        }
-
-        if (!selectedThread && !composeTo) {
-            showToast("Please select a recipient", "error");
-            return;
-        }
-
+        if (!composeBody.trim()) { showToast("Please enter a message", "error"); return; }
+        if (!selectedThread && !composeTo) { showToast("Please select a recipient", "error"); return; }
         setSending(true);
 
-        // Find recipient from contacts or construct from thread info
         let recipient = composeTo ? findContact(composeTo) : findContact(selectedThreadInfo?.participantEmail || "");
-
-        // If recipient not found in contacts but we have thread info, construct recipient object
         if (!recipient && selectedThreadInfo) {
             recipient = {
-                id: selectedThreadInfo.participantEmail, // Use email as fallback ID
+                id: selectedThreadInfo.participantEmail,
                 name: selectedThreadInfo.participantName,
                 email: selectedThreadInfo.participantEmail,
                 role: selectedThreadInfo.participantRole as "client" | "consultant" | "admin",
             };
         }
-
-        if (!recipient && !selectedThread) {
-            showToast("Invalid recipient", "error");
-            setSending(false);
-            return;
-        }
+        if (!recipient && !selectedThread) { showToast("Invalid recipient", "error"); setSending(false); return; }
 
         const threadId = replyingTo?.threadId || selectedThread || generateId("thread");
-
         const newMessage: Message = {
-            id: generateId("msg"),
-            threadId,
-            from: {
-                name: consultantName,
-                email: consultantEmail,
-                role: "consultant",
-                id: consultantId,
-            },
+            id: generateId("msg"), threadId,
+            from: { name: consultantName, email: consultantEmail, role: "consultant", id: consultantId },
             to: {
                 name: recipient?.name || selectedThreadInfo?.participantName || "",
                 email: recipient?.email || selectedThreadInfo?.participantEmail || "",
                 role: recipient?.role || selectedThreadInfo?.participantRole as any,
                 id: recipient?.id,
             },
-            subject: replyingTo
-                ? `Re: ${replyingTo.subject.replace(/^Re: /, "")}`
-                : composeSubject || `Message from ${consultantName}`,
+            subject: replyingTo ? `Re: ${replyingTo.subject.replace(/^Re: /, "")}` : composeSubject || `Message from ${consultantName}`,
             body: composeBody,
             timestamp: new Date().toISOString(),
-            read: true,
-            starred: false,
-            archived: false,
-            deleted: false,
+            read: true, starred: false, archived: false, deleted: false,
         };
 
-        // Save to own messages
         const updatedMessages = [...messages, newMessage];
         saveMessages(updatedMessages);
-
-        // Save to recipient's inbox - always save if we have recipient info
-        if (recipient) {
-            saveToRecipientInbox(newMessage, recipient);
-        }
-
+        if (recipient) saveToRecipientInbox(newMessage, recipient);
         showToast("Message sent!", "success");
 
-        // Reset
-        setComposeBody("");
-        setComposeSubject("");
-        setComposeTo("");
-        setShowCompose(false);
-        setReplyingTo(null);
-        setSending(false);
-
-        if (!selectedThread) {
-            setSelectedThread(threadId);
-        }
+        setComposeBody(""); setComposeSubject(""); setComposeTo("");
+        setShowCompose(false); setReplyingTo(null); setSending(false);
+        if (!selectedThread) setSelectedThread(threadId);
     };
 
-    // Get avatar color
     const getAvatarColor = (role: string) => {
         switch (role) {
             case "client": return "bg-emerald-600";
@@ -534,7 +381,6 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
         }
     };
 
-    // Get role icon
     const getRoleIcon = (role: string) => {
         switch (role) {
             case "client": return Users;
@@ -544,33 +390,18 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
         }
     };
 
-    // Stats
     const stats = useMemo(() => ({
         unread: messages.filter((m) => !m.read && !m.archived && !m.deleted).length,
         starred: threads.filter((t) => t.starred).length,
         total: threads.length,
     }), [messages, threads]);
 
-    // Scroll to bottom
-    useEffect(() => {
-        if (messageEndRef.current) {
-            messageEndRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-    }, [threadMessages]);
-
-    // Mark as read when opening
-    useEffect(() => {
-        if (selectedThread) {
-            markThreadAsRead(selectedThread);
-        }
-    }, [selectedThread]);
-
-    // All contacts combined
-    const allContacts = [...assignedClients, ...otherConsultants, ...admins];
+    useEffect(() => { if (messageEndRef.current) messageEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [threadMessages]);
+    useEffect(() => { if (selectedThread) markThreadAsRead(selectedThread); }, [selectedThread]);
 
     return (
         <div className="space-y-6">
-            {/* Toast Notifications */}
+            {/* Toasts */}
             <div className="fixed top-20 right-4 z-[10000] space-y-2">
                 {toasts.map((toast) => (
                     <div key={toast.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${s.card}`}>
@@ -587,95 +418,51 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className={`${s.card} border rounded-xl w-full max-w-2xl overflow-hidden`}>
                         <div className={`px-6 py-4 border-b ${s.divider} flex items-center justify-between`}>
-                            <h3 className={`text-lg font-semibold ${s.text}`}>
-                                {replyingTo ? "Reply" : "New Message"}
-                            </h3>
+                            <h3 className={`text-lg font-semibold ${s.text}`}>{replyingTo ? "Reply" : "New Message"}</h3>
                             <button onClick={() => { setShowCompose(false); setReplyingTo(null); }} className={`p-2 rounded-lg ${s.cardHover}`}>
                                 <X className={`w-5 h-5 ${s.textMuted}`} />
                             </button>
                         </div>
                         <div className="p-6 space-y-4">
-                            {/* To */}
                             <div>
                                 <label className={`block text-sm font-medium ${s.textMuted} mb-1.5`}>To *</label>
-                                <select
-                                    value={composeTo}
-                                    onChange={(e) => setComposeTo(e.target.value)}
-                                    disabled={!!replyingTo}
-                                    className={`w-full px-4 py-2.5 rounded-lg border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${replyingTo ? "opacity-60" : ""}`}
-                                >
+                                <select value={composeTo} onChange={(e) => setComposeTo(e.target.value)} disabled={!!replyingTo}
+                                    className={`w-full px-4 py-2.5 rounded-lg border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${replyingTo ? "opacity-60" : ""}`}>
                                     <option value="">Select recipient...</option>
                                     {assignedClients.length > 0 && (
                                         <optgroup label="Your Assigned Clients">
-                                            {assignedClients.map((c) => (
-                                                <option key={c.id} value={c.email}>
-                                                    {c.name} (Client)
-                                                </option>
-                                            ))}
+                                            {assignedClients.map((c) => (<option key={c.id} value={c.email}>{c.name} (Client)</option>))}
                                         </optgroup>
                                     )}
                                     {otherConsultants.length > 0 && (
                                         <optgroup label="Other Consultants">
-                                            {otherConsultants.map((c) => (
-                                                <option key={c.id} value={c.email}>
-                                                    {c.name} (Consultant)
-                                                </option>
-                                            ))}
+                                            {otherConsultants.map((c) => (<option key={c.id} value={c.email}>{c.name} (Consultant)</option>))}
                                         </optgroup>
                                     )}
                                     {admins.length > 0 && (
                                         <optgroup label="Administrators">
-                                            {admins.map((c) => (
-                                                <option key={c.id} value={c.email}>
-                                                    {c.name} (Admin)
-                                                </option>
-                                            ))}
+                                            {admins.map((c) => (<option key={c.id} value={c.email}>{c.name} (Admin)</option>))}
                                         </optgroup>
                                     )}
                                 </select>
-                                {assignedClients.length === 0 && (
-                                    <p className={`text-xs ${s.textMuted} mt-1`}>
-                                        No clients assigned to you yet.
-                                    </p>
-                                )}
+                                {assignedClients.length === 0 && <p className={`text-xs ${s.textMuted} mt-1`}>No clients assigned to you yet.</p>}
                             </div>
-
-                            {/* Subject */}
                             <div>
                                 <label className={`block text-sm font-medium ${s.textMuted} mb-1.5`}>Subject *</label>
-                                <input
-                                    type="text"
-                                    value={composeSubject}
-                                    onChange={(e) => setComposeSubject(e.target.value)}
-                                    placeholder="Enter subject..."
-                                    disabled={!!replyingTo}
-                                    className={`w-full px-4 py-2.5 rounded-lg border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${replyingTo ? "opacity-60" : ""}`}
-                                />
+                                <input type="text" value={composeSubject} onChange={(e) => setComposeSubject(e.target.value)} placeholder="Enter subject..." disabled={!!replyingTo}
+                                    className={`w-full px-4 py-2.5 rounded-lg border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${replyingTo ? "opacity-60" : ""}`} />
                             </div>
-
-                            {/* Body */}
                             <div>
                                 <label className={`block text-sm font-medium ${s.textMuted} mb-1.5`}>Message *</label>
-                                <textarea
-                                    value={composeBody}
-                                    onChange={(e) => setComposeBody(e.target.value)}
-                                    placeholder="Type your message..."
-                                    rows={8}
-                                    className={`w-full px-4 py-2.5 rounded-lg border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none`}
-                                />
+                                <textarea value={composeBody} onChange={(e) => setComposeBody(e.target.value)} placeholder="Type your message..." rows={8}
+                                    className={`w-full px-4 py-2.5 rounded-lg border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none`} />
                             </div>
                         </div>
                         <div className={`px-6 py-4 border-t ${s.divider} flex justify-end gap-2`}>
-                            <button onClick={() => { setShowCompose(false); setReplyingTo(null); }} className={`${s.button} px-4 py-2 rounded-lg`}>
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSendMessage}
-                                disabled={sending || !composeTo || !composeSubject.trim() || !composeBody.trim()}
-                                className={`${s.buttonPrimary} px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50`}
-                            >
-                                {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                Send
+                            <button onClick={() => { setShowCompose(false); setReplyingTo(null); }} className={`${s.button} px-4 py-2 rounded-lg`}>Cancel</button>
+                            <button onClick={handleSendMessage} disabled={sending || !composeTo || !composeSubject.trim() || !composeBody.trim()}
+                                className={`${s.buttonPrimary} px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50`}>
+                                {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send
                             </button>
                         </div>
                     </div>
@@ -686,9 +473,7 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h2 className={`text-xl font-semibold ${s.text}`}>Messages</h2>
-                    <p className={s.textMuted}>
-                        {stats.unread > 0 ? `${stats.unread} unread message${stats.unread > 1 ? "s" : ""}` : "All caught up!"}
-                    </p>
+                    <p className={s.textMuted}>{stats.unread > 0 ? `${stats.unread} unread message${stats.unread > 1 ? "s" : ""}` : "All caught up!"}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={loadMessages} className={`${s.card} border px-3 py-2 rounded-lg ${s.cardHover}`}>
@@ -705,50 +490,35 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                 <div className="flex h-[600px]">
                     {/* Sidebar */}
                     <div className={`w-56 border-r ${s.divider} flex flex-col`}>
-                        {/* Navigation */}
                         <nav className="p-3 space-y-1">
                             {[
                                 { id: "inbox", label: "Inbox", icon: Inbox, count: stats.unread },
                                 { id: "starred", label: "Starred", icon: Star, count: stats.starred },
                                 { id: "archived", label: "Archived", icon: Archive },
                             ].map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => { setCurrentView(item.id as ViewType); setSelectedThread(null); }}
-                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${currentView === item.id ? s.cardActive : s.cardHover}`}
-                                >
+                                <button key={item.id} onClick={() => { setCurrentView(item.id as ViewType); setSelectedThread(null); }}
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${currentView === item.id ? s.cardActive : s.cardHover}`}>
                                     <div className="flex items-center gap-3">
                                         <item.icon className={`w-4 h-4 ${currentView === item.id ? "text-blue-500" : s.textMuted}`} />
                                         <span className={`text-sm ${currentView === item.id ? s.text : s.textMuted}`}>{item.label}</span>
                                     </div>
-                                    {item.count && item.count > 0 && (
-                                        <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500 text-white">{item.count}</span>
-                                    )}
+                                    {item.count && item.count > 0 && <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500 text-white">{item.count}</span>}
                                 </button>
                             ))}
                         </nav>
 
-                        {/* Contacts */}
                         <div className={`p-3 border-t ${s.divider} flex-1 overflow-y-auto`}>
                             <p className={`text-xs font-medium ${s.textMuted} uppercase mb-2`}>Quick Message</p>
                             {loadingContacts ? (
-                                <div className="flex items-center justify-center py-4">
-                                    <RefreshCw className={`w-4 h-4 ${s.textMuted} animate-spin`} />
-                                </div>
+                                <div className="flex items-center justify-center py-4"><RefreshCw className={`w-4 h-4 ${s.textMuted} animate-spin`} /></div>
                             ) : (
                                 <div className="space-y-1">
-                                    {/* Assigned Clients */}
                                     {assignedClients.length > 0 && (
                                         <>
-                                            <p className={`text-xs ${s.textSubtle} mt-2 mb-1 flex items-center gap-1`}>
-                                                <Users className="w-3 h-3" /> Clients
-                                            </p>
+                                            <p className={`text-xs ${s.textSubtle} mt-2 mb-1 flex items-center gap-1`}><Users className="w-3 h-3" /> Clients</p>
                                             {assignedClients.slice(0, 3).map((c) => (
-                                                <button
-                                                    key={c.id}
-                                                    onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
-                                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg ${s.cardHover} text-left`}
-                                                >
+                                                <button key={c.id} onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
+                                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg ${s.cardHover} text-left`}>
                                                     <div className={`w-6 h-6 ${getAvatarColor(c.role)} rounded-full flex items-center justify-center text-white text-xs`}>
                                                         {c.name.split(" ").map(n => n[0]).join("").substring(0, 2)}
                                                     </div>
@@ -757,19 +527,12 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                                             ))}
                                         </>
                                     )}
-
-                                    {/* Other Consultants */}
                                     {otherConsultants.length > 0 && (
                                         <>
-                                            <p className={`text-xs ${s.textSubtle} mt-3 mb-1 flex items-center gap-1`}>
-                                                <Briefcase className="w-3 h-3" /> Consultants
-                                            </p>
+                                            <p className={`text-xs ${s.textSubtle} mt-3 mb-1 flex items-center gap-1`}><Briefcase className="w-3 h-3" /> Consultants</p>
                                             {otherConsultants.slice(0, 3).map((c) => (
-                                                <button
-                                                    key={c.id}
-                                                    onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
-                                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg ${s.cardHover} text-left`}
-                                                >
+                                                <button key={c.id} onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
+                                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg ${s.cardHover} text-left`}>
                                                     <div className={`w-6 h-6 ${getAvatarColor(c.role)} rounded-full flex items-center justify-center text-white text-xs`}>
                                                         {c.name.split(" ").map(n => n[0]).join("").substring(0, 2)}
                                                     </div>
@@ -778,19 +541,12 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                                             ))}
                                         </>
                                     )}
-
-                                    {/* Admins */}
                                     {admins.length > 0 && (
                                         <>
-                                            <p className={`text-xs ${s.textSubtle} mt-3 mb-1 flex items-center gap-1`}>
-                                                <Shield className="w-3 h-3" /> Admins
-                                            </p>
+                                            <p className={`text-xs ${s.textSubtle} mt-3 mb-1 flex items-center gap-1`}><Shield className="w-3 h-3" /> Admins</p>
                                             {admins.slice(0, 3).map((c) => (
-                                                <button
-                                                    key={c.id}
-                                                    onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
-                                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg ${s.cardHover} text-left`}
-                                                >
+                                                <button key={c.id} onClick={() => { setComposeTo(c.email); setShowCompose(true); }}
+                                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg ${s.cardHover} text-left`}>
                                                     <div className={`w-6 h-6 ${getAvatarColor(c.role)} rounded-full flex items-center justify-center text-white text-xs`}>
                                                         {c.name.split(" ").map(n => n[0]).join("").substring(0, 2)}
                                                     </div>
@@ -799,11 +555,8 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                                             ))}
                                         </>
                                     )}
-
                                     {assignedClients.length === 0 && otherConsultants.length === 0 && admins.length === 0 && (
-                                        <p className={`text-xs ${s.textMuted} text-center py-4`}>
-                                            No contacts available
-                                        </p>
+                                        <p className={`text-xs ${s.textMuted} text-center py-4`}>No contacts available</p>
                                     )}
                                 </div>
                             )}
@@ -812,43 +565,28 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
 
                     {/* Thread List */}
                     <div className={`w-80 border-r ${s.divider} flex flex-col`}>
-                        {/* Search */}
                         <div className="p-3">
                             <div className="relative">
                                 <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${s.textMuted}`} />
-                                <input
-                                    type="text"
-                                    placeholder="Search messages..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-9 pr-4 py-2 rounded-lg border ${s.input} focus:outline-none text-sm`}
-                                />
+                                <input type="text" placeholder="Search messages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                                    className={`w-full pl-9 pr-4 py-2 rounded-lg border ${s.input} focus:outline-none text-sm`} />
                             </div>
                         </div>
-
-                        {/* Thread List */}
                         <div className="flex-1 overflow-y-auto">
                             {loading ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <RefreshCw className={`w-6 h-6 ${s.textMuted} animate-spin`} />
-                                </div>
+                                <div className="flex items-center justify-center py-8"><RefreshCw className={`w-6 h-6 ${s.textMuted} animate-spin`} /></div>
                             ) : filteredThreads.length === 0 ? (
                                 <div className="text-center py-8">
                                     <MessageCircle className={`w-10 h-10 ${s.textSubtle} mx-auto mb-2`} />
                                     <p className={s.textMuted}>No messages</p>
-                                    <button onClick={() => setShowCompose(true)} className={`${s.buttonPrimary} px-3 py-1.5 rounded-lg text-sm mt-3`}>
-                                        Start a conversation
-                                    </button>
+                                    <button onClick={() => setShowCompose(true)} className={`${s.buttonPrimary} px-3 py-1.5 rounded-lg text-sm mt-3`}>Start a conversation</button>
                                 </div>
                             ) : (
                                 filteredThreads.map((thread) => {
                                     const RoleIcon = getRoleIcon(thread.participantRole);
                                     return (
-                                        <div
-                                            key={thread.id}
-                                            onClick={() => setSelectedThread(thread.id)}
-                                            className={`p-3 border-b ${s.divider} cursor-pointer transition-colors ${selectedThread === thread.id ? s.cardActive : s.cardHover} ${thread.unreadCount > 0 ? "border-l-2 border-l-blue-500" : ""}`}
-                                        >
+                                        <div key={thread.id} onClick={() => setSelectedThread(thread.id)}
+                                            className={`p-3 border-b ${s.divider} cursor-pointer transition-colors ${selectedThread === thread.id ? s.cardActive : s.cardHover} ${thread.unreadCount > 0 ? "border-l-2 border-l-blue-500" : ""}`}>
                                             <div className="flex items-start gap-3">
                                                 <div className={`w-10 h-10 ${getAvatarColor(thread.participantRole)} rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0`}>
                                                     {thread.participantName.split(" ").map(n => n[0]).join("").substring(0, 2)}
@@ -862,15 +600,11 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                                                         <RoleIcon className={`w-3 h-3 ${s.textSubtle}`} />
                                                         <span className={`text-xs ${s.textSubtle} capitalize`}>{thread.participantRole}</span>
                                                     </div>
-                                                    <p className={`text-sm ${thread.unreadCount > 0 ? `font-medium ${s.text}` : s.textMuted} truncate`}>
-                                                        {thread.subject}
-                                                    </p>
+                                                    <p className={`text-sm ${thread.unreadCount > 0 ? `font-medium ${s.text}` : s.textMuted} truncate`}>{thread.subject}</p>
                                                     <p className={`text-xs ${s.textMuted} truncate mt-0.5`}>{thread.lastMessage}</p>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         {thread.starred && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
-                                                        {thread.unreadCount > 0 && (
-                                                            <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-500 text-white">{thread.unreadCount}</span>
-                                                        )}
+                                                        {thread.unreadCount > 0 && <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-500 text-white">{thread.unreadCount}</span>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -895,7 +629,6 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                             </div>
                         ) : (
                             <>
-                                {/* Thread Header */}
                                 <div className={`p-4 border-b ${s.divider} flex items-center justify-between`}>
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className={`w-10 h-10 ${getAvatarColor(selectedThreadInfo?.participantRole || "")} rounded-full flex items-center justify-center text-white font-medium`}>
@@ -919,23 +652,19 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Subject */}
                                 <div className={`px-4 py-2 border-b ${s.divider}`}>
                                     <p className={`text-sm ${s.textMuted}`}>Subject: <span className={s.text}>{threadMessages[0]?.subject || "No Subject"}</span></p>
                                 </div>
 
-                                {/* Messages */}
                                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                     {threadMessages.map((msg) => {
                                         const isOwn = msg.from.email === consultantEmail;
                                         return (
                                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                                                <div className={`max-w-[80%]`}>
+                                                <div className="max-w-[80%]">
                                                     {!isOwn && (
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <div className={`w-6 h-6 ${getAvatarColor(msg.from.role)} rounded-full flex items-center justify-center text-white text-xs`}>
-                                                                {msg.from.name[0]}
-                                                            </div>
+                                                            <div className={`w-6 h-6 ${getAvatarColor(msg.from.role)} rounded-full flex items-center justify-center text-white text-xs`}>{msg.from.name[0]}</div>
                                                             <span className={`text-sm font-medium ${s.text}`}>{msg.from.name}</span>
                                                             <span className={`text-xs ${s.textSubtle}`}>{formatTime(msg.timestamp)}</span>
                                                         </div>
@@ -956,35 +685,18 @@ const ConsultantMessages: React.FC<ConsultantMessagesProps> = ({
                                     <div ref={messageEndRef} />
                                 </div>
 
-                                {/* Reply Box */}
                                 <div className={`p-4 border-t ${s.divider}`}>
                                     <div className="flex gap-2">
-                                        <textarea
-                                            value={composeBody}
-                                            onChange={(e) => setComposeBody(e.target.value)}
-                                            placeholder="Type your reply..."
-                                            rows={2}
+                                        <textarea value={composeBody} onChange={(e) => setComposeBody(e.target.value)} placeholder="Type your reply..." rows={2}
                                             className={`flex-1 px-4 py-2 rounded-lg border ${s.input} focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none`}
                                             onKeyDown={(e) => {
                                                 if (e.key === "Enter" && !e.shiftKey) {
                                                     e.preventDefault();
-                                                    if (composeBody.trim()) {
-                                                        setReplyingTo(threadMessages[threadMessages.length - 1]);
-                                                        handleSendMessage();
-                                                    }
+                                                    if (composeBody.trim()) { setReplyingTo(threadMessages[threadMessages.length - 1]); handleSendMessage(); }
                                                 }
-                                            }}
-                                        />
-                                        <button
-                                            onClick={() => {
-                                                if (composeBody.trim()) {
-                                                    setReplyingTo(threadMessages[threadMessages.length - 1]);
-                                                    handleSendMessage();
-                                                }
-                                            }}
-                                            disabled={!composeBody.trim() || sending}
-                                            className={`${s.buttonPrimary} px-4 rounded-lg disabled:opacity-50`}
-                                        >
+                                            }} />
+                                        <button onClick={() => { if (composeBody.trim()) { setReplyingTo(threadMessages[threadMessages.length - 1]); handleSendMessage(); } }}
+                                            disabled={!composeBody.trim() || sending} className={`${s.buttonPrimary} px-4 rounded-lg disabled:opacity-50`}>
                                             {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                         </button>
                                     </div>

@@ -6,7 +6,10 @@ interface User {
   customerId: string;
   name: string;
   email: string;
-  role: "admin" | "consultant" | "client";
+  role: "owner" | "admin" | "consultant" | "client";
+  orgId?: number;
+  orgName?: string;
+  orgSlug?: string;
   clientCode?: string;
   consultantCode?: string;
 }

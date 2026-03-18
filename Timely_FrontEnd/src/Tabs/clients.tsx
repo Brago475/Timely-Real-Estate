@@ -11,11 +11,11 @@ type UserRole = 'admin' | 'consultant' | 'client';
 
 const getCurrentUserRole = (): { role: UserRole; email: string; customerId: string; name: string; consultantId: string } => {
     try {
-        const raw = localStorage.getItem('timely_user');
+        const raw = sessionStorage.getItem('timely_user') || localStorage.getItem('timely_user');
         if (!raw) return { role: 'admin', email: '', customerId: '', name: '', consultantId: '' };
         const parsed = JSON.parse(raw);
         const r = (parsed.role || '').toLowerCase();
-        const role: UserRole = (r === 'admin' || r === 'consultant' || r === 'client') ? r : 'admin';
+        const role: UserRole = (r === 'owner' || r === 'admin') ? 'admin' : (r === 'consultant') ? 'consultant' : (r === 'client') ? 'client' : 'admin';
         return { role, email: parsed.email || '', customerId: parsed.customerId || '', name: parsed.name || '', consultantId: parsed.consultantId || '' };
     } catch { return { role: 'admin', email: '', customerId: '', name: '', consultantId: '' }; }
 };
