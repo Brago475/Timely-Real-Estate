@@ -51,6 +51,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
             : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),0_2px_8px_rgba(0,0,0,0.06)]",
         barBg: isDark ? "bg-gray-800" : "bg-gray-200",
         actionHover: isDark ? "hover:bg-gray-800" : "hover:bg-blue-50",
+        quickBtn: isDark ? "text-gray-400 hover:text-blue-400" : "text-gray-600 hover:text-blue-600",
     };
 
     const [currentView, setCurrentView] = useState<AdminView>("dashboard");
@@ -138,7 +139,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
 
     const tabs: { id: AdminView; label: string; icon: any; badge?: number }[] = [
         { id: "dashboard", label: "Overview", icon: BarChart3 },
-        { id: "users", label: "Clients", icon: Users },
+        { id: "users", label: "Members", icon: Users },
         { id: "consultants", label: "Consultants", icon: Briefcase },
         { id: "projects", label: "Projects", icon: FolderOpen },
         { id: "timelogs", label: "Time Logs", icon: Clock, badge: stats.pendingLogs || undefined },
@@ -171,12 +172,12 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                 {/* ═══ DASHBOARD ═══ */}
                 {currentView === "dashboard" && (<div className="space-y-8">
                     <div className="flex flex-wrap gap-2">
-                        <button onClick={() => setShowAnnounceModal(true)} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Megaphone className="w-3.5 h-3.5" />Announce</button>
-                        <button onClick={() => onNavigate?.("InviteMembers")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Plus className="w-3.5 h-3.5" />Invite Member</button>
-                        <button onClick={() => onNavigate?.("projects")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><FolderOpen className="w-3.5 h-3.5" />Projects</button>
-                        <button onClick={() => onNavigate?.("hours")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><Clock className="w-3.5 h-3.5" />Hours</button>
-                        <button onClick={() => setCurrentView("documents")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><FileText className="w-3.5 h-3.5" />Documents</button>
-                        <button onClick={() => setCurrentView("messages")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.secondary} transition-all`}><MessageCircle className="w-3.5 h-3.5" />Messages{unreadMessages > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadMessages}</span>}</button>
+                        <button onClick={() => setShowAnnounceModal(true)} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.quickBtn} transition-all`}><Megaphone className="w-3.5 h-3.5" />Announce</button>
+                        <button onClick={() => onNavigate?.("InviteMembers")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.quickBtn} transition-all`}><Plus className="w-3.5 h-3.5" />Invite Member</button>
+                        <button onClick={() => onNavigate?.("projects")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.quickBtn} transition-all`}><FolderOpen className="w-3.5 h-3.5" />Projects</button>
+                        <button onClick={() => onNavigate?.("hours")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.quickBtn} transition-all`}><Clock className="w-3.5 h-3.5" />Hours</button>
+                        <button onClick={() => setCurrentView("documents")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.quickBtn} transition-all`}><FileText className="w-3.5 h-3.5" />Documents</button>
+                        <button onClick={() => setCurrentView("messages")} className={`px-4 py-2.5 ${n.flat} ${n.edgeHoverFlat} text-sm flex items-center gap-2 ${n.quickBtn} transition-all`}><MessageCircle className="w-3.5 h-3.5" />Messages{unreadMessages > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadMessages}</span>}</button>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -204,9 +205,9 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
                     {alerts.length > 0 && <div className={`${n.card} p-5`}><h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${n.text}`}><AlertTriangle className={`w-4 h-4 ${isDark ? "text-amber-400" : "text-amber-600"}`} />Alerts</h3><div className="space-y-1.5">{alerts.slice(0, 3).map(a => (<div key={a.id} className={`${n.flat} p-2.5 flex items-center gap-2 text-xs`}><AlertTriangle className={`w-3 h-3 ${a.type === "error" ? (isDark ? "text-red-400" : "text-red-600") : a.type === "warning" ? (isDark ? "text-amber-400" : "text-amber-600") : n.label}`} /><span className={n.text}>{a.message}</span></div>))}</div></div>}
                 </div>)}
 
-                {/* ═══ CLIENTS ═══ */}
+                {/* ═══ MEMBERS ═══ */}
                 {currentView === "users" && (<div className="space-y-6">
-                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Client Management</h2><div className="flex gap-2"><button onClick={() => exportCSV(users, "clients", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={fetchUsers} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button></div></div>
+                    <div className="flex items-center justify-between"><h2 className={`text-lg font-semibold ${n.strong}`}>Member Management</h2><div className="flex gap-2"><button onClick={() => exportCSV(users, "members", showToast, m => showToast(m, "error"))} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><Download className={`w-4 h-4 ${n.secondary}`} /></button><button onClick={fetchUsers} className={`w-9 h-9 ${n.flat} flex items-center justify-center`}><RefreshCw className={`w-4 h-4 ${n.secondary}`} /></button></div></div>
                     <div className="flex gap-3"><div className={`flex-1 ${n.flat} flex items-center gap-2 px-4 py-2.5`}><Search className={`w-4 h-4 ${n.tertiary}`} /><input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full bg-transparent ${n.text} text-sm focus:outline-none`} /></div><select value={userStatusFilter} onChange={e => setUserStatusFilter(e.target.value as any)} className={`px-3 py-2 ${n.input} border rounded-xl text-sm`}><option value="all">All</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select></div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className={`lg:col-span-2 ${n.card} p-1.5 space-y-1.5`}>
