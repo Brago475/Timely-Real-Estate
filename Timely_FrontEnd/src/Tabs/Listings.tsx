@@ -1,5 +1,5 @@
 // src/Tabs/Listings.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../Views_Layouts/ThemeContext';
 import {
     Globe, EyeOff, MapPin, Bed, Bath, Maximize, Search,
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import ListingService from '../services/ListingService';
 
-const STORAGE_KEY = 'timely_projects';
+const API_BASE = '/api';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -24,6 +24,14 @@ interface Project {
 }
 
 interface Toast { id: string; message: string; type: 'success' | 'error' | 'info'; }
+
+const safeFetch = async (url: string) => {
+    try {
+        const r = await fetch(url);
+        if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) return null;
+        return await r.json();
+    } catch { return null; }
+};
 
 // ─── Cover helpers ────────────────────────────────────────────────────────────
 
@@ -68,10 +76,12 @@ const Listings: React.FC = () => {
     };
 
     const [toasts, setToasts]             = useState<Toast[]>([]);
+    const [allProjects, setAllProjects]   = useState<Project[]>([]);
     const [searchTerm, setSearchTerm]     = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [showFilters, setShowFilters]   = useState(false);
-    const [refreshKey, setRefreshKey]     = useState(0);
+    const [loading, setLoading]           = useState(true);
+    const [refreshing, setRefreshing]     = useState(false);
 
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
         const id = `t_${Date.now()}`;
@@ -79,12 +89,16 @@ const Listings: React.FC = () => {
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
     };
 
-    // ── Read published projects from localStorage ─────────────────────────────
-    const allProjects: Project[] = useMemo(() => {
-        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-        catch { return []; }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refreshKey]);
+    // ── Load from API ─────────────────────────────────────────────────────────
+    const loadProjects = async () => {
+        setRefreshing(true);
+        const d = await safeFetch(`${API_BASE}/projects`);
+        if (d?.data) setAllProjects(d.data);
+        setLoading(false);
+        setRefreshing(false);
+    };
+
+    useEffect(() => { loadProjects(); }, []);
 
     const publishedListings = useMemo(() => {
         let listings = allProjects.filter(p => p.isPublished);
@@ -109,30 +123,27 @@ const Listings: React.FC = () => {
         sold:    publishedListings.filter(p => p.listingStatus === 'sold').length,
     }), [publishedListings]);
 
-    // ── Mutations ─────────────────────────────────────────────────────────────
-    const setListingStatus = (project: Project, newStatus: string) => {
+    // ── Mutations via API ─────────────────────────────────────────────────────
+    const setListingStatus = async (project: Project, newStatus: string) => {
         try {
-            const local: Project[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            const idx = local.findIndex(p => p.projectId === project.projectId);
-            if (idx !== -1) {
-                local[idx] = { ...local[idx], listingStatus: newStatus };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
-                setRefreshKey(k => k + 1);
-                showToast(`Marked as ${newStatus}`, 'success');
-            }
+            const res = await fetch(`${API_BASE}/projects/${project.projectId}/listing`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listingStatus: newStatus }),
+            });
+            if (!res.ok) throw new Error('Failed');
+            setAllProjects(prev => prev.map(p => p.projectId === project.projectId ? { ...p, listingStatus: newStatus } : p));
+            showToast(`Marked as ${newStatus}`, 'success');
         } catch { showToast('Failed to update', 'error'); }
     };
 
-    const unpublish = (project: Project) => {
+    const unpublish = async (project: Project) => {
         try {
-            const local: Project[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            const idx = local.findIndex(p => p.projectId === project.projectId);
-            if (idx !== -1) {
-                local[idx] = { ...local[idx], isPublished: false };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
-                setRefreshKey(k => k + 1);
-                showToast('Listing hidden from clients', 'info');
-            }
+            const res = await fetch(`${API_BASE}/projects/${project.projectId}/publish`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) throw new Error('Failed');
+            setAllProjects(prev => prev.map(p => p.projectId === project.projectId ? { ...p, isPublished: false } : p));
+            showToast('Listing hidden from clients', 'info');
         } catch { showToast('Failed to unpublish', 'error'); }
     };
 
@@ -147,7 +158,8 @@ const Listings: React.FC = () => {
     }[s || 'active'] || 'bg-emerald-600 text-white');
 
     const ProjectCover: React.FC<{ p: Project }> = ({ p }) => {
-        const src = p.photos && p.photos.length > 0 ? p.photos[p.coverPhotoIndex || 0] : null;
+        const photos = (p.photos || []) as string[];
+        const src = photos.length > 0 ? photos[p.coverPhotoIndex || 0] : null;
         if (src) return <img src={src} alt={p.projectName} className="absolute inset-0 w-full h-full object-cover" />;
         return (
             <div className="absolute inset-0 flex items-center justify-center" style={getCoverGradient(p.projectId)}>
@@ -184,8 +196,8 @@ const Listings: React.FC = () => {
                             Active listings visible to assigned clients and consultants
                         </p>
                     </div>
-                    <button onClick={() => setRefreshKey(k => k + 1)} className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl`}>
-                        <RefreshCw className={`w-4 h-4 ${n.secondary}`} />
+                    <button onClick={loadProjects} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl`}>
+                        <RefreshCw className={`w-4 h-4 ${n.secondary} ${refreshing ? 'animate-spin' : ''}`} />
                     </button>
                 </div>
 
@@ -241,8 +253,12 @@ const Listings: React.FC = () => {
                     </div>
                 )}
 
-                {/* Empty state */}
-                {publishedListings.length === 0 ? (
+                {/* Loading state */}
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <RefreshCw className={`w-6 h-6 ${n.label} animate-spin`} />
+                    </div>
+                ) : publishedListings.length === 0 ? (
                     <div className={`${n.card} rounded-2xl text-center py-20`}>
                         <Globe className={`w-12 h-12 ${n.tertiary} mx-auto mb-4`} strokeWidth={1.5} />
                         <p className={`${n.secondary} text-sm font-medium`}>No active listings</p>
@@ -251,8 +267,9 @@ const Listings: React.FC = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                         {publishedListings.map(p => {
-                            const price    = formatPrice(p.listingPrice);
-                            const hasPhotos = p.photos && p.photos.length > 0;
+                            const price     = formatPrice(p.listingPrice);
+                            const photos    = (p.photos || []) as string[];
+                            const hasPhotos = photos.length > 0;
 
                             return (
                                 <div key={p.projectId} className={`${n.card} rounded-2xl overflow-hidden group transition-all duration-200 ${n.edgeHover} flex flex-col`}>
@@ -281,7 +298,7 @@ const Listings: React.FC = () => {
                                         {/* Photo count */}
                                         {hasPhotos && (
                                             <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                <Image className="w-3 h-3" />{p.photos!.length}
+                                                <Image className="w-3 h-3" />{photos.length}
                                             </div>
                                         )}
 
