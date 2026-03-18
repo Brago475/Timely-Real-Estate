@@ -7,17 +7,7 @@ import {
     Clock, Home, Building2, ChevronRight, Lock, Tag,
 } from "lucide-react";
 
-import { getAssignedProjects } from "./Clientassignmentservice";
-
 const API_BASE = "/api";
-
-const safeFetch = async (url: string) => {
-    try {
-        const r = await fetch(url);
-        if (!r.ok || !r.headers.get("content-type")?.includes("application/json")) return null;
-        return await r.json();
-    } catch { return null; }
-};
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -125,10 +115,24 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
     const loadProjects = async () => {
         setRefreshing(true);
         try {
-            // Get assigned project IDs from AssignmentService localStorage
-            // Use shared service — handles all formats, deduplicates
-            const assigned = await getAssignedProjects(customerId) as Project[];
-            setProjects(assigned);
+            const res = await fetch(`${API_BASE}/projects`);
+            if (res.ok) {
+                const data = await res.json();
+                setProjects((data.data || []).map((p: any) => ({
+                    projectId: String(p.projectId),
+                    projectCode: p.projectCode || p.code || "",
+                    projectName: p.projectName || p.name || "",
+                    status: p.status || "Planning",
+                    priority: p.priority,
+                    description: p.description,
+                    startDate: p.startDate || p.dateCreated,
+                    endDate: p.endDate || p.dateDue,
+                    dateDue: p.dateDue,
+                    budget: p.budget,
+                    createdAt: p.createdAt,
+                    clientName: p.clientName,
+                })));
+            }
         } catch (e) {
             console.error("Error loading projects:", e);
         } finally {
