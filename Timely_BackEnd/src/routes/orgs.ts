@@ -134,7 +134,9 @@ router.get("/orgs/me", authenticate, async (req: Request, res: Response) => {
         members: org.members.map((m) => ({
           userId: m.user.id,
           code: m.user.code,
-          name: `${m.user.firstName} ${m.user.lastName}`.trim(),
+          firstName: m.user.firstName,
+          lastName: m.user.lastName,
+        name: `${m.user.firstName} ${m.user.lastName}`.trim(),          
           email: m.user.email,
           role: m.role,
           joinedAt: m.joinedAt.toISOString(),
