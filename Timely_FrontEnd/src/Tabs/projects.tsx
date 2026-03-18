@@ -13,7 +13,7 @@ import type { Project, Consultant, Client, TimeEntry, DetailTab } from './Projec
 import ProjectDetailModal, { AMENITIES, PROPERTY_TYPES } from './ProjectDetailModal';
 
 const API_BASE = '/api';
-const STORAGE_KEYS = { projects: 'timely_projects', timeEntries: 'timely_time_entries' };
+const STORAGE_KEYS = { timeEntries: 'timely_time_entries' };
 const MAX_PHOTOS = 34;
 const MAX_VIDEOS = 3;
 
@@ -106,8 +106,6 @@ interface Toast { id: string; message: string; type: 'success' | 'error' | 'info
 const RealEstateProjects: React.FC = () => {
     const { isDark } = useTheme();
 
-    // ── Theme tokens ─────────────────────────────────────────────────────────
-    // Light mode: white-based   |   Dark mode: deep navy/charcoal-based
     const n = {
         bg:           isDark ? 'bg-[#141414]'     : 'bg-white',
         card:         isDark ? 'bg-[#1e1e1e] shadow-[6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(50,50,50,0.12)]'
@@ -245,12 +243,8 @@ const RealEstateProjects: React.FC = () => {
     };
 
     const loadProjects = async () => {
-        const d     = await safeFetch(`${API_BASE}/projects`);
-        const local = JSON.parse(localStorage.getItem(STORAGE_KEYS.projects) || '[]');
-        if (d?.data) {
-            const all = [...d.data, ...local.filter((l: Project) => !d.data.find((a: Project) => a.projectId === l.projectId))];
-            setProjects(all);
-        } else { setProjects(local); }
+        const d = await safeFetch(`${API_BASE}/projects`);
+        if (d?.data) { setProjects(d.data); }
     };
 
     const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
@@ -262,13 +256,6 @@ const RealEstateProjects: React.FC = () => {
     const saveTimeEntries = (data: TimeEntry[]) => {
         localStorage.setItem(STORAGE_KEYS.timeEntries, JSON.stringify(data));
         setTimeEntries(data);
-    };
-
-    const saveProjectToStorage = (updated: Project) => {
-        const local = JSON.parse(localStorage.getItem(STORAGE_KEYS.projects) || '[]');
-        const idx   = local.findIndex((p: Project) => p.projectId === updated.projectId);
-        if (idx !== -1) { local[idx] = updated; } else { local.push(updated); }
-        localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(local));
     };
 
     // ── Project CRUD ──────────────────────────────────────────────────────────
@@ -292,34 +279,29 @@ const RealEstateProjects: React.FC = () => {
                 body: JSON.stringify({ projectName: projectForm.projectName, clientName, description: projectForm.description, status: projectForm.status, priority: projectForm.priority, startDate: projectForm.startDate, endDate: projectForm.endDate, budget: projectForm.budget, createdBy: userEmail }),
             });
             if (res.ok) {
-                const data  = await res.json();
+                const data = await res.json();
                 const newId = String(data.projectId || data.data?.projectId || data.id || data.data?.id);
-                if (selConsultants.length > 0 || selClients.length > 0) AssignmentService.setupProjectAssignments(newId, selConsultants, selClients);
+                if (selClients.length > 0) {
+                    await fetch(`${API_BASE}/projects/assign`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clientId: selClients[0], projectId: newId, consultantIds: selConsultants }),
+                    }).catch(() => {});
+                }
                 showToast('Project created!', 'success');
-                setShowCreateModal(false); resetProjectForm(); await loadProjects(); setLoading(false); return;
+                setShowCreateModal(false); resetProjectForm(); await loadProjects();
+            } else {
+                showToast('Failed to create project', 'error');
             }
-        } catch {}
-
-        const timestamp   = Date.now();
-        const newProject: Project = {
-            projectId: String(timestamp), projectCode: `PRJ-${String(timestamp).slice(-6)}`,
-            projectName: projectForm.projectName, clientName, description: projectForm.description,
-            status: projectForm.status, priority: projectForm.priority,
-            startDate: projectForm.startDate, endDate: projectForm.endDate,
-            budget: projectForm.budget, createdAt: new Date().toISOString(), createdBy: userEmail,
-        };
-        const local = JSON.parse(localStorage.getItem(STORAGE_KEYS.projects) || '[]');
-        localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify([...local, newProject]));
-        if (selConsultants.length > 0 || selClients.length > 0) AssignmentService.setupProjectAssignments(String(timestamp), selConsultants, selClients);
-        setShowCreateModal(false); resetProjectForm(); loadProjects(); setLoading(false);
-        showToast('Project created!', 'success');
+        } catch {
+            showToast('Failed to create project', 'error');
+        }
+        setLoading(false);
     };
 
     const updateProject = async () => {
         if (!selectedProject || !canEdit) { showToast('No permission', 'error'); return; }
         const updated: Project = { ...selectedProject, projectName: projectForm.projectName, description: projectForm.description, status: projectForm.status, priority: projectForm.priority, startDate: projectForm.startDate, endDate: projectForm.endDate, budget: projectForm.budget };
-        try { await fetch(`${API_BASE}/project-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: updated.projectId, status: updated.status, priority: updated.priority, description: updated.description }) }); } catch {}
-        saveProjectToStorage(updated);
+        try { await fetch(`${API_BASE}/project-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: updated.projectId, status: updated.status, priority: updated.priority, description: updated.description, name: updated.projectName }) }); } catch {}
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         setShowEditModal(false); setShowDetailsModal(true);
@@ -332,7 +314,6 @@ const RealEstateProjects: React.FC = () => {
         if (!project) return;
         const updated = { ...project, status: newStatus };
         try { await fetch(`${API_BASE}/project-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, status: newStatus }) }); } catch {}
-        saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === projectId ? updated : p));
         if (selectedProject?.projectId === projectId) setSelectedProject(updated);
         showToast(`Status → ${fmtStatus(newStatus)}`, 'success');
@@ -343,53 +324,53 @@ const RealEstateProjects: React.FC = () => {
         try {
             const res = await fetch(`${API_BASE}/projects/${pid}`, { method: 'DELETE' });
             if (res.ok) {
-                AssignmentService.cleanupProjectAssignments(pid);
                 setProjects(prev => prev.filter(p => p.projectId !== pid));
                 setShowDeleteConfirm(null); setShowDetailsModal(false); setSelectedProject(null);
-                showToast('Project deleted', 'success'); return;
-            }
-        } catch {}
-        const local = JSON.parse(localStorage.getItem(STORAGE_KEYS.projects) || '[]');
-        localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(local.filter((p: Project) => p.projectId !== pid)));
-        AssignmentService.cleanupProjectAssignments(pid);
-        saveTimeEntries(timeEntries.filter(te => te.projectId !== pid));
-        setShowDeleteConfirm(null); setShowDetailsModal(false); setSelectedProject(null); loadProjects();
-        showToast('Project deleted', 'success');
+                showToast('Project deleted', 'success');
+            } else { showToast('Failed to delete', 'error'); }
+        } catch { showToast('Failed to delete', 'error'); }
     };
 
     // ── Photo handlers ────────────────────────────────────────────────────────
     const handlePhotoUpload = async (files: FileList | null) => {
         if (!files || !selectedProject) return;
         setPhotoUploading(true);
-        const existing  = selectedProject.photos || [];
+        const existing = (selectedProject.photos as string[]) || [];
         const remaining = MAX_PHOTOS - existing.length;
         const newPhotos: string[] = [];
         for (const file of Array.from(files).slice(0, remaining)) {
             if (file.type.startsWith('image/')) newPhotos.push(await compressImage(file));
         }
-        const updated: Project = { ...selectedProject, photos: [...existing, ...newPhotos] };
-        saveProjectToStorage(updated);
+        const allPhotos = [...existing, ...newPhotos];
+        try {
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/photos`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ photos: allPhotos, coverPhotoIndex: selectedProject.coverPhotoIndex || 0 }),
+            });
+            if (!res.ok) throw new Error('Failed');
+        } catch { showToast('Failed to save photos', 'error'); setPhotoUploading(false); return; }
+        const updated: Project = { ...selectedProject, photos: allPhotos };
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         setPhotoUploading(false);
         showToast(`${newPhotos.length} photo${newPhotos.length !== 1 ? 's' : ''} added`, 'success');
     };
 
-    const removePhoto = (index: number) => {
+    const removePhoto = async (index: number) => {
         if (!selectedProject) return;
-        const photos = (selectedProject.photos || []).filter((_, i) => i !== index);
-        const cover  = selectedProject.coverPhotoIndex || 0;
+        const photos = ((selectedProject.photos as string[]) || []).filter((_, i) => i !== index);
+        const cover = selectedProject.coverPhotoIndex || 0;
         const coverPhotoIndex = cover === index ? 0 : cover > index ? cover - 1 : cover;
+        try { await fetch(`${API_BASE}/projects/${selectedProject.projectId}/photos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photos, coverPhotoIndex }) }); } catch {}
         const updated: Project = { ...selectedProject, photos, coverPhotoIndex };
-        saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
     };
 
-    const setCoverPhoto = (index: number) => {
+    const setCoverPhoto = async (index: number) => {
         if (!selectedProject) return;
+        try { await fetch(`${API_BASE}/projects/${selectedProject.projectId}/photos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coverPhotoIndex: index }) }); } catch {}
         const updated: Project = { ...selectedProject, coverPhotoIndex: index };
-        saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         showToast('Cover photo updated', 'success');
@@ -399,7 +380,7 @@ const RealEstateProjects: React.FC = () => {
     const handleVideoUpload = async (files: FileList | null) => {
         if (!files || !selectedProject) return;
         setVideoUploading(true);
-        const existing  = selectedProject.videos || [];
+        const existing = (selectedProject.videos as string[]) || [];
         const remaining = MAX_VIDEOS - existing.length;
         const newVideos: string[] = [];
         for (const file of Array.from(files).slice(0, remaining)) {
@@ -412,66 +393,69 @@ const RealEstateProjects: React.FC = () => {
                 newVideos.push(dataUrl);
             }
         }
-        const updated: Project = { ...selectedProject, videos: [...existing, ...newVideos] };
-        saveProjectToStorage(updated);
+        const allVideos = [...existing, ...newVideos];
+        try { await fetch(`${API_BASE}/projects/${selectedProject.projectId}/videos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videos: allVideos }) }); } catch { showToast('Failed to save videos', 'error'); setVideoUploading(false); return; }
+        const updated: Project = { ...selectedProject, videos: allVideos };
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         setVideoUploading(false);
         showToast(`${newVideos.length} video${newVideos.length !== 1 ? 's' : ''} added`, 'success');
     };
 
-    const removeVideo = (index: number) => {
+    const removeVideo = async (index: number) => {
         if (!selectedProject) return;
-        const videos = (selectedProject.videos || []).filter((_, i) => i !== index);
+        const videos = ((selectedProject.videos as string[]) || []).filter((_, i) => i !== index);
+        try { await fetch(`${API_BASE}/projects/${selectedProject.projectId}/videos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videos }) }); } catch {}
         const updated: Project = { ...selectedProject, videos };
-        saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         showToast('Video removed', 'success');
     };
 
     // ── Property / Listing save ───────────────────────────────────────────────
-    const savePropertyDetails = () => {
+    const savePropertyDetails = async () => {
         if (!selectedProject) return;
-        const updated: Project = {
-            ...selectedProject,
-            address: propertyForm.address, city: propertyForm.city,
-            state: propertyForm.state,     zip: propertyForm.zip,
-            propertyType: propertyForm.propertyType, bedrooms: propertyForm.bedrooms,
-            bathrooms: propertyForm.bathrooms,        sqft: propertyForm.sqft,
-            lotSize: propertyForm.lotSize,            yearBuilt: propertyForm.yearBuilt,
-            amenities: propertyForm.amenities,
-        };
-        saveProjectToStorage(updated);
+        try {
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/property`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: propertyForm.address, city: propertyForm.city, state: propertyForm.state, zip: propertyForm.zip, propertyType: propertyForm.propertyType, bedrooms: propertyForm.bedrooms, bathrooms: propertyForm.bathrooms, sqft: propertyForm.sqft, lotSize: propertyForm.lotSize, yearBuilt: propertyForm.yearBuilt, amenities: propertyForm.amenities }),
+            });
+            if (!res.ok) throw new Error('Failed');
+        } catch { showToast('Failed to save property', 'error'); return; }
+        const updated: Project = { ...selectedProject, address: propertyForm.address, city: propertyForm.city, state: propertyForm.state, zip: propertyForm.zip, propertyType: propertyForm.propertyType, bedrooms: propertyForm.bedrooms, bathrooms: propertyForm.bathrooms, sqft: propertyForm.sqft, lotSize: propertyForm.lotSize, yearBuilt: propertyForm.yearBuilt, amenities: propertyForm.amenities };
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         showToast('Property details saved', 'success');
     };
 
-    const saveListingDetails = () => {
+    const saveListingDetails = async () => {
         if (!selectedProject) return;
+        try {
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/listing`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listingPrice: propertyForm.listingPrice, listingStatus: propertyForm.listingStatus }),
+            });
+            if (!res.ok) throw new Error('Failed');
+        } catch { showToast('Failed to save listing', 'error'); return; }
         const updated: Project = { ...selectedProject, listingPrice: propertyForm.listingPrice, listingStatus: propertyForm.listingStatus };
-        saveProjectToStorage(updated);
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         showToast('Listing details saved', 'success');
     };
 
-    const togglePublish = () => {
+    const togglePublish = async () => {
         if (!selectedProject || !isAdmin) return;
-        const slug        = selectedProject.listingSlug || ListingService.generateSlug(selectedProject.projectName, selectedProject.projectId);
-        const nowPublished = !selectedProject.isPublished;
-        const updated: Project = {
-            ...selectedProject,
-            isPublished:   nowPublished,
-            publishedAt:   nowPublished ? (selectedProject.publishedAt || new Date().toISOString()) : selectedProject.publishedAt,
-            listingSlug:   slug,
-            listingStatus: nowPublished ? (selectedProject.listingStatus || 'active') : selectedProject.listingStatus,
-        };
-        saveProjectToStorage(updated);
-        setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
-        setSelectedProject(updated);
-        showToast(nowPublished ? 'Listing enabled for assigned clients' : 'Listing hidden', nowPublished ? 'success' : 'info');
+        try {
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/publish`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) throw new Error('Failed');
+            const data = await res.json();
+            const updated: Project = { ...selectedProject, isPublished: data.isPublished, listingSlug: data.listingSlug, publishedAt: data.isPublished ? (selectedProject.publishedAt || new Date().toISOString()) : selectedProject.publishedAt };
+            setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
+            setSelectedProject(updated);
+            showToast(data.isPublished ? 'Listing enabled for assigned clients' : 'Listing hidden', data.isPublished ? 'success' : 'info');
+        } catch { showToast('Failed to toggle publish', 'error'); }
     };
 
     const toggleAmenity = (amenity: string) =>
@@ -575,7 +559,7 @@ const RealEstateProjects: React.FC = () => {
 
     // ── Cover helper ──────────────────────────────────────────────────────────
     const ProjectCover: React.FC<{ p: Project }> = ({ p }) => {
-        const src = p.photos && p.photos.length > 0 ? p.photos[p.coverPhotoIndex || 0] : null;
+        const src = p.photos && p.photos.length > 0 ? (p.photos as string[])[p.coverPhotoIndex || 0] : null;
         return src ? (
             <img src={src} alt={p.projectName} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
@@ -708,8 +692,8 @@ const RealEstateProjects: React.FC = () => {
                             const clientLabel  = pClients.length > 0
                                 ? `${pClients[0].firstName} ${pClients[0].lastName}${pClients.length > 1 ? ` +${pClients.length - 1}` : ''}`
                                 : p.clientName || null;
-                            const hasPhotos    = p.photos && p.photos.length > 0;
-                            const hasVideos    = p.videos && p.videos.length > 0;
+                            const hasPhotos    = p.photos && (p.photos as string[]).length > 0;
+                            const hasVideos    = p.videos && (p.videos as string[]).length > 0;
                             const displayPrice = p.listingPrice
                                 ? `$${Number(p.listingPrice).toLocaleString()}`
                                 : formatBudget(p.budget);
@@ -758,12 +742,12 @@ const RealEstateProjects: React.FC = () => {
                                             )}
                                             {hasPhotos && (
                                                 <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                    <Image className="w-3 h-3" />{p.photos!.length}
+                                                    <Image className="w-3 h-3" />{(p.photos as string[]).length}
                                                 </div>
                                             )}
                                             {hasVideos && (
                                                 <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                    <Video className="w-3 h-3" />{p.videos!.length}
+                                                    <Video className="w-3 h-3" />{(p.videos as string[]).length}
                                                 </div>
                                             )}
                                         </div>
