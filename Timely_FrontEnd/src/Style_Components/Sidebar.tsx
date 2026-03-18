@@ -114,7 +114,7 @@ const Sidebar: React.FC<Props> = ({ sidebarToggle, setSidebarToggle, onNavigate,
                     <Icon className="w-4 h-4" />
                 </div>
                 <span className={`text-sm font-medium flex-1 ${isActive ? n.text : ""} ${!isActive && !isLogout ? gb : ""} transition-colors`}>{label}</span>
-                {badge > 0 && (
+                {badge > 0 && !isActive && (
                     <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
                         id === "messages" ? "bg-red-500 text-white" : isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700"
                     }`}>
