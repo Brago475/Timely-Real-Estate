@@ -5,17 +5,17 @@ import {
     Calendar, Plus, Search, Filter, ChevronRight, Clock, Users,
     CheckCircle2, AlertCircle, Target, TrendingUp, X, Trash2,
     FolderOpen, RefreshCw, CheckCircle, Info, Play, Pause,
-    Home, Building2, Globe, MapPin, Image, Send, Bed, Bath, Maximize
+    Home, Building2, Globe, MapPin, Image, Send, Bed, Bath, Maximize, Video
 } from 'lucide-react';
 import AssignmentService from '../services/AssignmentService';
 import ListingService from '../services/ListingService';
-import ProjectDetailModal, {
-    Project, Consultant, Client, TimeEntry, DetailTab,
-    AMENITIES, PROPERTY_TYPES,
-} from './ProjectDetailModal';
+import type { Project, Consultant, Client, TimeEntry, DetailTab } from './ProjectDetailModal';
+import ProjectDetailModal, { AMENITIES, PROPERTY_TYPES } from './ProjectDetailModal';
 
 const API_BASE = '/api';
 const STORAGE_KEYS = { projects: 'timely_projects', timeEntries: 'timely_time_entries' };
+const MAX_PHOTOS = 34;
+const MAX_VIDEOS = 3;
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,8 @@ const safeFetch = async (url: string) => {
 
 const getCurrentUserRole = (): { role: 'admin' | 'consultant' | 'client'; email: string; customerId?: string; name?: string; consultantId?: string } => {
     try {
-const raw = sessionStorage.getItem('timely_user') || localStorage.getItem('timely_user');        if (!raw) return { role: 'admin', email: 'admin@timely.com' };
+        const raw = sessionStorage.getItem('timely_user') || localStorage.getItem('timely_user');
+        if (!raw) return { role: 'admin', email: 'admin@timely.com' };
         const parsed = JSON.parse(raw);
         const r = (parsed.role || 'client').toLowerCase();
         const role = (r === 'owner' || r === 'admin') ? 'admin' : r === 'consultant' ? 'consultant' : 'client';
@@ -106,31 +107,36 @@ const RealEstateProjects: React.FC = () => {
     const { isDark } = useTheme();
 
     // ── Theme tokens ─────────────────────────────────────────────────────────
+    // Light mode: white-based   |   Dark mode: deep navy/charcoal-based
     const n = {
-        bg:           isDark ? 'neu-bg-dark'       : 'neu-bg-light',
-        card:         isDark ? 'neu-dark'           : 'neu-light',
-        flat:         isDark ? 'neu-dark-flat'      : 'neu-light-flat',
-        inset:        isDark ? 'neu-dark-inset'     : 'neu-light-inset',
-        pressed:      isDark ? 'neu-dark-pressed'   : 'neu-light-pressed',
-        text:         isDark ? 'text-white'         : 'text-gray-900',
-        secondary:    isDark ? 'text-gray-300'      : 'text-gray-600',
-        tertiary:     isDark ? 'text-gray-500'      : 'text-gray-400',
-        strong:       isDark ? 'text-white'         : 'text-black',
-        label:        isDark ? 'text-blue-400'      : 'text-blue-600',
+        bg:           isDark ? 'bg-[#141414]'     : 'bg-white',
+        card:         isDark ? 'bg-[#1e1e1e] shadow-[6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(50,50,50,0.12)]'
+                             : 'bg-white shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.9)]',
+        flat:         isDark ? 'bg-[#1a1a1a] shadow-[2px_2px_6px_rgba(0,0,0,0.6),-2px_-2px_6px_rgba(50,50,50,0.08)]'
+                             : 'bg-white shadow-[2px_2px_6px_rgba(0,0,0,0.04),-2px_-2px_6px_rgba(255,255,255,0.8)]',
+        inset:        isDark ? 'bg-[#111111] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.6),inset_-3px_-3px_6px_rgba(50,50,50,0.08)]'
+                             : 'bg-[#f5f5f5] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.04),inset_-3px_-3px_6px_rgba(255,255,255,0.9)]',
+        pressed:      isDark ? 'bg-[#111111] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.7),inset_-4px_-4px_8px_rgba(50,50,50,0.1)]'
+                             : 'bg-[#f0f0f0] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.05),inset_-4px_-4px_8px_rgba(255,255,255,0.9)]',
+        text:         isDark ? 'text-gray-100'    : 'text-gray-900',
+        secondary:    isDark ? 'text-gray-400'    : 'text-gray-500',
+        tertiary:     isDark ? 'text-gray-500'    : 'text-gray-400',
+        strong:       isDark ? 'text-white'       : 'text-gray-900',
+        label:        isDark ? 'text-blue-400'    : 'text-blue-600',
         link:         isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500',
-        input:        isDark ? 'bg-transparent border-gray-700 text-white' : 'bg-transparent border-gray-300 text-gray-900',
-        modal:        isDark ? 'bg-[#111111] border-gray-800' : 'bg-[#e4e4e4] border-gray-300',
-        modalHead:    isDark ? 'bg-[#111111]'       : 'bg-[#e4e4e4]',
+        input:        isDark ? 'bg-[#111111] border-gray-700 text-white'  : 'bg-white border-gray-200 text-gray-900',
+        modal:        isDark ? 'bg-[#181818] border-gray-800' : 'bg-white border-gray-200',
+        modalHead:    isDark ? 'bg-[#181818]'     : 'bg-white',
         btnPrimary:   'bg-blue-600 hover:bg-blue-500 text-white',
-        btnSecondary: isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800',
+        btnSecondary: isDark ? 'bg-[#252525] hover:bg-[#2a2a2a] text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800',
         btnDanger:    'bg-red-600 hover:bg-red-500 text-white',
-        divider:      isDark ? 'border-gray-800'    : 'border-gray-200',
+        divider:      isDark ? 'border-gray-800'  : 'border-gray-100',
         edgeHover: isDark
-            ? 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]'
-            : 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]',
+            ? 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(50,50,50,0.12)]'
+            : 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),8px_8px_20px_rgba(0,0,0,0.08),-8px_-8px_20px_rgba(255,255,255,0.95)]',
         edgeHoverFlat: isDark
-            ? 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(40,40,40,0.1)]'
-            : 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),4px_4px_10px_rgba(0,0,0,0.08),-4px_-4px_10px_rgba(255,255,255,0.9)]',
+            ? 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(50,50,50,0.1)]'
+            : 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.12),4px_4px_10px_rgba(0,0,0,0.06),-4px_-4px_10px_rgba(255,255,255,0.9)]',
     };
 
     const { role: userRole, email: userEmail, customerId: userCustomerId, name: userName, consultantId: userConsultantId } =
@@ -168,6 +174,7 @@ const RealEstateProjects: React.FC = () => {
     const [loading,      setLoading]      = useState(false);
     const [refreshing,   setRefreshing]   = useState(false);
     const [photoUploading, setPhotoUploading] = useState(false);
+    const [videoUploading, setVideoUploading] = useState(false);
 
     // ── Timer state ───────────────────────────────────────────────────────────
     const [activeTimer,  setActiveTimer]  = useState<{ projectId: string; startTime: number } | null>(null);
@@ -208,7 +215,7 @@ const RealEstateProjects: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let interval: ReturnType<typeof setInterval>;
         if (activeTimer) {
             interval = setInterval(() => {
                 const elapsed = Math.floor((Date.now() - activeTimer.startTime) / 1000);
@@ -355,7 +362,7 @@ const RealEstateProjects: React.FC = () => {
         if (!files || !selectedProject) return;
         setPhotoUploading(true);
         const existing  = selectedProject.photos || [];
-        const remaining = 8 - existing.length;
+        const remaining = MAX_PHOTOS - existing.length;
         const newPhotos: string[] = [];
         for (const file of Array.from(files).slice(0, remaining)) {
             if (file.type.startsWith('image/')) newPhotos.push(await compressImage(file));
@@ -386,6 +393,41 @@ const RealEstateProjects: React.FC = () => {
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         showToast('Cover photo updated', 'success');
+    };
+
+    // ── Video handlers ────────────────────────────────────────────────────────
+    const handleVideoUpload = async (files: FileList | null) => {
+        if (!files || !selectedProject) return;
+        setVideoUploading(true);
+        const existing  = selectedProject.videos || [];
+        const remaining = MAX_VIDEOS - existing.length;
+        const newVideos: string[] = [];
+        for (const file of Array.from(files).slice(0, remaining)) {
+            if (file.type.startsWith('video/')) {
+                const dataUrl = await new Promise<string>(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target!.result as string);
+                    reader.readAsDataURL(file);
+                });
+                newVideos.push(dataUrl);
+            }
+        }
+        const updated: Project = { ...selectedProject, videos: [...existing, ...newVideos] };
+        saveProjectToStorage(updated);
+        setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
+        setSelectedProject(updated);
+        setVideoUploading(false);
+        showToast(`${newVideos.length} video${newVideos.length !== 1 ? 's' : ''} added`, 'success');
+    };
+
+    const removeVideo = (index: number) => {
+        if (!selectedProject) return;
+        const videos = (selectedProject.videos || []).filter((_, i) => i !== index);
+        const updated: Project = { ...selectedProject, videos };
+        saveProjectToStorage(updated);
+        setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
+        setSelectedProject(updated);
+        showToast('Video removed', 'success');
     };
 
     // ── Property / Listing save ───────────────────────────────────────────────
@@ -667,6 +709,7 @@ const RealEstateProjects: React.FC = () => {
                                 ? `${pClients[0].firstName} ${pClients[0].lastName}${pClients.length > 1 ? ` +${pClients.length - 1}` : ''}`
                                 : p.clientName || null;
                             const hasPhotos    = p.photos && p.photos.length > 0;
+                            const hasVideos    = p.videos && p.videos.length > 0;
                             const displayPrice = p.listingPrice
                                 ? `$${Number(p.listingPrice).toLocaleString()}`
                                 : formatBudget(p.budget);
@@ -718,9 +761,14 @@ const RealEstateProjects: React.FC = () => {
                                                     <Image className="w-3 h-3" />{p.photos!.length}
                                                 </div>
                                             )}
+                                            {hasVideos && (
+                                                <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
+                                                    <Video className="w-3 h-3" />{p.videos!.length}
+                                                </div>
+                                            )}
                                         </div>
 
-                                        <div className="absolute bottom-0 left-0 right-0 h-6" style={{ background: isDark ? 'linear-gradient(to bottom, transparent, rgba(17,17,17,0.8))' : 'linear-gradient(to bottom, transparent, rgba(228,228,228,0.7))' }} />
+                                        <div className="absolute bottom-0 left-0 right-0 h-6" style={{ background: isDark ? 'linear-gradient(to bottom, transparent, #1e1e1e)' : 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.9))' }} />
                                     </div>
 
                                     {/* Card body */}
@@ -816,6 +864,7 @@ const RealEstateProjects: React.FC = () => {
                 detailTab={detailTab}
                 loading={loading}
                 photoUploading={photoUploading}
+                videoUploading={videoUploading}
                 timeForm={timeForm}
                 setDetailTab={setDetailTab}
                 setGalleryIndex={setGalleryIndex}
@@ -838,6 +887,8 @@ const RealEstateProjects: React.FC = () => {
                 handlePhotoUpload={handlePhotoUpload}
                 removePhoto={removePhoto}
                 setCoverPhoto={setCoverPhoto}
+                handleVideoUpload={handleVideoUpload}
+                removeVideo={removeVideo}
                 savePropertyDetails={savePropertyDetails}
                 saveListingDetails={saveListingDetails}
                 togglePublish={togglePublish}

@@ -13,7 +13,8 @@ import {
     X, Trash2, FolderOpen, Globe, Info, Home, Users, Clock,
     Target, TrendingUp, CheckCircle2, CheckCircle, Edit2, Timer,
     Save, Plus, Camera, Upload, Star, RefreshCw, Send, Copy,
-    ExternalLink, Eye, EyeOff, UserMinus, Link2, AlertCircle
+    ExternalLink, Eye, EyeOff, UserMinus, Link2, AlertCircle,
+    Video, PlayCircle
 } from 'lucide-react';
 import ListingService from '../services/ListingService';
 
@@ -28,6 +29,7 @@ export interface Project {
     propertyType?: string; bedrooms?: string; bathrooms?: string;
     sqft?: string; lotSize?: string; yearBuilt?: string;
     amenities?: string[]; photos?: string[]; coverPhotoIndex?: number;
+    videos?: string[];
     listingPrice?: string; listingStatus?: string;
     isPublished?: boolean; publishedAt?: string; listingSlug?: string;
 }
@@ -125,6 +127,7 @@ export interface ProjectDetailModalProps {
     detailTab: DetailTab;
     loading: boolean;
     photoUploading: boolean;
+    videoUploading: boolean;
 
     // Time form
     timeForm: { hours: number; minutes: number; description: string; date: string };
@@ -153,6 +156,8 @@ export interface ProjectDetailModalProps {
     handlePhotoUpload: (files: FileList | null) => void;
     removePhoto: (index: number) => void;
     setCoverPhoto: (index: number) => void;
+    handleVideoUpload: (files: FileList | null) => void;
+    removeVideo: (index: number) => void;
     savePropertyDetails: () => void;
     saveListingDetails: () => void;
     togglePublish: () => void;
@@ -181,6 +186,11 @@ export interface ProjectDetailModalProps {
     getPublicUrl: (slug: string) => string;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MAX_PHOTOS = 34;
+const MAX_VIDEOS = 3;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
@@ -192,7 +202,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
         showConsultantsModal, showClientsModal, showTimeModal,
         showDeleteConfirm, showGallery, galleryIndex,
         projectForm, propertyForm, detailTab,
-        loading, photoUploading, timeForm,
+        loading, photoUploading, videoUploading, timeForm,
         setDetailTab, setGalleryIndex,
         setShowDetailsModal, setShowCreateModal, setShowEditModal,
         setShowConsultantsModal, setShowClientsModal, setShowTimeModal,
@@ -200,6 +210,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
         setProjectForm, setPropertyForm, setTimeForm,
         createProject, updateProject, deleteProject, updateProjectStatus,
         handlePhotoUpload, removePhoto, setCoverPhoto,
+        handleVideoUpload, removeVideo,
         savePropertyDetails, saveListingDetails, togglePublish, toggleAmenity,
         addTimeEntry, deleteTimeEntry,
         assignConsultantToProject, removeConsultantFromProject,
@@ -213,6 +224,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
     } = props;
 
     const photoInputRef = useRef<HTMLInputElement>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
 
     const resetTimeForm = () =>
         setTimeForm({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] });
@@ -259,7 +271,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
 
     return (
         <>
-            {/* Hidden file input shared across all photo buttons */}
+            {/* Hidden file inputs */}
             <input
                 ref={photoInputRef}
                 type="file"
@@ -268,12 +280,20 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                 className="hidden"
                 onChange={e => handlePhotoUpload(e.target.files)}
             />
+            <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                multiple
+                className="hidden"
+                onChange={e => handleVideoUpload(e.target.files)}
+            />
 
             {/* ══ TIME MODAL ═══════════════════════════════════════════════════ */}
             {showTimeModal && selectedProject && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
-                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
+                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead} rounded-t-2xl`}>
                             <div className="flex items-center gap-3">
                                 <Timer className="w-5 h-5 text-emerald-400" />
                                 <div>
@@ -281,12 +301,12 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     <p className={`text-xs ${n.tertiary}`}>{selectedProject.projectName}</p>
                                 </div>
                             </div>
-                            <button onClick={() => { setShowTimeModal(false); resetTimeForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}>
+                            <button onClick={() => { setShowTimeModal(false); resetTimeForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}>
                                 <X className={`w-4 h-4 ${n.tertiary}`} />
                             </button>
                         </div>
                         <div className="p-5 space-y-5">
-                            <div className={`${n.flat} p-4 space-y-4`}>
+                            <div className={`${n.flat} p-4 space-y-4 rounded-2xl`}>
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
                                         <label className={`${n.label} text-[11px] block mb-1`}>Hours</label>
@@ -334,7 +354,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                                     </div>
                                                     {(isAdmin || entry.consultantId === (userConsultantId || userEmail)) && (
                                                         <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg">
-                                                            <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
                                                         </button>
                                                     )}
                                                 </div>
@@ -351,9 +371,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
             {showCreateModal && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
-                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
+                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead} rounded-t-2xl`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>New Project</h2>
-                            <button onClick={() => { setShowCreateModal(false); resetProjectForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}>
+                            <button onClick={() => { setShowCreateModal(false); resetProjectForm(); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}>
                                 <X className={`w-4 h-4 ${n.tertiary}`} />
                             </button>
                         </div>
@@ -398,12 +418,12 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     <Users className="w-3.5 h-3.5" />Assign Clients
                                     {projectForm.selectedClients.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedClients.length}</span>}
                                 </label>
-                                <div className={`${n.inset} p-2 max-h-36 overflow-y-auto space-y-1`}>
+                                <div className={`${n.inset} p-2 max-h-36 overflow-y-auto space-y-1 rounded-xl`}>
                                     {clients.length === 0 ? <p className={`${n.tertiary} text-xs p-2`}>No clients available</p> : clients.map(c => (
-                                        <label key={c.customerId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'} ${projectForm.selectedClients.includes(c.customerId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-500/10') : ''}`}>
+                                        <label key={c.customerId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'} ${projectForm.selectedClients.includes(c.customerId) ? 'bg-blue-500/10' : ''}`}>
                                             <input type="checkbox" checked={projectForm.selectedClients.includes(c.customerId)} onChange={e => setProjectForm({ ...projectForm, selectedClients: e.target.checked ? [...projectForm.selectedClients, c.customerId] : projectForm.selectedClients.filter(id => id !== c.customerId) })} className="w-4 h-4 accent-blue-600" />
                                             <div className={`w-7 h-7 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
-                                            <div><span className={`${n.text} text-sm`}>{c.firstName} {c.lastName}</span><span className={`${n.tertiary} text-[10px] block`}>{c.clientCode}</span></div>
+                                            <div><span className={`${n.text} text-sm`}>{c.firstName} {c.lastName}</span></div>
                                         </label>
                                     ))}
                                 </div>
@@ -415,9 +435,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     <Users className="w-3.5 h-3.5" />Assign Consultants
                                     {projectForm.selectedConsultants.length > 0 && <span className={`px-1.5 py-0.5 rounded text-[10px] ${n.btnPrimary}`}>{projectForm.selectedConsultants.length}</span>}
                                 </label>
-                                <div className={`${n.inset} p-2 max-h-36 overflow-y-auto space-y-1`}>
+                                <div className={`${n.inset} p-2 max-h-36 overflow-y-auto space-y-1 rounded-xl`}>
                                     {consultants.length === 0 ? <p className={`${n.tertiary} text-xs p-2`}>No consultants available</p> : consultants.map(c => (
-                                        <label key={c.consultantId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'} ${projectForm.selectedConsultants.includes(c.consultantId) ? (isDark ? 'bg-blue-500/10' : 'bg-blue-500/10') : ''}`}>
+                                        <label key={c.consultantId} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'} ${projectForm.selectedConsultants.includes(c.consultantId) ? 'bg-blue-500/10' : ''}`}>
                                             <input type="checkbox" checked={projectForm.selectedConsultants.includes(c.consultantId)} onChange={e => setProjectForm({ ...projectForm, selectedConsultants: e.target.checked ? [...projectForm.selectedConsultants, c.consultantId] : projectForm.selectedConsultants.filter(id => id !== c.consultantId) })} className="w-4 h-4 accent-blue-600" />
                                             <div className={`w-7 h-7 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                             <div><span className={`${n.text} text-sm`}>{c.firstName} {c.lastName}</span><span className={`${n.tertiary} text-[10px] block`}>{c.consultantCode}</span></div>
@@ -447,7 +467,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                     <div className={`${n.modal} border rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col`}>
 
                         {/* Header */}
-                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between flex-shrink-0 ${n.modalHead}`}>
+                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between flex-shrink-0 ${n.modalHead} rounded-t-2xl`}>
                             <div className="flex items-center gap-3">
                                 <div className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
                                     {selectedProject.photos && selectedProject.photos.length > 0
@@ -464,8 +484,8 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
-                                {isAdmin && <button onClick={() => setShowDeleteConfirm(selectedProject.projectId)} className="p-2 hover:bg-red-500/20 rounded-lg"><svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>}
-                                <button onClick={() => { setShowDetailsModal(false); setSelectedProject(null); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                                {isAdmin && <button onClick={() => setShowDeleteConfirm(selectedProject.projectId)} className="p-2 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-4 h-4 text-red-400" /></button>}
+                                <button onClick={() => { setShowDetailsModal(false); setSelectedProject(null); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                             </div>
                         </div>
 
@@ -541,8 +561,8 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     {/* Photos */}
                                     <div>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Photos ({(selectedProject.photos || []).length}/8)</span>
-                                            {(selectedProject.photos || []).length < 8 && (
+                                            <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Photos ({(selectedProject.photos || []).length}/{MAX_PHOTOS})</span>
+                                            {canEdit && (selectedProject.photos || []).length < MAX_PHOTOS && (
                                                 <button onClick={() => photoInputRef.current?.click()} disabled={photoUploading} className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-50`}>
                                                     {photoUploading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
                                                     {photoUploading ? 'Uploading…' : 'Add Photos'}
@@ -550,25 +570,73 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                             )}
                                         </div>
                                         {(!selectedProject.photos || selectedProject.photos.length === 0) ? (
-                                            <button onClick={() => photoInputRef.current?.click()} className={`w-full h-36 ${n.flat} rounded-2xl border-2 border-dashed ${isDark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-300 hover:border-gray-400'} flex flex-col items-center justify-center gap-2 transition-colors`}>
+                                            <button onClick={() => canEdit && photoInputRef.current?.click()} className={`w-full h-36 ${n.flat} rounded-2xl border-2 border-dashed ${isDark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'} flex flex-col items-center justify-center gap-2 transition-colors ${!canEdit ? 'cursor-default' : ''}`}>
                                                 <Camera className={`w-8 h-8 ${n.tertiary}`} strokeWidth={1.5} />
                                                 <p className={`${n.secondary} text-sm`}>Click to upload photos</p>
-                                                <p className={`${n.tertiary} text-[11px]`}>JPG, PNG — max 8 photos, auto-compressed</p>
+                                                <p className={`${n.tertiary} text-[11px]`}>JPG, PNG — max {MAX_PHOTOS} photos, auto-compressed</p>
                                             </button>
                                         ) : (
                                             <div className="grid grid-cols-4 gap-2">
                                                 {selectedProject.photos.map((photo, i) => (
                                                     <div key={i} className="relative group aspect-square rounded-xl overflow-hidden">
                                                         <img src={photo} alt="" className="w-full h-full object-cover cursor-pointer" onClick={() => { setGalleryIndex(i); setShowGallery(true); }} />
-                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
-                                                            <button onClick={() => setCoverPhoto(i)} className={`p-1.5 rounded-lg ${(selectedProject.coverPhotoIndex || 0) === i ? 'bg-yellow-500' : 'bg-white/20 hover:bg-white/30'}`} title="Set as cover"><Star className="w-3 h-3 text-white" /></button>
-                                                            <button onClick={() => removePhoto(i)} className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg" title="Remove"><svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                                                        </div>
+                                                        {canEdit && (
+                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+                                                                <button onClick={() => setCoverPhoto(i)} className={`p-1.5 rounded-lg ${(selectedProject.coverPhotoIndex || 0) === i ? 'bg-yellow-500' : 'bg-white/20 hover:bg-white/30'}`} title="Set as cover"><Star className="w-3 h-3 text-white" /></button>
+                                                                <button onClick={() => removePhoto(i)} className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg" title="Remove"><Trash2 className="w-3 h-3 text-white" /></button>
+                                                            </div>
+                                                        )}
                                                         {(selectedProject.coverPhotoIndex || 0) === i && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-yellow-500 rounded text-[9px] text-white font-semibold">Cover</div>}
                                                     </div>
                                                 ))}
-                                                {selectedProject.photos.length < 8 && (
-                                                    <button onClick={() => photoInputRef.current?.click()} className={`aspect-square rounded-xl ${n.flat} border-2 border-dashed ${isDark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-300 hover:border-gray-400'} flex items-center justify-center`}>
+                                                {canEdit && selectedProject.photos.length < MAX_PHOTOS && (
+                                                    <button onClick={() => photoInputRef.current?.click()} className={`aspect-square rounded-xl ${n.flat} border-2 border-dashed ${isDark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'} flex items-center justify-center`}>
+                                                        <Plus className={`w-5 h-5 ${n.tertiary}`} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Videos */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className={`${n.label} text-[11px] uppercase tracking-wider`}>Videos ({(selectedProject.videos || []).length}/{MAX_VIDEOS})</span>
+                                            {canEdit && (selectedProject.videos || []).length < MAX_VIDEOS && (
+                                                <button onClick={() => videoInputRef.current?.click()} disabled={videoUploading} className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-50`}>
+                                                    {videoUploading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Video className="w-3 h-3" />}
+                                                    {videoUploading ? 'Uploading…' : 'Add Video'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {(!selectedProject.videos || selectedProject.videos.length === 0) ? (
+                                            <button onClick={() => canEdit && videoInputRef.current?.click()} className={`w-full h-28 ${n.flat} rounded-2xl border-2 border-dashed ${isDark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'} flex flex-col items-center justify-center gap-2 transition-colors ${!canEdit ? 'cursor-default' : ''}`}>
+                                                <Video className={`w-7 h-7 ${n.tertiary}`} strokeWidth={1.5} />
+                                                <p className={`${n.secondary} text-sm`}>Click to upload videos</p>
+                                                <p className={`${n.tertiary} text-[11px]`}>MP4, MOV, WebM — max {MAX_VIDEOS} videos</p>
+                                            </button>
+                                        ) : (
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {selectedProject.videos.map((videoSrc, i) => (
+                                                    <div key={i} className="relative group aspect-video rounded-xl overflow-hidden bg-black">
+                                                        <video src={videoSrc} className="w-full h-full object-cover" preload="metadata" />
+                                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                            <PlayCircle className="w-8 h-8 text-white/70" />
+                                                        </div>
+                                                        {canEdit && (
+                                                            <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button onClick={() => removeVideo(i)} className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg" title="Remove">
+                                                                    <Trash2 className="w-3 h-3 text-white" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white/80 font-medium">
+                                                            Video {i + 1}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {canEdit && selectedProject.videos.length < MAX_VIDEOS && (
+                                                    <button onClick={() => videoInputRef.current?.click()} className={`aspect-video rounded-xl ${n.flat} border-2 border-dashed ${isDark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'} flex items-center justify-center`}>
                                                         <Plus className={`w-5 h-5 ${n.tertiary}`} />
                                                     </button>
                                                 )}
@@ -615,7 +683,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                                 const checked = propertyForm.amenities.includes(a);
                                                 return (
                                                     <button key={a} onClick={() => toggleAmenity(a)} className={`px-3 py-2 rounded-xl text-xs text-left flex items-center gap-2 transition-all ${checked ? 'bg-blue-600 text-white' : `${n.flat} ${n.secondary}`}`}>
-                                                        <div className={`w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center ${checked ? 'bg-white/20 border-white/30' : (isDark ? 'border-gray-600' : 'border-gray-400')}`}>
+                                                        <div className={`w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center ${checked ? 'bg-white/20 border-white/30' : (isDark ? 'border-gray-600' : 'border-gray-300')}`}>
                                                             {checked && <CheckCircle className="w-2.5 h-2.5 text-white" />}
                                                         </div>{a}
                                                     </button>
@@ -623,9 +691,11 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                             })}
                                         </div>
                                     </div>
-                                    <button onClick={savePropertyDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}>
-                                        <Save className="w-4 h-4" />Save Property Details
-                                    </button>
+                                    {canEdit && (
+                                        <button onClick={savePropertyDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}>
+                                            <Save className="w-4 h-4" />Save Property Details
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
@@ -635,7 +705,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                     {/* Publish toggle */}
                                     <div className={`${n.flat} p-5 rounded-2xl`}>
                                         <div className="flex items-center justify-between">
-                                            <div>
+                                            <div className="flex-1 mr-4">
                                                 <p className={`${n.strong} font-semibold text-sm`}>Listing Visibility</p>
                                                 <p className={`${n.secondary} text-xs mt-0.5`}>
                                                     {selectedProject.isPublished
@@ -644,13 +714,18 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                                 </p>
                                             </div>
                                             {isAdmin && (
-                                                <button onClick={togglePublish} className={`relative w-12 h-6 rounded-full transition-colors ${selectedProject.isPublished ? 'bg-emerald-500' : (isDark ? 'bg-gray-700' : 'bg-gray-300')}`}>
-                                                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform ${selectedProject.isPublished ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                                <button
+                                                    onClick={togglePublish}
+                                                    className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 ${selectedProject.isPublished ? 'bg-emerald-500' : (isDark ? 'bg-gray-700' : 'bg-gray-300')}`}
+                                                    role="switch"
+                                                    aria-checked={selectedProject.isPublished}
+                                                >
+                                                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${selectedProject.isPublished ? 'translate-x-5' : 'translate-x-0'}`} />
                                                 </button>
                                             )}
                                         </div>
                                         {selectedProject.isPublished && selectedProject.listingSlug && (
-                                            <div className={`mt-4 p-3 ${n.flat} rounded-xl`}>
+                                            <div className={`mt-4 p-3 ${n.inset} rounded-xl`}>
                                                 <p className={`${n.tertiary} text-[11px] mb-2`}>Client listing link (requires Timely login)</p>
                                                 <div className="flex items-center gap-2">
                                                     <Globe className={`w-4 h-4 ${n.label} flex-shrink-0`} />
@@ -679,19 +754,21 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                             <label className={`${n.label} text-[11px] block mb-2`}>Listing Status</label>
                                             <div className="flex gap-2">
                                                 {LISTING_STATUSES.map(ls => (
-                                                    <button key={ls.value} onClick={() => setPropertyForm(f => ({ ...f, listingStatus: ls.value }))} className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${propertyForm.listingStatus === ls.value ? ls.color : `${n.flat} ${n.secondary}`}`}>
+                                                    <button key={ls.value} onClick={() => setPropertyForm(f => ({ ...f, listingStatus: ls.value }))} className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${propertyForm.listingStatus === ls.value ? ls.color : `${n.flat} ${n.secondary}`}`}>
                                                         {ls.label}
                                                     </button>
                                                 ))}
                                             </div>
                                         </div>
                                     </div>
-                                    <button onClick={saveListingDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}>
-                                        <Save className="w-4 h-4" />Save Listing Details
-                                    </button>
+                                    {canEdit && (
+                                        <button onClick={saveListingDetails} className={`w-full px-4 py-3 ${n.btnPrimary} rounded-xl text-sm flex items-center justify-center gap-2`}>
+                                            <Save className="w-4 h-4" />Save Listing Details
+                                        </button>
+                                    )}
 
                                     {/* Info note */}
-                                    <div className={`${n.flat} rounded-xl p-4 flex items-start gap-3`}>
+                                    <div className={`${n.inset} rounded-xl p-4 flex items-start gap-3`}>
                                         <Info className={`w-4 h-4 ${n.label} flex-shrink-0 mt-0.5`} />
                                         <div>
                                             <p className={`${n.text} text-xs font-medium mb-0.5`}>Private listing</p>
@@ -713,9 +790,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                         {getProjectConsultants(selectedProject.projectId).length === 0
                                             ? <p className={`${n.tertiary} text-xs text-center py-3`}>None assigned</p>
                                             : <div className="space-y-2">{getProjectConsultants(selectedProject.projectId).map(c => (
-                                                <div key={c.consultantId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
+                                                <div key={c.consultantId} className={`${n.inset} p-3 flex items-center justify-between rounded-xl`}>
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
+                                                        <div className={`w-8 h-8 ${n.flat} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                                         <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div>
                                                     </div>
                                                     {isAdmin && <button onClick={() => removeConsultantFromProject(c.consultantId)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><UserMinus className="w-4 h-4 text-red-400" /></button>}
@@ -733,9 +810,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                         {getProjectClients(selectedProject.projectId).length === 0
                                             ? <p className={`${n.tertiary} text-xs text-center py-3`}>None assigned</p>
                                             : <div className="space-y-2">{getProjectClients(selectedProject.projectId).map(c => (
-                                                <div key={c.customerId} className={`${n.flat} p-3 flex items-center justify-between rounded-xl`}>
+                                                <div key={c.customerId} className={`${n.inset} p-3 flex items-center justify-between rounded-xl`}>
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 ${n.inset} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
+                                                        <div className={`w-8 h-8 ${n.flat} rounded-full flex items-center justify-center text-[10px] font-semibold ${n.secondary}`}>{c.firstName[0]}{c.lastName[0]}</div>
                                                         <div><p className={`${n.text} text-sm font-medium`}>{c.firstName} {c.lastName}</p><p className={`${n.tertiary} text-[11px]`}>{c.email}</p></div>
                                                     </div>
                                                     {isAdmin && <button onClick={() => removeClientFromProject(c.customerId)} className="p-1.5 hover:bg-red-500/20 rounded-lg"><UserMinus className="w-4 h-4 text-red-400" /></button>}
@@ -782,7 +859,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                                                         </div>
                                                         {(isAdmin || entry.consultantId === (userConsultantId || userEmail)) && (
                                                             <button onClick={() => deleteTimeEntry(entry.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg">
-                                                                <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                <Trash2 className="w-3.5 h-3.5 text-red-400" />
                                                             </button>
                                                         )}
                                                     </div>
@@ -800,9 +877,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
             {showEditModal && selectedProject && canEdit && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto`}>
-                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
+                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead} rounded-t-2xl`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>Edit Project</h2>
-                            <button onClick={() => { setShowEditModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                            <button onClick={() => { setShowEditModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-4">
                             <div><label className={`${n.label} text-[11px] block mb-1`}>Project Name</label><input type="text" value={projectForm.projectName} onChange={e => setProjectForm({ ...projectForm, projectName: e.target.value })} className={`w-full px-3 py-2.5 ${n.input} border rounded-xl text-sm focus:outline-none focus:border-blue-500`} /></div>
@@ -827,9 +904,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
             {showConsultantsModal && selectedProject && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
-                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
+                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead} rounded-t-2xl`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>Manage Consultants</h2>
-                            <button onClick={() => { setShowConsultantsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                            <button onClick={() => { setShowConsultantsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-5">
                             <div>
@@ -866,9 +943,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
             {showClientsModal && selectedProject && isAdmin && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
                     <div className={`${n.modal} border rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto`}>
-                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead}`}>
+                        <div className={`p-5 border-b ${n.divider} flex items-center justify-between sticky top-0 ${n.modalHead} rounded-t-2xl`}>
                             <h2 className={`text-lg font-semibold ${n.text}`}>Manage Clients</h2>
-                            <button onClick={() => { setShowClientsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
+                            <button onClick={() => { setShowClientsModal(false); setShowDetailsModal(true); }} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}><X className={`w-4 h-4 ${n.tertiary}`} /></button>
                         </div>
                         <div className="p-5 space-y-5">
                             <div>
