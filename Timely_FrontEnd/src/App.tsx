@@ -26,7 +26,7 @@ type UserInfo = { customerId: string; consultantId?: string; email: string; name
 
 const normalizeRole = (role?: string): UserRole => {
     const r = (role || "").toLowerCase();
-    if (r === "admin") return "admin";
+    if (r === "owner" || r === "admin") return "admin";
     if (r === "consultant") return "consultant";
     return "client";
 };
