@@ -95,7 +95,7 @@ const loadClients = async () => { try { const r = await fetch(`${API_BASE}/orgs/
         if (!selectedThread) return [];
         const thread = threads.find(t => t.id === selectedThread);
         if (!thread) return [];
-        return messages.filter(m => { if (m.threadId === selectedThread) return true; if (m.from.email === thread.senderEmail || m.to.email === thread.senderEmail) return true; return false; }).filter(m => !m.deleted).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        return messages.filter(m => { if (!m.from || !m.to) return false; if (m.threadId === selectedThread) return true; if (m.from.email === thread.senderEmail || m.to.email === thread.senderEmail) return true; return false; }).filter(m => !m.deleted)
     }, [messages, selectedThread, threads]);
 
     const selInfo = useMemo(() => threads.find(t => t.id === selectedThread), [threads, selectedThread]);
