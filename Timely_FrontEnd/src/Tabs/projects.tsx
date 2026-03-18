@@ -34,13 +34,11 @@ const safeFetch = async (url: string) => {
 
 const getCurrentUserRole = (): { role: 'admin' | 'consultant' | 'client'; email: string; customerId?: string; name?: string; consultantId?: string } => {
     try {
-        const raw = localStorage.getItem('timely_user');
-        if (!raw) return { role: 'admin', email: 'admin@timely.com' };
+const raw = sessionStorage.getItem('timely_user') || localStorage.getItem('timely_user');        if (!raw) return { role: 'admin', email: 'admin@timely.com' };
         const parsed = JSON.parse(raw);
         const r = (parsed.role || 'client').toLowerCase();
-        if (r === 'admin' || r === 'consultant' || r === 'client')
-            return { role: r, email: parsed.email || '', customerId: parsed.customerId, name: parsed.name, consultantId: parsed.consultantId || parsed.customerId };
-        return { role: 'client', email: parsed.email || '' };
+        const role = (r === 'owner' || r === 'admin') ? 'admin' : r === 'consultant' ? 'consultant' : 'client';
+        return { role, email: parsed.email || '', customerId: parsed.customerId, name: parsed.name, consultantId: parsed.consultantId || parsed.customerId };
     } catch { return { role: 'admin', email: 'admin@timely.com' }; }
 };
 
@@ -249,7 +247,7 @@ const RealEstateProjects: React.FC = () => {
     };
 
     const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
-    const loadClients     = async () => { const d = await safeFetch(`${API_BASE}/users-report`); if (d?.data) setClients(d.data); };
+    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members.filter((m: any) => m.role === 'client').map((m: any) => ({ customerId: String(m.userId), firstName: m.name.split(' ')[0] || '', lastName: m.name.split(' ').slice(1).join(' ') || '', email: m.email }))); };
 
     const loadTimeEntries = () => {
         try { const data = localStorage.getItem(STORAGE_KEYS.timeEntries); if (data) setTimeEntries(JSON.parse(data)); } catch {}
