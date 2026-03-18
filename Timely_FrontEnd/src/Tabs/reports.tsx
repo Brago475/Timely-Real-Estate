@@ -122,8 +122,7 @@ const ReportsTab: React.FC = () => {
             if (projectsRes?.data) setProjects(projectsRes.data);
             if (hoursRes?.data) setHoursLogs(hoursRes.data);
             if (consultantsRes?.data) setConsultants(consultantsRes.data);
-            if (clientsRes?.data) setClients(clientsRes.data);
-            if (pcRes?.data) setProjectConsultants(pcRes.data);
+            if (clientsRes?.data?.members) setClients(clientsRes.data.members);            if (pcRes?.data) setProjectConsultants(pcRes.data);
         } catch { showToast("Failed to load data", "error"); }
         finally { setIsLoading(false); }
     };

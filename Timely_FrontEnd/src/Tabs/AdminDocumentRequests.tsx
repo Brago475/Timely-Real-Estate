@@ -77,7 +77,7 @@ const AdminDocumentRequests: React.FC<Props> = ({ onNavigate, adminEmail = "admi
 
     const showToast = (msg: string, type: "success" | "error" | "info" = "success") => { const id = `t_${Date.now()}`; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000); };
 
-    const loadData = async () => { setLoading(true); try { const r = await fetch(`/api/orgs/me`); if (r.ok) { const d = await r.json(); setUsers(d.data || []); } } catch {} setRequests(ReqAPI.getAll()); setUploads(UplAPI.getAll()); setLoading(false); };
+    const loadData = async () => { setLoading(true); try { const r = await fetch(`/api/orgs/me`); if (r.ok) { const d = await r.json(); setUsers(d.data?.members || []); } } catch {} setRequests(ReqAPI.getAll()); setUploads(UplAPI.getAll()); setLoading(false); };
     useEffect(() => { loadData(); }, []);
 
     const filteredReqs = useMemo(() => { let r = requests; if (filterStatus !== "all") r = r.filter(x => x.status === filterStatus); if (searchQ.trim()) { const q = searchQ.toLowerCase(); r = r.filter(x => x.documentName.toLowerCase().includes(q) || x.clientName.toLowerCase().includes(q) || x.description.toLowerCase().includes(q)); } return r.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); }, [requests, filterStatus, searchQ]);

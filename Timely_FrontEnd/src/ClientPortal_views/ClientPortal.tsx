@@ -16,8 +16,6 @@ import {
     CheckCircle, AlertCircle, Info, X,
 } from "lucide-react";
 
-import { getAssignedProjects } from "./Clientassignmentservice";
-
 const API_BASE = "/api";
 
 const safeFetch = async (url: string) => {
@@ -219,8 +217,14 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
         setRefreshing(true);
         try {
             // Use shared service — handles all formats, deduplicates
-            const clientProjects = await getAssignedProjects(customerId);
-            setProjects(clientProjects);
+const projRes = await safeFetch(`${API_BASE}/projects`);
+            if (projRes?.data) {
+                setProjects(projRes.data.map((p: any) => ({
+                    ...p,
+                    projectId: String(p.projectId),
+                    status: (p.status || "planning").toLowerCase(),
+                })));
+            }
 
             // Assigned consultant
             const clientConsultants = await safeFetch(`${API_BASE}/client-consultants`);
