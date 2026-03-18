@@ -71,8 +71,7 @@ const SettingsPage: React.FC = () => {
         const role = (user.role || 'client').toLowerCase() as UserRole;
         setUserRole(role === 'admin' || role === 'consultant' || role === 'client' ? role : 'client');
         const api = await safeFetch(`${API_BASE}/orgs/me`);
-        const full = api?.data?.find((u: any) => u.email === user.email || u.customerId === user.customerId);
-        const ext = JSON.parse(localStorage.getItem('timely_clients_extended') || '{}')[user.customerId] || {};
+const full = (api?.data?.members || api?.data || []).find((u: any) => { const e = u.user?.email || u.email; const c = String(u.userId || u.customerId || ''); return e === user.email || c === user.customerId; });        const ext = JSON.parse(localStorage.getItem('timely_clients_extended') || '{}')[user.customerId] || {};
         const names = (user.name || '').split(' ');
         const p: UserProfile = { customerId: user.customerId || full?.customerId || '', firstName: full?.firstName || ext.firstName || names[0] || '', lastName: full?.lastName || ext.lastName || names[names.length - 1] || '', email: user.email || full?.email || '', phone: full?.phone || ext.phone || '', companyName: ext.companyName || '', preferredContact: ext.preferredContact || 'email', role: user.role, tempPassword: full?.tempPassword || user.tempPassword, photoUrl: ext.photoUrl || '', calendarLink: ext.calendarLink || '' };
         setProfile(p); setOriginalProfile(p);
