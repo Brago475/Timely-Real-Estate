@@ -107,8 +107,7 @@ const ClientsPage = () => {
     useEffect(() => { loadAllData(); }, []);
 
     const loadAllData = async () => { setRefreshing(true); await Promise.all([loadClients(), loadConsultants(), loadProjects()]); AssignmentService.syncClientConsultantsFromAPI(); setRefreshing(false); };
-    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) { const ext = JSON.parse(localStorage.getItem(STORAGE_KEYS.clientsExtended) || '{}'); setClients(d.data.members.map((m: any) => flattenMember(m, ext))); } };
-    const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
+const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) { const ext = JSON.parse(localStorage.getItem(STORAGE_KEYS.clientsExtended) || '{}'); setClients(d.data.members.filter((m: any) => m.role === 'client').map((m: any) => flattenMember(m, ext))); } };    const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
     const loadProjects = async () => { const d = await safeFetch(`${API_BASE}/projects`); if (d?.data) setProjects(d.data); };
 
     const companyEmail = useMemo(() => { const f = clientForm.firstName.trim(), l = clientForm.lastName.trim(); if (!f || !l) return ''; return `${l.replace(/\s+/g, '').toLowerCase()}${f[0].toLowerCase()}@timely.com`; }, [clientForm.firstName, clientForm.lastName]);
