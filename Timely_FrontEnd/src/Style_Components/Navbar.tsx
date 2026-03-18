@@ -30,6 +30,8 @@ const getGradient = (name: string, email: string): string => {
     return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
 };
 
+const flattenMember = (m: any) => { const u = m.user || m; return { customerId: String(m.userId || u.id || ''), firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: m.role || 'client' }; };
+
 const PAGE_INFO: Record<string, { title: string; icon: React.ReactNode }> = {
     dashboard: { title: "Dashboard", icon: <Home className="w-4 h-4" /> }, projects: { title: "Projects", icon: <FolderOpen className="w-4 h-4" /> },
     client: { title: "Clients", icon: <User className="w-4 h-4" /> }, consultants: { title: "Consultants", icon: <User className="w-4 h-4" /> },
@@ -87,7 +89,7 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
     const initials = (userName || "U").split(" ").map(x => x[0]).join("").toUpperCase().slice(0, 2);
     const roleLabel = safeRole === "admin" ? "Admin" : safeRole === "consultant" ? "Consultant" : "Client";
 
-    useEffect(() => { const load = async () => { try { const [p, c, cl] = await Promise.all([fetch("/api/projects").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/consultants").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/orgs/me").then(r => r.ok ? r.json() : { data: [] })]); setProjects(p.data || []); setConsultants(c.data || []); setClients(cl.data?.members || []); } catch {} }; load(); }, []);
+    useEffect(() => { const load = async () => { try { const [p, c, cl] = await Promise.all([fetch("/api/projects").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/consultants").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/orgs/me").then(r => r.ok ? r.json() : { data: {} })]); setProjects(p.data || []); setConsultants(c.data || []); setClients((cl.data?.members || []).map(flattenMember)); } catch {} }; load(); }, []);
 
     useEffect(() => { const handler = (e: MouseEvent) => { const t = e.target as Node; if (notifRef.current && !notifRef.current.contains(t)) setShowNotifications(false); if (userRef.current && !userRef.current.contains(t)) setShowUserMenu(false); if (searchContainerRef.current && !searchContainerRef.current.contains(t)) { setShowSearch(false); setSearchQuery(""); setSearchResults([]); } }; document.addEventListener("mousedown", handler); return () => document.removeEventListener("mousedown", handler); }, []);
 
@@ -237,6 +239,5 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
     );
 };
 
-// Export gradient helper so other components can use it
 export { getGradient, GRADIENTS };
 export default Navbar;

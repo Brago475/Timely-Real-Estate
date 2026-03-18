@@ -90,6 +90,8 @@ const getActivityColor = (action: string): string => {
     return "bg-blue-400";
 };
 
+const flattenMember = (m: any) => { const u = m.user || m; return { customerId: String(m.userId || u.id || ''), consultantId: String(m.userId || u.id || ''), clientCode: u.code || '', firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: m.role || 'client' }; };
+
 const Dashboard: React.FC<DashboardProps> = ({
     sidebarToggle, setSidebarToggle, onNavigate,
     userName = "Admin", userEmail = "", userRole = "admin",
@@ -138,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 safeFetch(`${API_BASE}/consultants`), safeFetch(`${API_BASE}/hours-logs`),
                 safeFetch(`${API_BASE}/audit-logs/latest?limit=10`),
             ]);
-            setProjects(pR?.data || []); const _m = cR?.data?.members || []; setClients(_m.filter((m: any) => m.role === 'client'));
+            setProjects(pR?.data || []); const _m = (cR?.data?.members || []).map(flattenMember); setClients(_m.filter((m: any) => m.role === 'client'));
             setConsultants(_m.filter((m: any) => m.role === 'consultant' || m.role === 'admin' || m.role === 'owner')); setHoursLogs(hR?.data || []);
             if (aR?.data) {
                 setActivities(aR.data.map((l: any, i: number) => ({
