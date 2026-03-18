@@ -7,7 +7,7 @@ import ClientSettings from "./ClientSettings";
 import ClientProfile from "./ClientProfile";
 import ClientHistory from "./ClientHistory";
 import ClientDocuments from "./ClientDocuments";
-import ClientMessages from "./ClientMessages";
+import Messages from "../Tabs/Messages";
 import ClientProjects from "./ClientProjects";
 import {
     FolderOpen, CheckCircle2, User, Calendar, FileText,
@@ -544,7 +544,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
             case "projects":   return <ClientProjects userName={userName} userEmail={userEmail} customerId={customerId} />;
             case "history":    return <ClientHistory  userName={userName} userEmail={userEmail} customerId={customerId} />;
             case "documents":  return <ClientDocuments userName={userName} userEmail={userEmail} customerId={customerId} />;
-            case "messages":   return <ClientMessages  userName={userName} userEmail={userEmail} customerId={customerId} />;
+            case "messages":   return <Messages userRole="client" />;
             case "settings":   return <ClientSettings  userName={userName} userEmail={userEmail} customerId={customerId} />;
             case "profile":    return <ClientProfile   userName={userName} userEmail={userEmail} customerId={customerId} />;
             case "help":       return renderHelp();
