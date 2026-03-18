@@ -8,143 +8,141 @@ import { authenticate, authorize } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/users-csv — Create a new client
-router.post("/users-csv", authenticate, authorize("admin"), async (req: Request, res: Response) => {
-  const { firstName, middleName, lastName, email, tempPassword } = req.body || {};
+// POST /api/consultants — Create a new consultant in the current org
+router.post("/consultants", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
+  const { firstName, lastName, email, tempPassword } = req.body || {};
+  const orgId = req.user!.orgId;
 
-  if (!firstName || !lastName || !email || !tempPassword) {
-    return res.status(400).json({ error: "Missing required fields." });
+  if (!firstName || !lastName || !email) {
+    return res.status(400).json({ error: "firstName, lastName and email are required." });
   }
 
   try {
     const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (existing) {
-      return res.status(400).json({ error: "Email already exists." });
+      const alreadyMember = await prisma.orgMember.findUnique({
+        where: { userId_organizationId: { userId: existing.id, organizationId: orgId } },
+      });
+      if (alreadyMember) {
+        return res.status(400).json({ error: "This email is already a member of your organization." });
+      }
+
+      await prisma.orgMember.create({
+        data: { userId: existing.id, organizationId: orgId, role: "consultant", invitedBy: req.user!.userId },
+      });
+
+      await appendAuditLog(
+        orgId, "ADD_CONSULTANT", "consultant", existing.code,
+        req.user?.email || "unknown",
+        `Existing user added as consultant: ${existing.firstName} ${existing.lastName} (${existing.email})`
+      );
+
+      return res.json({ success: true, consultantId: existing.id, consultantCode: existing.code });
     }
 
-    const passwordHash = await bcrypt.hash(tempPassword, 12);
+    const password = tempPassword || "consultant123";
+    const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
       data: {
         code: "TEMP",
         firstName,
-        middleName: middleName || "",
+        middleName: "",
         lastName,
         email: email.toLowerCase(),
         passwordHash,
-        role: "client",
       },
     });
 
-    const code = formatCode("C", user.id);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { code },
+    const code = formatCode("CO", user.id);
+    await prisma.user.update({ where: { id: user.id }, data: { code } });
+
+    await prisma.orgMember.create({
+      data: { userId: user.id, organizationId: orgId, role: "consultant", invitedBy: req.user!.userId },
     });
 
     await appendAuditLog(
-      "CREATE_CLIENT",
-      "client",
-      code,
-      req.user?.email || "unknown_admin",
-      `Client created: ${firstName} ${lastName} (${email})`
+      orgId, "CREATE_CONSULTANT", "consultant", code,
+      req.user?.email || "unknown",
+      `Consultant created: ${firstName} ${lastName} (${email})`
     );
 
-    const emailCode = formatCode("EM", Date.now() % 10000);
     await prisma.emailOutbox.create({
       data: {
-        code: emailCode,
+        code: formatCode("EM", Date.now() % 10000),
+        organizationId: orgId,
         toEmail: email,
-        subject: "Welcome to Timely - Your Account Details",
-        body: `Hi ${firstName},\n\nWelcome to Timely! Your account has been created.\n\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nPlease change your password after your first login.\n\nBest regards,\nThe Timely Team`,
+        subject: "Welcome to Timely - Consultant Account Created",
+        body: `Hi ${firstName},\n\nYour consultant account has been created at Timely.\n\nEmail: ${email}\nPassword: ${password}\n\nPlease log in and change your password.\n\nBest regards,\nThe Timely Team`,
       },
     });
 
-    return res.json({ success: true, customerId: user.id, clientCode: code });
+    return res.json({ success: true, consultantId: user.id, consultantCode: code });
   } catch (err) {
-    console.error("Error creating client:", err);
-    return res.status(500).json({ error: "Failed to create client." });
+    console.error("Error creating consultant:", err);
+    return res.status(500).json({ error: "Failed to create consultant." });
   }
 });
 
-// GET /api/users-report — List all clients
-router.get("/users-report", authenticate, authorize("admin", "consultant"), async (req: Request, res: Response) => {
+// GET /api/consultants — List all consultants in the current org
+router.get("/consultants", authenticate, authorize("owner", "admin", "consultant"), async (req: Request, res: Response) => {
+  const orgId = req.user!.orgId;
+
   try {
-    const clients = await prisma.user.findMany({
-      where: { role: "client" },
-      orderBy: { id: "asc" },
+    const members = await prisma.orgMember.findMany({
+      where: { organizationId: orgId, role: "consultant" },
+      include: { user: true },
+      orderBy: { user: { id: "asc" } },
     });
 
-    const data = clients.map((c) => ({
-      customerId: String(c.id),
-      clientCode: c.code,
-      firstName: c.firstName,
-      middleName: c.middleName,
-      lastName: c.lastName,
-      email: c.email,
+    const data = members.map((m) => ({
+      consultantId: String(m.user.id),
+      consultantCode: m.user.code,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
+      email: m.user.email,
       tempPassword: "********",
+      role: m.role,
     }));
 
     return res.json({ data });
   } catch (err) {
-    console.error("Error reading clients:", err);
-    return res.status(500).json({ error: "Failed to read clients." });
+    console.error("Error reading consultants:", err);
+    return res.status(500).json({ error: "Failed to read consultants." });
   }
 });
 
-// POST /api/users-delete — Delete a client
-router.post("/users-delete", authenticate, authorize("admin"), async (req: Request, res: Response) => {
-  const { customerId } = req.body || {};
+// POST /api/consultants-delete — Remove a consultant from the current org
+router.post("/consultants-delete", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
+  const { consultantId } = req.body || {};
+  const orgId = req.user!.orgId;
 
-  if (!customerId) {
-    return res.status(400).json({ error: "customerId is required." });
+  if (!consultantId) {
+    return res.status(400).json({ error: "consultantId is required." });
   }
 
   try {
-    const user = await prisma.user.findFirst({
-      where: { id: Number(customerId), role: "client" },
+    const membership = await prisma.orgMember.findFirst({
+      where: { userId: Number(consultantId), organizationId: orgId, role: "consultant" },
+      include: { user: true },
     });
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found." });
+    if (!membership) {
+      return res.status(404).json({ error: "Consultant not found in this organization." });
     }
 
-    await prisma.user.delete({ where: { id: user.id } });
+    await prisma.orgMember.delete({ where: { id: membership.id } });
 
     await appendAuditLog(
-      "DELETE_CLIENT",
-      "client",
-      user.code,
-      req.user?.email || "unknown_admin",
-      `Client deleted: ${user.firstName} ${user.lastName} (${user.email})`
+      orgId, "REMOVE_CONSULTANT", "consultant", membership.user.code,
+      req.user?.email || "unknown",
+      `Consultant removed: ${membership.user.firstName} ${membership.user.lastName} (${membership.user.email})`
     );
 
     return res.json({ success: true });
   } catch (err) {
-    console.error("Error deleting client:", err);
-    return res.status(500).json({ error: "Failed to delete client." });
-  }
-});
-
-// GET /api/users-report/csv — Download clients as CSV
-router.get("/users-report/csv", authenticate, authorize("admin"), async (req: Request, res: Response) => {
-  try {
-    const clients = await prisma.user.findMany({
-      where: { role: "client" },
-      orderBy: { id: "asc" },
-    });
-
-    let csv = "CustomerID,FirstName,MiddleName,LastName,Email\n";
-    for (const c of clients) {
-      csv += `${c.id},${c.firstName},${c.middleName},${c.lastName},${c.email}\n`;
-    }
-
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=users.csv");
-    return res.send(csv);
-  } catch (err) {
-    console.error("Error exporting clients:", err);
-    return res.status(500).json({ error: "Failed to export clients." });
+    console.error("Error removing consultant:", err);
+    return res.status(500).json({ error: "Failed to remove consultant." });
   }
 });
 

@@ -7,15 +7,21 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/project-comments — Add a comment
+// POST /api/project-comments — Add a comment (project must belong to current org)
 router.post("/project-comments", authenticate, async (req: Request, res: Response) => {
   const { projectId, author, commentText } = req.body || {};
+  const orgId = req.user!.orgId;
 
   if (!projectId || !commentText) {
     return res.status(400).json({ error: "projectId and commentText are required." });
   }
 
   try {
+    const project = await prisma.project.findFirst({
+      where: { id: Number(projectId), organizationId: orgId },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found in this organization." });
+
     const comment = await prisma.projectComment.create({
       data: {
         code: "TEMP",
@@ -32,9 +38,7 @@ router.post("/project-comments", authenticate, async (req: Request, res: Respons
     });
 
     await appendAuditLog(
-      "CREATE_COMMENT",
-      "comment",
-      code,
+      orgId, "CREATE_COMMENT", "comment", code,
       req.user?.email || author || "unknown",
       `Comment added to project ${projectId}`
     );
@@ -46,16 +50,30 @@ router.post("/project-comments", authenticate, async (req: Request, res: Respons
   }
 });
 
-// GET /api/project-comments/:projectId — Get comments for a project
+// GET /api/project-comments/:projectId — Get comments for a project in current org
 router.get("/project-comments/:projectId", authenticate, async (req: Request, res: Response) => {
   const { projectId } = req.params;
+  const orgId = req.user!.orgId;
 
   try {
+    const project = await prisma.project.findFirst({
+      where: { id: Number(projectId), organizationId: orgId },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found in this organization." });
+
     const comments = await prisma.projectComment.findMany({
       where: { projectId: Number(projectId) },
       orderBy: { createdAt: "asc" },
       include: {
-        author: { select: { firstName: true, lastName: true, email: true, role: true } },
+        author: {
+          select: {
+            id: true, firstName: true, lastName: true, email: true,
+            memberships: {
+              where: { organizationId: orgId },
+              select: { role: true },
+            },
+          },
+        },
       },
     });
 
@@ -65,7 +83,7 @@ router.get("/project-comments/:projectId", authenticate, async (req: Request, re
       projectId: String(c.projectId),
       author: `${c.author.firstName} ${c.author.lastName}`.trim(),
       authorEmail: c.author.email,
-      authorRole: c.author.role,
+      authorRole: c.author.memberships[0]?.role || "unknown",
       commentText: c.commentText,
       createdAt: c.createdAt.toISOString(),
     }));

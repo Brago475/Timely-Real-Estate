@@ -8,27 +8,30 @@ import { authenticate, authorize } from "../middleware/auth.js";
 const router = Router();
 
 // POST /api/client-consultants/assign — Assign consultant to client
-router.post("/client-consultants/assign", authenticate, authorize("admin"), async (req: Request, res: Response) => {
+router.post("/client-consultants/assign", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
   const { clientId, consultantId } = req.body || {};
+  const orgId = req.user!.orgId;
 
   if (!clientId || !consultantId) {
     return res.status(400).json({ error: "clientId and consultantId are required." });
   }
 
   try {
-    const client = await prisma.user.findFirst({
-      where: { id: Number(clientId), role: "client" },
+    // Verify both are members of this org with correct roles
+    const clientMember = await prisma.orgMember.findFirst({
+      where: { userId: Number(clientId), organizationId: orgId, role: "client" },
+      include: { user: true },
     });
 
-    const consultant = await prisma.user.findFirst({
-      where: { id: Number(consultantId), role: "consultant" },
+    const consultantMember = await prisma.orgMember.findFirst({
+      where: { userId: Number(consultantId), organizationId: orgId, role: "consultant" },
+      include: { user: true },
     });
 
-    if (!client || !consultant) {
-      return res.status(400).json({ error: "Client or consultant does not exist." });
+    if (!clientMember || !consultantMember) {
+      return res.status(400).json({ error: "Client or consultant not found in this organization." });
     }
 
-    // Check if already assigned
     const existing = await prisma.clientConsultant.findUnique({
       where: {
         clientId_consultantId: {
@@ -50,21 +53,21 @@ router.post("/client-consultants/assign", authenticate, authorize("admin"), asyn
     });
 
     await appendAuditLog(
+      orgId,
       "ASSIGN_CONSULTANT",
       "client_consultant",
       `C${clientId}-CO${consultantId}`,
-      req.user?.email || "unknown_admin",
-      `Consultant ${consultant.firstName} ${consultant.lastName} assigned to client ${client.firstName} ${client.lastName}`
+      req.user?.email || "unknown",
+      `Consultant ${consultantMember.user.firstName} ${consultantMember.user.lastName} assigned to client ${clientMember.user.firstName} ${clientMember.user.lastName}`
     );
 
-    // Notify client
-    const emailCode = formatCode("EM", Date.now() % 10000);
     await prisma.emailOutbox.create({
       data: {
-        code: emailCode,
-        toEmail: client.email,
-        subject: `Your Consultant: ${consultant.firstName} ${consultant.lastName}`,
-        body: `Hi ${client.firstName},\n\n${consultant.firstName} ${consultant.lastName} has been assigned as your consultant.\n\nYou can reach them at: ${consultant.email}\n\nBest regards,\nThe Timely Team`,
+        code: formatCode("EM", Date.now() % 10000),
+        organizationId: orgId,
+        toEmail: clientMember.user.email,
+        subject: `Your Consultant: ${consultantMember.user.firstName} ${consultantMember.user.lastName}`,
+        body: `Hi ${clientMember.user.firstName},\n\n${consultantMember.user.firstName} ${consultantMember.user.lastName} has been assigned as your consultant.\n\nYou can reach them at: ${consultantMember.user.email}\n\nBest regards,\nThe Timely Team`,
       },
     });
 
@@ -75,12 +78,29 @@ router.post("/client-consultants/assign", authenticate, authorize("admin"), asyn
   }
 });
 
-// GET /api/client-consultants — List assignments
-router.get("/client-consultants", authenticate, authorize("admin", "consultant"), async (req: Request, res: Response) => {
+// GET /api/client-consultants — List assignments in the current org
+router.get("/client-consultants", authenticate, authorize("owner", "admin", "consultant"), async (req: Request, res: Response) => {
   const { clientId, consultantId } = req.query;
+  const orgId = req.user!.orgId;
 
   try {
-    const where: any = {};
+    // Get all client and consultant user IDs in this org
+    const orgClients = await prisma.orgMember.findMany({
+      where: { organizationId: orgId, role: "client" },
+      select: { userId: true },
+    });
+    const orgConsultants = await prisma.orgMember.findMany({
+      where: { organizationId: orgId, role: "consultant" },
+      select: { userId: true },
+    });
+
+    const clientIds = orgClients.map((m) => m.userId);
+    const consultantIds = orgConsultants.map((m) => m.userId);
+
+    const where: any = {
+      clientId: { in: clientIds },
+      consultantId: { in: consultantIds },
+    };
     if (clientId) where.clientId = Number(clientId);
     if (consultantId) where.consultantId = Number(consultantId);
 

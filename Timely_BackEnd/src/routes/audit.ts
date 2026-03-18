@@ -5,12 +5,14 @@ import { authenticate, authorize } from "../middleware/auth.js";
 
 const router = Router();
 
-// GET /api/audit-logs/latest — Get recent audit logs
-router.get("/audit-logs/latest", authenticate, authorize("admin"), async (req: Request, res: Response) => {
+// GET /api/audit-logs/latest — Get recent audit logs for current org
+router.get("/audit-logs/latest", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
   const limit = Number(req.query.limit ?? 10);
+  const orgId = req.user!.orgId;
 
   try {
     const logs = await prisma.auditLog.findMany({
+      where: { organizationId: orgId },
       orderBy: { timestamp: "desc" },
       take: limit,
     });

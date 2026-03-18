@@ -11,6 +11,9 @@ import projectAttachmentRoutes from "./routes/projectAttachments.js";
 import teamFeedRoutes from "./routes/teamFeed.js";
 import emailRoutes from "./routes/emails.js";
 import auditRoutes from "./routes/audit.js";
+import orgRoutes from "./routes/orgs.js";
+import inviteRoutes from "./routes/invites.js";
+import listingRoutes from "./routes/listings.js";
 
 const app = express();
 
@@ -34,12 +37,15 @@ app.use("/api", projectAttachmentRoutes);
 app.use("/api", teamFeedRoutes);
 app.use("/api", emailRoutes);
 app.use("/api", auditRoutes);
+app.use("/api", orgRoutes);
+app.use("/api", inviteRoutes);
+app.use("/api", listingRoutes);
 
 const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Timely API running on http://localhost:${PORT}`);
-  console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`📊 All 33 endpoints active`);
+  console.log(`Timely API running on http://localhost:${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`All endpoints active`);
 });
 
 export default app;

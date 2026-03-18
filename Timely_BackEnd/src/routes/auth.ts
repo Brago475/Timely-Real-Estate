@@ -17,6 +17,11 @@ router.post("/login", async (req: Request, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
+      include: {
+        memberships: {
+          include: { organization: true },
+        },
+      },
     });
 
     if (!user || !user.isActive) {
@@ -28,19 +33,31 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
+    // User must belong to at least one org
+    if (user.memberships.length === 0) {
+      return res.status(403).json({ error: "No organization found for this account." });
+    }
+
+    // Default to first org (multi-org switching can be added later)
+    const membership = user.memberships[0];
+    const role = membership.role;
+    const orgId = membership.organizationId;
+
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      role: user.role,
+      orgId,
+      role,
       code: user.code,
     });
 
     await appendAuditLog(
+      orgId,
       "LOGIN",
-      user.role,
+      role,
       user.code,
       user.email,
-      `${user.role.charAt(0).toUpperCase() + user.role.slice(1)} logged in: ${user.firstName} ${user.lastName}`
+      `${role.charAt(0).toUpperCase() + role.slice(1)} logged in: ${user.firstName} ${user.lastName}`
     );
 
     const response: any = {
@@ -50,13 +67,16 @@ router.post("/login", async (req: Request, res: Response) => {
         customerId: String(user.id),
         name: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
-        role: user.role,
+        role,
+        orgId,
+        orgName: membership.organization.name,
+        orgSlug: membership.organization.slug,
       },
     };
 
-    if (user.role === "client") {
+    if (role === "client") {
       response.user.clientCode = user.code;
-    } else if (user.role === "consultant") {
+    } else if (role === "consultant") {
       response.user.consultantCode = user.code;
     }
 

@@ -4,6 +4,8 @@ export function formatCode(prefix: string, n: number): string {
 
 export function userCode(role: string, id: number): string {
   switch (role) {
+    case "owner":
+      return `OW-${id}`;
     case "admin":
       return `admin-${id}`;
     case "consultant":

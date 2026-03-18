@@ -7,15 +7,21 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/project-attachments — Upload attachment metadata
+// POST /api/project-attachments — Upload attachment metadata (project must belong to current org)
 router.post("/project-attachments", authenticate, async (req: Request, res: Response) => {
   const { projectId, fileName, fileSize, fileType } = req.body || {};
+  const orgId = req.user!.orgId;
 
   if (!projectId || !fileName) {
     return res.status(400).json({ error: "projectId and fileName are required." });
   }
 
   try {
+    const project = await prisma.project.findFirst({
+      where: { id: Number(projectId), organizationId: orgId },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found in this organization." });
+
     const attachment = await prisma.projectAttachment.create({
       data: {
         code: "TEMP",
@@ -34,9 +40,7 @@ router.post("/project-attachments", authenticate, async (req: Request, res: Resp
     });
 
     await appendAuditLog(
-      "UPLOAD_ATTACHMENT",
-      "attachment",
-      code,
+      orgId, "UPLOAD_ATTACHMENT", "attachment", code,
       req.user?.email || "unknown",
       `File uploaded: ${fileName} to project ${projectId}`
     );
@@ -48,11 +52,17 @@ router.post("/project-attachments", authenticate, async (req: Request, res: Resp
   }
 });
 
-// GET /api/project-attachments/:projectId — Get attachments for a project
+// GET /api/project-attachments/:projectId — Get attachments for a project in current org
 router.get("/project-attachments/:projectId", authenticate, async (req: Request, res: Response) => {
   const { projectId } = req.params;
+  const orgId = req.user!.orgId;
 
   try {
+    const project = await prisma.project.findFirst({
+      where: { id: Number(projectId), organizationId: orgId },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found in this organization." });
+
     const attachments = await prisma.projectAttachment.findMany({
       where: { projectId: Number(projectId) },
       orderBy: { createdAt: "desc" },

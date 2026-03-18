@@ -7,9 +7,10 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/team-feed — Create a post
+// POST /api/team-feed — Create a post in the current org
 router.post("/team-feed", authenticate, async (req: Request, res: Response) => {
   const { content } = req.body || {};
+  const orgId = req.user!.orgId;
 
   if (!content) {
     return res.status(400).json({ error: "content is required." });
@@ -19,6 +20,7 @@ router.post("/team-feed", authenticate, async (req: Request, res: Response) => {
     const post = await prisma.teamFeedPost.create({
       data: {
         code: "TEMP",
+        organizationId: orgId,
         authorId: req.user!.userId,
         content,
       },
@@ -31,15 +33,21 @@ router.post("/team-feed", authenticate, async (req: Request, res: Response) => {
     });
 
     await appendAuditLog(
-      "CREATE_POST",
-      "team_feed",
-      code,
+      orgId, "CREATE_POST", "team_feed", code,
       req.user?.email || "unknown",
       `Team feed post created`
     );
 
-    // Fetch author info for response
-    const author = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+    // Fetch author info + role in this org
+    const author = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      include: {
+        memberships: {
+          where: { organizationId: orgId },
+          select: { role: true },
+        },
+      },
+    });
 
     return res.json({
       success: true,
@@ -49,7 +57,7 @@ router.post("/team-feed", authenticate, async (req: Request, res: Response) => {
         postId: String(post.id),
         authorName: author ? `${author.firstName} ${author.lastName}`.trim() : "",
         authorEmail: author?.email || "",
-        authorRole: author?.role || "staff",
+        authorRole: author?.memberships[0]?.role || "staff",
         content,
         createdAt: post.createdAt.toISOString(),
         likes: 0,
@@ -62,17 +70,27 @@ router.post("/team-feed", authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/team-feed — List posts
+// GET /api/team-feed — List posts in current org
 router.get("/team-feed", authenticate, async (req: Request, res: Response) => {
   const { limit } = req.query;
+  const orgId = req.user!.orgId;
   const maxPosts = Number(limit) || 50;
 
   try {
     const posts = await prisma.teamFeedPost.findMany({
+      where: { organizationId: orgId },
       orderBy: { createdAt: "desc" },
       take: maxPosts,
       include: {
-        author: { select: { firstName: true, lastName: true, email: true, role: true } },
+        author: {
+          select: {
+            firstName: true, lastName: true, email: true,
+            memberships: {
+              where: { organizationId: orgId },
+              select: { role: true },
+            },
+          },
+        },
         likes: { select: { userId: true } },
       },
     });
@@ -82,7 +100,7 @@ router.get("/team-feed", authenticate, async (req: Request, res: Response) => {
       postCode: p.code,
       authorName: `${p.author.firstName} ${p.author.lastName}`.trim(),
       authorEmail: p.author.email,
-      authorRole: p.author.role,
+      authorRole: p.author.memberships[0]?.role || "staff",
       content: p.content,
       createdAt: p.createdAt.toISOString(),
       likes: p.likes.length,
@@ -96,11 +114,18 @@ router.get("/team-feed", authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/team-feed/:postId/like — Like a post
+// POST /api/team-feed/:postId/like — Like a post in current org
 router.post("/team-feed/:postId/like", authenticate, async (req: Request, res: Response) => {
   const { postId } = req.params;
+  const orgId = req.user!.orgId;
 
   try {
+    // Verify post belongs to this org
+    const post = await prisma.teamFeedPost.findFirst({
+      where: { id: Number(postId), organizationId: orgId },
+    });
+    if (!post) return res.status(404).json({ error: "Post not found in this organization." });
+
     const existing = await prisma.teamFeedLike.findUnique({
       where: {
         postId_userId: {
@@ -130,11 +155,17 @@ router.post("/team-feed/:postId/like", authenticate, async (req: Request, res: R
   }
 });
 
-// POST /api/team-feed/:postId/unlike — Unlike a post
+// POST /api/team-feed/:postId/unlike — Unlike a post in current org
 router.post("/team-feed/:postId/unlike", authenticate, async (req: Request, res: Response) => {
   const { postId } = req.params;
+  const orgId = req.user!.orgId;
 
   try {
+    const post = await prisma.teamFeedPost.findFirst({
+      where: { id: Number(postId), organizationId: orgId },
+    });
+    if (!post) return res.status(404).json({ error: "Post not found in this organization." });
+
     await prisma.teamFeedLike.deleteMany({
       where: {
         postId: Number(postId),
@@ -150,30 +181,30 @@ router.post("/team-feed/:postId/unlike", authenticate, async (req: Request, res:
   }
 });
 
-// POST /api/team-feed/:postId/delete — Delete a post
+// POST /api/team-feed/:postId/delete — Delete a post (author or owner/admin only)
 router.post("/team-feed/:postId/delete", authenticate, async (req: Request, res: Response) => {
   const { postId } = req.params;
+  const orgId = req.user!.orgId;
 
   try {
-    const post = await prisma.teamFeedPost.findUnique({
-      where: { id: Number(postId) },
+    const post = await prisma.teamFeedPost.findFirst({
+      where: { id: Number(postId), organizationId: orgId },
     });
 
     if (!post) {
-      return res.status(404).json({ error: "Post not found." });
+      return res.status(404).json({ error: "Post not found in this organization." });
     }
 
-    // Only author or admin can delete
-    if (post.authorId !== req.user!.userId && req.user!.role !== "admin") {
+    // Only author, owner, or admin can delete
+    const role = req.user!.role;
+    if (post.authorId !== req.user!.userId && role !== "admin" && role !== "owner") {
       return res.status(403).json({ error: "Not authorized to delete this post." });
     }
 
-    await prisma.teamFeedPost.delete({ where: { id: Number(postId) } });
+    await prisma.teamFeedPost.delete({ where: { id: post.id } });
 
     await appendAuditLog(
-      "DELETE_POST",
-      "team_feed",
-      post.code,
+      orgId, "DELETE_POST", "team_feed", post.code,
       req.user?.email || "unknown",
       `Team feed post deleted`
     );

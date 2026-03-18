@@ -6,9 +6,10 @@ import { authenticate, authorize } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/emails/send — Send an email (stores in outbox)
-router.post("/emails/send", authenticate, authorize("admin"), async (req: Request, res: Response) => {
+// POST /api/emails/send — Send an email (stores in outbox for current org)
+router.post("/emails/send", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
   const { to, from, subject, body } = req.body || {};
+  const orgId = req.user!.orgId;
 
   if (!to || !subject) {
     return res.status(400).json({ error: "to and subject are required." });
@@ -18,8 +19,9 @@ router.post("/emails/send", authenticate, authorize("admin"), async (req: Reques
     const email = await prisma.emailOutbox.create({
       data: {
         code: "TEMP",
+        organizationId: orgId,
         toEmail: to,
-        fromEmail: from || "noreply@timely.com",
+        fromEmail: from || req.user!.email,
         subject,
         body: body || "",
       },
@@ -40,13 +42,15 @@ router.post("/emails/send", authenticate, authorize("admin"), async (req: Reques
   }
 });
 
-// GET /api/emails/outbox — List sent emails
-router.get("/emails/outbox", authenticate, authorize("admin"), async (req: Request, res: Response) => {
+// GET /api/emails/outbox — List sent emails in current org
+router.get("/emails/outbox", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
   const { limit } = req.query;
+  const orgId = req.user!.orgId;
   const maxEmails = Number(limit) || 50;
 
   try {
     const emails = await prisma.emailOutbox.findMany({
+      where: { organizationId: orgId },
       orderBy: { createdAt: "desc" },
       take: maxEmails,
     });
@@ -70,17 +74,22 @@ router.get("/emails/outbox", authenticate, authorize("admin"), async (req: Reque
   }
 });
 
-// GET /api/emails/:emailId — Get a single email
-router.get("/emails/:emailId", authenticate, authorize("admin"), async (req: Request, res: Response) => {
+// GET /api/emails/:emailId — Get a single email in current org
+router.get("/emails/:emailId", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
   const emailId = String(req.params.emailId);
+  const orgId = req.user!.orgId;
 
   try {
     let email = null;
     if (!isNaN(Number(emailId))) {
-      email = await prisma.emailOutbox.findUnique({ where: { id: Number(emailId) } });
+      email = await prisma.emailOutbox.findFirst({
+        where: { id: Number(emailId), organizationId: orgId },
+      });
     }
     if (!email) {
-      email = await prisma.emailOutbox.findFirst({ where: { code: emailId } });
+      email = await prisma.emailOutbox.findFirst({
+        where: { code: emailId, organizationId: orgId },
+      });
     }
 
     if (!email) {
