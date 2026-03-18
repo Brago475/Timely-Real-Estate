@@ -3,16 +3,16 @@
 // Private listing page — requires Timely login.
 // Access is checked against project assignments before rendering.
 // Route: /listing/:slug
-//
-// Add to App.tsx routing (already handled via getListingSlug intercept).
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     MapPin, Bed, Bath, Maximize, ChevronLeft, ChevronRight,
     Home, Building2, Globe, Layers, ArrowLeft, Calendar,
-    DollarSign, Tag, Lock, LogIn, CheckCircle, Clock
+    DollarSign, Tag, Lock, LogIn, X, Sun, Moon,
+    Ruler, Trees, Shield, MessageCircle, Share2, Heart
 } from 'lucide-react';
 import AssignmentService from '../services/AssignmentService';
+import timelyLogo from '../assets/Timely_logo.png';
 
 // ─── Router shim ──────────────────────────────────────────────────────────────
 const getSlugFromUrl = (): string => {
@@ -21,15 +21,10 @@ const getSlugFromUrl = (): string => {
 };
 
 let _useParams: () => { slug?: string };
-try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    _useParams = require('react-router-dom').useParams;
-} catch {
-    _useParams = () => ({ slug: getSlugFromUrl() });
-}
+try { _useParams = require('react-router-dom').useParams; }
+catch { _useParams = () => ({ slug: getSlugFromUrl() }); }
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
-
 interface Project {
     projectId: string; projectName: string; description?: string;
     status?: string; clientName?: string;
@@ -45,14 +40,10 @@ interface Project {
 
 interface CurrentUser {
     role: 'admin' | 'consultant' | 'client';
-    email: string;
-    customerId?: string;
-    consultantId?: string;
-    name?: string;
+    email: string; customerId?: string; consultantId?: string; name?: string;
 }
 
-// ─── Amenity emoji map ────────────────────────────────────────────────────────
-
+// ─── Amenity icons ────────────────────────────────────────────────────────────
 const AMENITY_ICONS: Record<string, string> = {
     'Pool': '🏊', 'Gym': '🏋️', 'Garage': '🚗', 'Parking': '🅿️',
     'Garden': '🌿', 'Balcony': '🏙️', 'Terrace': '☀️', 'Elevator': '🛗',
@@ -62,503 +53,313 @@ const AMENITY_ICONS: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = { active: 'For Sale', pending: 'Sale Pending', sold: 'Sold' };
-const STATUS_COLOR: Record<string, string>  = { active: '#10b981', pending: '#f59e0b', sold: '#6b7280' };
-
-// ─── Design tokens ────────────────────────────────────────────────────────────
-
-const C = {
-    bg:        '#080c12',
-    surface:   'rgba(255,255,255,0.04)',
-    border:    'rgba(255,255,255,0.08)',
-    text:      '#f1f5f9',
-    muted:     '#94a3b8',
-    dim:       '#475569',
-    blue:      '#3b82f6',
-    blueHover: '#2563eb',
-    emerald:   '#10b981',
-};
+const STATUS_BADGE_LIGHT: Record<string, string> = { active: 'bg-emerald-600 text-white', pending: 'bg-amber-500 text-white', sold: 'bg-gray-500 text-white' };
+const STATUS_BADGE_DARK: Record<string, string> = { active: 'bg-emerald-500 text-white', pending: 'bg-amber-500 text-white', sold: 'bg-gray-600 text-white' };
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
-
 const getCurrentUser = (): CurrentUser | null => {
     try {
-        const raw  = localStorage.getItem('timely_user');
+        const raw = localStorage.getItem('timely_user');
         const auth = localStorage.getItem('timely_authenticated');
         if (!raw || auth !== 'true') return null;
-        const p    = JSON.parse(raw);
+        const p = JSON.parse(raw);
         const role = (p.role || 'client').toLowerCase();
-        if (role !== 'admin' && role !== 'consultant' && role !== 'client') return null;
-        return { role, email: p.email || '', customerId: p.customerId, consultantId: p.consultantId || p.customerId, name: p.name };
+        if (!['admin', 'consultant', 'client'].includes(role)) return null;
+        return { role: role as any, email: p.email || '', customerId: p.customerId, consultantId: p.consultantId || p.customerId, name: p.name };
     } catch { return null; }
 };
 
 const checkAccess = (project: Project, user: CurrentUser): boolean => {
     if (user.role === 'admin') return true;
     const pid = String(project.projectId);
-    if (user.role === 'consultant' && user.consultantId) {
-        const assignedProjects = AssignmentService.getProjectsForConsultant(user.consultantId);
-        return assignedProjects.includes(pid);
-    }
-    if (user.role === 'client' && user.customerId) {
-        const assignedProjects = AssignmentService.getProjectsForClient(user.customerId);
-        return assignedProjects.includes(pid);
-    }
+    if (user.role === 'consultant' && user.consultantId) return AssignmentService.getProjectsForConsultant(user.consultantId).includes(pid);
+    if (user.role === 'client' && user.customerId) return AssignmentService.getProjectsForClient(user.customerId).includes(pid);
     return false;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
-
 const ListingView: React.FC = () => {
     const { slug } = _useParams();
 
-    const [project, setProject]           = useState<Project | null>(null);
-    const [notFound, setNotFound]         = useState(false);
+    const [isDark, setIsDark] = useState(() => {
+        const saved = localStorage.getItem('timely_theme');
+        if (saved) return saved === 'dark';
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    });
+    const toggleTheme = () => { const next = !isDark; setIsDark(next); localStorage.setItem('timely_theme', next ? 'dark' : 'light'); };
+
+    const [project, setProject] = useState<Project | null>(null);
+    const [notFound, setNotFound] = useState(false);
     const [accessDenied, setAccessDenied] = useState(false);
-    const [notLoggedIn, setNotLoggedIn]   = useState(false);
-    const [galleryOpen, setGalleryOpen]   = useState(false);
+    const [notLoggedIn, setNotLoggedIn] = useState(false);
+    const [galleryOpen, setGalleryOpen] = useState(false);
     const [galleryIndex, setGalleryIndex] = useState(0);
-    const [activePhoto, setActivePhoto]   = useState(0);
+    const [activePhoto, setActivePhoto] = useState(0);
+    const [liked, setLiked] = useState(false);
 
     useEffect(() => { (async () => {
-        // 1. Check auth
         const user = getCurrentUser();
         if (!user) { setNotLoggedIn(true); return; }
-
-        // 2. Find project by slug from API
         try {
-const token = sessionStorage.getItem('timely_token') || localStorage.getItem('timely_token') || '';
-const res = await fetch('/api/projects', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });            const data = res.ok ? await res.json() : null;
+            const token = sessionStorage.getItem('timely_token') || localStorage.getItem('timely_token') || '';
+            const res = await fetch('/api/projects', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+            const data = res.ok ? await res.json() : null;
             const all: Project[] = data?.data || [];
             const found = all.find((p: any) => p.isPublished && p.listingSlug === slug);
             if (!found) { setNotFound(true); return; }
-
-            // 3. Check assignment
             if (!checkAccess(found, user)) { setAccessDenied(true); return; }
-
             setProject(found);
             setActivePhoto(found.coverPhotoIndex || 0);
         } catch { setNotFound(true); }
     })(); }, [slug]);
 
-    // Keyboard nav for gallery
     useEffect(() => {
         if (!galleryOpen) return;
         const handler = (e: KeyboardEvent) => {
             if (e.key === 'ArrowRight') setGalleryIndex(i => Math.min((project?.photos?.length ?? 1) - 1, i + 1));
-            if (e.key === 'ArrowLeft')  setGalleryIndex(i => Math.max(0, i - 1));
-            if (e.key === 'Escape')     setGalleryOpen(false);
+            if (e.key === 'ArrowLeft') setGalleryIndex(i => Math.max(0, i - 1));
+            if (e.key === 'Escape') setGalleryOpen(false);
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, [galleryOpen, project?.photos?.length]);
 
-    const photos      = useMemo(() => project?.photos || [], [project]);
-    const price       = project?.listingPrice ? `$${Number(project.listingPrice).toLocaleString()}` : null;
-    const location    = [project?.address, project?.city, project?.state, project?.zip].filter(Boolean).join(', ');
+    const photos = useMemo(() => (project?.photos || []) as string[], [project]);
+    const price = project?.listingPrice ? `$${Number(project.listingPrice).toLocaleString()}` : null;
+    const location = [project?.address, project?.city, project?.state, project?.zip].filter(Boolean).join(', ');
     const statusLabel = STATUS_LABEL[project?.listingStatus || 'active'] ?? 'For Sale';
-    const statusColor = STATUS_COLOR[project?.listingStatus || 'active'] ?? C.emerald;
+    const statusBadge = (isDark ? STATUS_BADGE_DARK : STATUS_BADGE_LIGHT)[project?.listingStatus || 'active'] ?? 'bg-emerald-600 text-white';
+    const mapQuery = encodeURIComponent(location || project?.projectName || '');
 
-    // ── Shared inline styles ──────────────────────────────────────────────────
-    const card: React.CSSProperties   = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24 };
-    const sLabel: React.CSSProperties = { fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.blue, fontWeight: 600, display: 'block', marginBottom: 8 };
+    const n = {
+        bg: isDark ? 'bg-[#0a0a0a]' : 'bg-[#f5f5f0]',
+        surface: isDark ? 'bg-[#141414]' : 'bg-white',
+        border: isDark ? 'border-[#222]' : 'border-[#e5e5e0]',
+        text: isDark ? 'text-white' : 'text-gray-900',
+        secondary: isDark ? 'text-gray-400' : 'text-gray-500',
+        muted: isDark ? 'text-gray-500' : 'text-gray-400',
+        label: isDark ? 'text-blue-400' : 'text-blue-600',
+        card: isDark ? 'bg-[#141414] border border-[#222] shadow-[0_1px_3px_rgba(0,0,0,0.4)]' : 'bg-white border border-[#e8e8e4] shadow-[0_1px_3px_rgba(0,0,0,0.06)]',
+        btnPrimary: 'bg-blue-600 hover:bg-blue-500 text-white',
+        btnGhost: isDark ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-100 text-gray-500',
+        iconBg: isDark ? 'bg-blue-500/10' : 'bg-blue-50',
+    };
 
     // ── Gate screens ──────────────────────────────────────────────────────────
     const GateScreen: React.FC<{ icon: React.ReactNode; title: string; message: string; action?: React.ReactNode }> = ({ icon, title, message, action }) => (
-        <div style={{ minHeight: '100vh', background: C.bg, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, fontFamily: 'system-ui, sans-serif', padding: 24 }}>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <div style={{ width: 64, height: 64, background: 'rgba(255,255,255,0.05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{title}</h2>
-            <p style={{ color: C.muted, fontSize: 14, margin: 0, textAlign: 'center', maxWidth: 360, lineHeight: 1.6 }}>{message}</p>
-            {action}
-        </div>
-    );
-
-    if (notLoggedIn) return (
-        <GateScreen
-            icon={<Lock style={{ width: 28, height: 28, color: C.blue }} />}
-            title="Sign in to view this listing"
-            message="This property listing is private and only accessible to assigned team members and clients. Please log in to your Timely account to continue."
-            action={
-                <button
-                    onClick={() => { window.location.href = '/'; }}
-                    style={{ padding: '10px 24px', background: C.blue, color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit' }}
-                >
-                    <LogIn style={{ width: 16, height: 16 }} /> Go to Login
-                </button>
-            }
-        />
-    );
-
-    if (accessDenied) return (
-        <GateScreen
-            icon={<Lock style={{ width: 28, height: 28, color: '#f59e0b' }} />}
-            title="Access restricted"
-            message="You don't have access to this listing. Contact your agent or administrator if you believe this is an error."
-            action={
-                <button
-                    onClick={() => window.history.back()}
-                    style={{ padding: '10px 24px', background: 'rgba(255,255,255,0.08)', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 10, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}
-                >
-                    <ArrowLeft style={{ width: 14, height: 14 }} /> Go Back
-                </button>
-            }
-        />
-    );
-
-    if (notFound) return (
-        <GateScreen
-            icon={<Globe style={{ width: 28, height: 28, opacity: 0.4 }} />}
-            title="Listing not found"
-            message="This listing may have been removed or the URL is incorrect."
-            action={
-                <button
-                    onClick={() => window.history.back()}
-                    style={{ padding: '10px 24px', background: 'rgba(255,255,255,0.08)', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 10, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}
-                >
-                    <ArrowLeft style={{ width: 14, height: 14 }} /> Go Back
-                </button>
-            }
-        />
-    );
-
-    if (!project) return (
-        <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: 36, height: 36, border: `3px solid rgba(255,255,255,0.1)`, borderTopColor: C.blue, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-    );
-
-    // ── Fullscreen gallery ────────────────────────────────────────────────────
-    if (galleryOpen) return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.97)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif' }}>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <button onClick={() => setGalleryOpen(false)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <button onClick={() => setGalleryIndex(i => Math.max(0, i - 1))} disabled={galleryIndex === 0} style={{ position: 'absolute', left: 20, width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: galleryIndex === 0 ? 'default' : 'pointer', opacity: galleryIndex === 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ChevronLeft style={{ width: 24, height: 24 }} />
-            </button>
-            <button onClick={() => setGalleryIndex(i => Math.min(photos.length - 1, i + 1))} disabled={galleryIndex === photos.length - 1} style={{ position: 'absolute', right: 20, width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: galleryIndex === photos.length - 1 ? 'default' : 'pointer', opacity: galleryIndex === photos.length - 1 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ChevronRight style={{ width: 24, height: 24 }} />
-            </button>
-            <img src={photos[galleryIndex]} alt="" style={{ maxWidth: '85vw', maxHeight: '78vh', objectFit: 'contain', borderRadius: 12 }} />
-            <p style={{ position: 'absolute', bottom: 48, color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>{galleryIndex + 1} / {photos.length}</p>
-            <div style={{ position: 'absolute', bottom: 20, display: 'flex', gap: 8 }}>
-                {photos.map((_, i) => (
-                    <button key={i} onClick={() => setGalleryIndex(i)} style={{ width: 8, height: 8, borderRadius: '50%', background: i === galleryIndex ? 'white' : 'rgba(255,255,255,0.3)', border: 'none', cursor: 'pointer', padding: 0 }} />
-                ))}
+        <div className={`min-h-screen ${n.bg} ${n.text} flex items-center justify-center`}>
+            <div className="text-center max-w-sm px-6">
+                <div className={`w-16 h-16 ${n.surface} rounded-2xl flex items-center justify-center mx-auto mb-5 border ${isDark ? 'border-[#222]' : 'border-gray-200'}`}>{icon}</div>
+                <h2 className="text-xl font-semibold mb-2">{title}</h2>
+                <p className={`${n.secondary} text-sm mb-6 leading-relaxed`}>{message}</p>
+                {action}
             </div>
         </div>
     );
 
-    // ── Main page ─────────────────────────────────────────────────────────────
-    return (
-        <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-            <style>{`
-                @keyframes spin { to { transform: rotate(360deg); } }
-                @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-                * { box-sizing: border-box; }
-                a { color: inherit; text-decoration: none; }
-            `}</style>
+    if (notLoggedIn) return <GateScreen icon={<Lock className={`w-6 h-6 ${n.label}`} />} title="Sign in required" message="This listing is private. Log in to your Timely account to view it." action={<button onClick={() => window.location.href = '/'} className={`${n.btnPrimary} px-6 py-2.5 rounded-xl text-sm font-medium inline-flex items-center gap-2`}><LogIn className="w-4 h-4" />Go to Login</button>} />;
+    if (accessDenied) return <GateScreen icon={<Shield className="w-6 h-6 text-amber-500" />} title="Access restricted" message="You don't have access to this listing. Contact your agent if needed." action={<button onClick={() => window.history.back()} className={`${n.btnGhost} px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2 border ${n.border}`}><ArrowLeft className="w-4 h-4" />Go Back</button>} />;
+    if (notFound) return <GateScreen icon={<Globe className="w-6 h-6 opacity-40" />} title="Listing not found" message="This listing may have been removed or the URL is incorrect." action={<button onClick={() => window.history.back()} className={`${n.btnGhost} px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2 border ${n.border}`}><ArrowLeft className="w-4 h-4" />Go Back</button>} />;
+    if (!project) return <div className={`min-h-screen ${n.bg} flex items-center justify-center`}><div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>;
 
-            {/* ── Nav ──────────────────────────────────────────────────────── */}
-            <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(8,12,18,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${C.border}`, padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontFamily: 'inherit', padding: 0 }}>
-                    <ArrowLeft style={{ width: 16, height: 16 }} /> Back to Timely
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Globe style={{ width: 15, height: 15, color: C.blue }} />
-                    <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Timely Real Estate</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 99, fontSize: 11, color: '#93c5fd', fontWeight: 600 }}>
-                    <Lock style={{ width: 11, height: 11 }} /> Private Listing
+    // ── Gallery ───────────────────────────────────────────────────────────────
+    if (galleryOpen) return (
+        <div className="fixed inset-0 bg-black z-[1000] flex flex-col items-center justify-center">
+            <button onClick={() => setGalleryOpen(false)} className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"><X className="w-5 h-5" /></button>
+            {galleryIndex > 0 && <button onClick={() => setGalleryIndex(i => i - 1)} className="absolute left-5 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"><ChevronLeft className="w-6 h-6" /></button>}
+            {galleryIndex < photos.length - 1 && <button onClick={() => setGalleryIndex(i => i + 1)} className="absolute right-5 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"><ChevronRight className="w-6 h-6" /></button>}
+            <img src={photos[galleryIndex]} alt="" className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg" />
+            <span className="absolute bottom-8 text-white/50 text-sm">{galleryIndex + 1} / {photos.length}</span>
+            <div className="absolute bottom-4 flex gap-1.5">{photos.map((_, i) => <button key={i} onClick={() => setGalleryIndex(i)} className={`w-2 h-2 rounded-full transition-colors ${i === galleryIndex ? 'bg-white' : 'bg-white/30'}`} />)}</div>
+        </div>
+    );
+
+    // ── Main ──────────────────────────────────────────────────────────────────
+    return (
+        <div className={`min-h-screen ${n.bg} ${n.text} transition-colors duration-300`}>
+
+            {/* Nav */}
+            <nav className={`sticky top-0 z-50 ${n.surface} border-b ${n.border} backdrop-blur-xl transition-colors duration-300`}>
+                <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+                    <button onClick={() => window.history.back()} className={`${n.btnGhost} flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition-colors`}><ArrowLeft className="w-4 h-4" />Back</button>
+                    <div className="flex items-center gap-2.5">
+                        <img src={timelyLogo} alt="Timely" className="w-5 h-5" />
+                        <span className={`text-sm font-semibold ${n.text}`}>Timely</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}><Lock className="w-2.5 h-2.5 inline mr-1" />Private</span>
+                    </div>
+                    <button onClick={toggleTheme} className={`w-8 h-8 rounded-lg ${n.btnGhost} flex items-center justify-center transition-colors`}>{isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
                 </div>
             </nav>
 
-            {/* ── Hero ─────────────────────────────────────────────────────── */}
-            <div style={{ position: 'relative', height: 480, overflow: 'hidden' }}>
-                {photos.length > 0 ? (
-                    <img src={photos[activePhoto]} alt={project.projectName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(145deg, #0d1b2e 0%, #1a3a5c 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {project.propertyType === 'commercial'
-                            ? <Building2 style={{ width: 80, height: 80, opacity: 0.06, color: 'white' }} strokeWidth={1} />
-                            : <Home      style={{ width: 80, height: 80, opacity: 0.06, color: 'white' }} strokeWidth={1} />
-                        }
-                    </div>
-                )}
-
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,18,0.96) 0%, rgba(8,12,18,0.25) 50%, transparent 100%)' }} />
-
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 40px' }}>
-                    <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, animation: 'fadeUp 0.5s ease' }}>
+            {/* Hero */}
+            <div className="relative h-[420px] md:h-[480px] overflow-hidden bg-gray-900">
+                {photos.length > 0
+                    ? <img src={photos[activePhoto]} alt={project.projectName} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">{project.propertyType === 'commercial' ? <Building2 className="w-24 h-24 text-white/5" strokeWidth={0.8} /> : <Home className="w-24 h-24 text-white/5" strokeWidth={0.8} />}</div>
+                }
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
+                    <div className="max-w-6xl mx-auto flex items-end justify-between gap-4 flex-wrap">
                         <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                                <span style={{ padding: '5px 12px', background: statusColor, borderRadius: 99, fontSize: 12, fontWeight: 700, color: 'white' }}>{statusLabel}</span>
-                                {project.propertyType && (
-                                    <span style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.12)', borderRadius: 99, fontSize: 12, color: 'rgba(255,255,255,0.8)', textTransform: 'capitalize' }}>
-                                        {project.propertyType.replace('_', ' ')}
-                                    </span>
-                                )}
+                            <div className="flex items-center gap-2.5 mb-3">
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusBadge}`}>{statusLabel}</span>
+                                {project.propertyType && <span className="px-3 py-1 rounded-full text-xs text-white/80 bg-white/15 backdrop-blur-sm capitalize">{project.propertyType}</span>}
                             </div>
-                            <h1 style={{ fontSize: 30, fontWeight: 800, margin: '0 0 8px', color: 'white', lineHeight: 1.2 }}>{project.projectName}</h1>
-                            {location && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
-                                    <MapPin style={{ width: 14, height: 14 }} />{location}
-                                </div>
-                            )}
+                            <h1 className="text-2xl md:text-4xl font-bold text-white mb-2 tracking-tight">{project.projectName}</h1>
+                            {location && <p className="text-white/70 text-sm flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{location}</p>}
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                            {price && <div style={{ fontSize: 36, fontWeight: 800, color: 'white', lineHeight: 1 }}>{price}</div>}
-                            {project.sqft && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>{Number(project.sqft).toLocaleString()} sqft</div>}
+                        <div className="text-right">
+                            {price && <div className="text-3xl md:text-4xl font-bold text-white tracking-tight">{price}</div>}
+                            {project.sqft && <div className="text-white/50 text-sm mt-1">{Number(project.sqft).toLocaleString()} sqft</div>}
                         </div>
                     </div>
                 </div>
-
                 {photos.length > 1 && (
-                    <button onClick={() => { setGalleryIndex(activePhoto); setGalleryOpen(true); }} style={{ position: 'absolute', bottom: 20, right: 40, padding: '8px 14px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', border: `1px solid ${C.border}`, borderRadius: 8, color: 'white', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
-                        <Layers style={{ width: 13, height: 13 }} />View all {photos.length} photos
+                    <button onClick={() => { setGalleryIndex(activePhoto); setGalleryOpen(true); }} className="absolute bottom-6 right-6 md:bottom-10 md:right-10 px-3.5 py-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-lg text-white text-xs font-medium flex items-center gap-2 transition-colors border border-white/10">
+                        <Layers className="w-3.5 h-3.5" />View all {photos.length}
                     </button>
                 )}
             </div>
 
-            {/* ── Photo strip ──────────────────────────────────────────────── */}
+            {/* Photo strip */}
             {photos.length > 1 && (
-                <div style={{ background: '#0c1118', borderBottom: `1px solid ${C.border}`, padding: '10px 40px', display: 'flex', gap: 8, overflowX: 'auto' }}>
-                    {photos.map((photo, i) => (
-                        <button key={i} onClick={() => setActivePhoto(i)} style={{ flexShrink: 0, width: 80, height: 56, borderRadius: 8, overflow: 'hidden', border: `2px solid ${i === activePhoto ? C.blue : 'transparent'}`, padding: 0, cursor: 'pointer', transition: 'border-color 0.15s' }}>
-                            <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </button>
-                    ))}
+                <div className={`${n.surface} border-b ${n.border} transition-colors duration-300`}>
+                    <div className="max-w-6xl mx-auto px-6 py-3 flex gap-2 overflow-x-auto">
+                        {photos.map((photo, i) => (
+                            <button key={i} onClick={() => setActivePhoto(i)} className={`flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden transition-all duration-200 ${i === activePhoto ? `ring-2 ring-blue-500 ring-offset-2 ${isDark ? 'ring-offset-[#0a0a0a]' : 'ring-offset-[#f5f5f0]'}` : 'opacity-60 hover:opacity-100'}`}>
+                                <img src={photo} alt="" className="w-full h-full object-cover" />
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
 
-            {/* ── Main content ─────────────────────────────────────────────── */}
-            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 32, alignItems: 'start' }}>
+            {/* Quick stats bar */}
+            <div className={`${n.surface} border-b ${n.border} transition-colors duration-300`}>
+                <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                        {project.bedrooms && <div className="flex items-center gap-1.5"><Bed className={`w-4 h-4 ${n.secondary}`} /><span className={`text-sm font-medium ${n.text}`}>{project.bedrooms} <span className={n.secondary}>bed</span></span></div>}
+                        {project.bathrooms && <div className="flex items-center gap-1.5"><Bath className={`w-4 h-4 ${n.secondary}`} /><span className={`text-sm font-medium ${n.text}`}>{project.bathrooms} <span className={n.secondary}>bath</span></span></div>}
+                        {project.sqft && <div className="flex items-center gap-1.5"><Maximize className={`w-4 h-4 ${n.secondary}`} /><span className={`text-sm font-medium ${n.text}`}>{Number(project.sqft).toLocaleString()} <span className={n.secondary}>sqft</span></span></div>}
+                        {project.yearBuilt && <div className="flex items-center gap-1.5"><Calendar className={`w-4 h-4 ${n.secondary}`} /><span className={`text-sm font-medium ${n.text}`}>Built {project.yearBuilt}</span></div>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setLiked(!liked)} className={`w-9 h-9 rounded-lg ${n.btnGhost} flex items-center justify-center transition-colors`}><Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} /></button>
+                        <button onClick={() => navigator.clipboard.writeText(window.location.href)} className={`w-9 h-9 rounded-lg ${n.btnGhost} flex items-center justify-center transition-colors`}><Share2 className="w-4 h-4" /></button>
+                    </div>
+                </div>
+            </div>
 
-                    {/* ── Left: Property details ── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            {/* Content */}
+            <div className="max-w-6xl mx-auto px-6 py-10">
+                <div className="grid lg:grid-cols-[1fr_340px] gap-10 items-start">
 
-                        {(project.bedrooms || project.bathrooms || project.sqft || project.yearBuilt) && (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12 }}>
-                                {project.bedrooms && (
-                                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
-                                        <Bed style={{ width: 18, height: 18, color: C.blue, margin: '0 auto 6px' }} />
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{project.bedrooms}</div>
-                                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Bedrooms</div>
-                                    </div>
-                                )}
-                                {project.bathrooms && (
-                                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
-                                        <Bath style={{ width: 18, height: 18, color: C.blue, margin: '0 auto 6px' }} />
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{project.bathrooms}</div>
-                                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Bathrooms</div>
-                                    </div>
-                                )}
-                                {project.sqft && (
-                                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
-                                        <Maximize style={{ width: 18, height: 18, color: C.blue, margin: '0 auto 6px' }} />
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{Number(project.sqft).toLocaleString()}</div>
-                                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Sq Feet</div>
-                                    </div>
-                                )}
-                                {project.yearBuilt && (
-                                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
-                                        <Calendar style={{ width: 18, height: 18, color: C.blue, margin: '0 auto 6px' }} />
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{project.yearBuilt}</div>
-                                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Year Built</div>
-                                    </div>
-                                )}
-                                {project.lotSize && (
-                                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
-                                        <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{project.lotSize}</div>
-                                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Lot Size</div>
-                                    </div>
-                                )}
+                    {/* Left */}
+                    <div className="space-y-8">
+
+                        {/* Stat cards */}
+                        {(project.bedrooms || project.bathrooms || project.sqft || project.yearBuilt || project.lotSize) && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                                {project.bedrooms && <div className={`${n.card} rounded-xl p-4 text-center transition-colors duration-300`}><Bed className={`w-5 h-5 ${n.label} mx-auto mb-2`} /><div className={`text-xl font-bold ${n.text}`}>{project.bedrooms}</div><div className={`text-[11px] ${n.muted} mt-0.5`}>Bedrooms</div></div>}
+                                {project.bathrooms && <div className={`${n.card} rounded-xl p-4 text-center transition-colors duration-300`}><Bath className={`w-5 h-5 ${n.label} mx-auto mb-2`} /><div className={`text-xl font-bold ${n.text}`}>{project.bathrooms}</div><div className={`text-[11px] ${n.muted} mt-0.5`}>Bathrooms</div></div>}
+                                {project.sqft && <div className={`${n.card} rounded-xl p-4 text-center transition-colors duration-300`}><Maximize className={`w-5 h-5 ${n.label} mx-auto mb-2`} /><div className={`text-xl font-bold ${n.text}`}>{Number(project.sqft).toLocaleString()}</div><div className={`text-[11px] ${n.muted} mt-0.5`}>Sq Feet</div></div>}
+                                {project.yearBuilt && <div className={`${n.card} rounded-xl p-4 text-center transition-colors duration-300`}><Calendar className={`w-5 h-5 ${n.label} mx-auto mb-2`} /><div className={`text-xl font-bold ${n.text}`}>{project.yearBuilt}</div><div className={`text-[11px] ${n.muted} mt-0.5`}>Year Built</div></div>}
+                                {project.lotSize && <div className={`${n.card} rounded-xl p-4 text-center transition-colors duration-300`}><Trees className={`w-5 h-5 ${n.label} mx-auto mb-2`} /><div className={`text-xl font-bold ${n.text}`}>{project.lotSize}</div><div className={`text-[11px] ${n.muted} mt-0.5`}>Lot Size</div></div>}
                             </div>
                         )}
 
+                        {/* Description */}
                         {project.description && (
-                            <div style={card}>
-                                <span style={sLabel}>About this property</span>
-                                <p style={{ fontSize: 15, lineHeight: 1.75, color: '#cbd5e1', margin: 0 }}>{project.description}</p>
+                            <div className={`${n.card} rounded-2xl p-6 transition-colors duration-300`}>
+                                <h2 className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${n.label} mb-4`}>About this property</h2>
+                                <p className={`${n.secondary} text-[15px] leading-[1.8]`}>{project.description}</p>
                             </div>
                         )}
 
+                        {/* Property details */}
                         {(project.propertyType || project.yearBuilt || project.lotSize || price) && (
-                            <div style={card}>
-                                <span style={sLabel}>Property Details</span>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginTop: 4 }}>
-                                    {project.propertyType && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <Tag style={{ width: 16, height: 16, color: C.blue, flexShrink: 0 }} />
-                                            <div>
-                                                <div style={{ fontSize: 11, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</div>
-                                                <div style={{ fontSize: 14, color: C.text, textTransform: 'capitalize' }}>{project.propertyType.replace('_', ' ')}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {project.yearBuilt && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <Calendar style={{ width: 16, height: 16, color: C.blue, flexShrink: 0 }} />
-                                            <div>
-                                                <div style={{ fontSize: 11, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Built</div>
-                                                <div style={{ fontSize: 14, color: C.text }}>{project.yearBuilt}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {project.lotSize && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <Maximize style={{ width: 16, height: 16, color: C.blue, flexShrink: 0 }} />
-                                            <div>
-                                                <div style={{ fontSize: 11, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lot Size</div>
-                                                <div style={{ fontSize: 14, color: C.text }}>{project.lotSize}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {price && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <DollarSign style={{ width: 16, height: 16, color: C.blue, flexShrink: 0 }} />
-                                            <div>
-                                                <div style={{ fontSize: 11, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price</div>
-                                                <div style={{ fontSize: 14, color: C.text }}>{price}</div>
-                                            </div>
-                                        </div>
-                                    )}
+                            <div className={`${n.card} rounded-2xl p-6 transition-colors duration-300`}>
+                                <h2 className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${n.label} mb-4`}>Property Details</h2>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {project.propertyType && <div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-lg ${n.iconBg} flex items-center justify-center`}><Tag className={`w-4 h-4 ${n.label}`} /></div><div><div className={`text-[10px] uppercase tracking-wider ${n.muted}`}>Type</div><div className={`text-sm font-medium ${n.text} capitalize`}>{project.propertyType}</div></div></div>}
+                                    {project.yearBuilt && <div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-lg ${n.iconBg} flex items-center justify-center`}><Calendar className={`w-4 h-4 ${n.label}`} /></div><div><div className={`text-[10px] uppercase tracking-wider ${n.muted}`}>Built</div><div className={`text-sm font-medium ${n.text}`}>{project.yearBuilt}</div></div></div>}
+                                    {project.lotSize && <div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-lg ${n.iconBg} flex items-center justify-center`}><Ruler className={`w-4 h-4 ${n.label}`} /></div><div><div className={`text-[10px] uppercase tracking-wider ${n.muted}`}>Lot Size</div><div className={`text-sm font-medium ${n.text}`}>{project.lotSize}</div></div></div>}
+                                    {price && <div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-lg ${n.iconBg} flex items-center justify-center`}><DollarSign className={`w-4 h-4 ${n.label}`} /></div><div><div className={`text-[10px] uppercase tracking-wider ${n.muted}`}>Price</div><div className={`text-sm font-medium ${n.text}`}>{price}</div></div></div>}
                                 </div>
                             </div>
                         )}
 
+                        {/* Amenities */}
                         {project.amenities && project.amenities.length > 0 && (
-                            <div style={card}>
-                                <span style={sLabel}>Amenities & Features</span>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginTop: 4 }}>
+                            <div className={`${n.card} rounded-2xl p-6 transition-colors duration-300`}>
+                                <h2 className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${n.label} mb-4`}>Amenities & Features</h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                                     {project.amenities.map(a => (
-                                        <div key={a} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, fontSize: 13, color: '#cbd5e1' }}>
-                                            <span style={{ fontSize: 17 }}>{AMENITY_ICONS[a] || '✓'}</span>{a}
+                                        <div key={a} className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'} transition-colors`}>
+                                            <span className="text-base">{AMENITY_ICONS[a] || '✓'}</span>
+                                            <span className={`text-sm ${n.text}`}>{a}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
 
+                        {/* Map */}
                         {location && (
-                            <div style={card}>
-                                <span style={sLabel}>Location</span>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginTop: 4 }}>
-                                    <MapPin style={{ width: 18, height: 18, color: C.blue, flexShrink: 0, marginTop: 2 }} />
-                                    <div>
-                                        {project.address && <p style={{ margin: '0 0 3px', fontSize: 15, color: C.text, fontWeight: 500 }}>{project.address}</p>}
-                                        {(project.city || project.state) && <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{[project.city, project.state, project.zip].filter(Boolean).join(', ')}</p>}
+                            <div className={`${n.card} rounded-2xl overflow-hidden transition-colors duration-300`}>
+                                <div className="p-6 pb-4">
+                                    <h2 className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${n.label} mb-2`}>Location</h2>
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className={`w-4 h-4 ${n.label} flex-shrink-0`} />
+                                        <div>
+                                            {project.address && <p className={`text-sm font-medium ${n.text}`}>{project.address}</p>}
+                                            {(project.city || project.state) && <p className={`text-xs ${n.secondary}`}>{[project.city, project.state, project.zip].filter(Boolean).join(', ')}</p>}
+                                        </div>
                                     </div>
                                 </div>
-                                <div style={{ marginTop: 16, height: 180, background: 'rgba(255,255,255,0.03)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${C.border}` }}>
-                                    <div style={{ textAlign: 'center', color: C.dim }}>
-                                        <MapPin style={{ width: 24, height: 24, marginBottom: 6, opacity: 0.4 }} />
-                                        <p style={{ fontSize: 13, margin: 0 }}>Map coming soon</p>
-                                    </div>
+                                <div className="h-[280px]">
+                                    <iframe title="Map" width="100%" height="100%" style={{ border: 0, filter: isDark ? 'invert(90%) hue-rotate(180deg)' : 'none' }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" src={`https://maps.google.com/maps?q=${mapQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`} />
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* ── Right: Project summary card (sticky) ── */}
-                    <div style={{ position: 'sticky', top: 80, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                        <div style={card}>
-                            <span style={sLabel}>Project Summary</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontSize: 13, color: C.muted }}>Listing Status</span>
-                                    <span style={{ padding: '4px 10px', background: statusColor, borderRadius: 99, fontSize: 12, fontWeight: 700, color: 'white' }}>{statusLabel}</span>
-                                </div>
-                                {price && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <span style={{ fontSize: 13, color: C.muted }}>Asking Price</span>
-                                        <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{price}</span>
-                                    </div>
-                                )}
-                                {project.propertyType && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <span style={{ fontSize: 13, color: C.muted }}>Property Type</span>
-                                        <span style={{ fontSize: 13, color: C.text, textTransform: 'capitalize' }}>{project.propertyType.replace('_', ' ')}</span>
-                                    </div>
-                                )}
-                                {(project.bedrooms || project.bathrooms) && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <span style={{ fontSize: 13, color: C.muted }}>Bed / Bath</span>
-                                        <span style={{ fontSize: 13, color: C.text }}>
-                                            {[project.bedrooms && `${project.bedrooms} bd`, project.bathrooms && `${project.bathrooms} ba`].filter(Boolean).join(' / ')}
-                                        </span>
-                                    </div>
-                                )}
-                                {project.sqft && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <span style={{ fontSize: 13, color: C.muted }}>Square Feet</span>
-                                        <span style={{ fontSize: 13, color: C.text }}>{Number(project.sqft).toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {(project.startDate || project.endDate) && (
-                                    <>
-                                        <div style={{ height: 1, background: C.border, margin: '2px 0' }} />
-                                        {project.startDate && (
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: 13, color: C.muted }}>Project Start</span>
-                                                <span style={{ fontSize: 13, color: C.text }}>{new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                            </div>
-                                        )}
-                                        {project.endDate && (
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: 13, color: C.muted }}>Target Close</span>
-                                                <span style={{ fontSize: 13, color: C.text }}>{new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                                {project.publishedAt && (
-                                    <>
-                                        <div style={{ height: 1, background: C.border, margin: '2px 0' }} />
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: 13, color: C.muted }}>Listed</span>
-                                            <span style={{ fontSize: 13, color: C.text }}>{new Date(project.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                        </div>
-                                    </>
-                                )}
+                    {/* Right sidebar */}
+                    <div className="lg:sticky lg:top-20 space-y-5">
+                        <div className={`${n.card} rounded-2xl p-6 transition-colors duration-300`}>
+                            <h3 className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${n.label} mb-4`}>Listing Summary</h3>
+                            <div className="space-y-3.5">
+                                <div className="flex items-center justify-between"><span className={`text-sm ${n.secondary}`}>Status</span><span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusBadge}`}>{statusLabel}</span></div>
+                                {price && <div className="flex items-center justify-between"><span className={`text-sm ${n.secondary}`}>Asking Price</span><span className={`text-base font-bold ${n.text}`}>{price}</span></div>}
+                                {project.propertyType && <div className="flex items-center justify-between"><span className={`text-sm ${n.secondary}`}>Type</span><span className={`text-sm ${n.text} capitalize`}>{project.propertyType}</span></div>}
+                                {(project.bedrooms || project.bathrooms) && <div className="flex items-center justify-between"><span className={`text-sm ${n.secondary}`}>Bed / Bath</span><span className={`text-sm ${n.text}`}>{[project.bedrooms && `${project.bedrooms} bd`, project.bathrooms && `${project.bathrooms} ba`].filter(Boolean).join(' / ')}</span></div>}
+                                {project.sqft && <div className="flex items-center justify-between"><span className={`text-sm ${n.secondary}`}>Area</span><span className={`text-sm ${n.text}`}>{Number(project.sqft).toLocaleString()} sqft</span></div>}
+                                {project.publishedAt && (<><div className={`h-px ${isDark ? 'bg-[#222]' : 'bg-gray-100'}`} /><div className="flex items-center justify-between"><span className={`text-sm ${n.secondary}`}>Listed</span><span className={`text-sm ${n.text}`}>{new Date(project.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div></>)}
                             </div>
                         </div>
 
-                        <div style={{ ...card, padding: 20 }}>
-                            <p style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: '0 0 6px' }}>Have questions?</p>
-                            <p style={{ fontSize: 12, color: C.muted, margin: '0 0 16px', lineHeight: 1.5 }}>
-                                Send a message to your assigned consultant directly through Timely.
-                            </p>
-                            <button
-                                onClick={() => window.history.back()}
-                                style={{ width: '100%', padding: '11px', background: C.blue, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                            >
-                                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                                Open Messages in Timely
-                            </button>
+                        <div className={`${n.card} rounded-2xl p-6 transition-colors duration-300`}>
+                            <p className={`text-sm font-semibold ${n.text} mb-1`}>Interested?</p>
+                            <p className={`text-xs ${n.secondary} mb-4 leading-relaxed`}>Message your consultant directly through Timely.</p>
+                            <button onClick={() => window.history.back()} className={`w-full ${n.btnPrimary} py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-colors`}><MessageCircle className="w-4 h-4" />Open Messages</button>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 12 }}>
-                            <Lock style={{ width: 13, height: 13, color: '#93c5fd', flexShrink: 0, marginTop: 2 }} />
-                            <p style={{ fontSize: 11, color: '#7dd3fc', margin: 0, lineHeight: 1.5 }}>
-                                This listing is private and only visible to assigned team members. Do not share this URL with unassigned parties.
-                            </p>
+                        <div className={`rounded-xl p-4 ${isDark ? 'bg-blue-500/5 border border-blue-500/10' : 'bg-blue-50/60 border border-blue-100'} transition-colors duration-300`}>
+                            <div className="flex items-start gap-2.5">
+                                <Lock className={`w-3.5 h-3.5 ${n.label} flex-shrink-0 mt-0.5`} />
+                                <p className={`text-[11px] ${n.secondary} leading-relaxed`}>This listing is private and only visible to assigned team members. Do not share this URL externally.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ── Footer ───────────────────────────────────────────────────── */}
-            <footer style={{ borderTop: `1px solid ${C.border}`, padding: '20px 40px', marginTop: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Globe style={{ width: 15, height: 15, color: C.blue }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Timely Real Estate</span>
+            {/* Footer */}
+            <footer className={`border-t ${n.border} mt-10 transition-colors duration-300`}>
+                <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-2.5"><img src={timelyLogo} alt="Timely" className="w-4 h-4" /><span className={`text-xs font-semibold ${n.text}`}>Timely Real Estate</span></div>
+                    <p className={`text-xs ${n.muted}`}>Private listing — for assigned team members only</p>
                 </div>
-                <p style={{ fontSize: 12, color: C.dim, margin: 0 }}>Private — for assigned team members only</p>
             </footer>
         </div>
     );
