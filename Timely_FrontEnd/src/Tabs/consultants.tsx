@@ -126,7 +126,7 @@ const ConsultantsPage = () => {
             setConsultants(merged);
         } else { setConsultants(local.map((c: Consultant) => ({ ...c, ...ext[c.consultantId] }))); }
     };
-    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data) setClients(d.data); };
+    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members); };
     const loadProjects = async () => { const d = await safeFetch(`${API_BASE}/projects`); if (d?.data) { const local = JSON.parse(localStorage.getItem('timely_projects') || '[]'); setProjects([...d.data, ...local.filter((l: Project) => !d.data.find((a: Project) => a.projectId === l.projectId))]); } else { setProjects(JSON.parse(localStorage.getItem('timely_projects') || '[]')); } };
     const loadHoursLogs = () => { try { const s = localStorage.getItem(STORAGE_KEYS.hoursLogs); if (s) setHoursLogs(JSON.parse(s)); } catch {} };
     const saveHoursLogs = (data: HoursLog[]) => { localStorage.setItem(STORAGE_KEYS.hoursLogs, JSON.stringify(data)); setHoursLogs(data); };

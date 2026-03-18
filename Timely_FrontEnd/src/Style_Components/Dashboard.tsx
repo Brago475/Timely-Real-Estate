@@ -138,8 +138,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 safeFetch(`${API_BASE}/consultants`), safeFetch(`${API_BASE}/hours-logs`),
                 safeFetch(`${API_BASE}/audit-logs/latest?limit=10`),
             ]);
-            setProjects(pR?.data || []); setClients(cR?.data || []);
-            setConsultants(coR?.data || []); setHoursLogs(hR?.data || []);
+            setProjects(pR?.data || []); const _m = cR?.data?.members || []; setClients(_m.filter((m: any) => m.role === 'client'));
+            setConsultants(_m.filter((m: any) => m.role === 'consultant' || m.role === 'admin' || m.role === 'owner')); setHoursLogs(hR?.data || []);
             if (aR?.data) {
                 setActivities(aR.data.map((l: any, i: number) => ({
                     id: i, user: l.performedBy || "System",
