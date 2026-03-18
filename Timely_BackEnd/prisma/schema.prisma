@@ -161,6 +161,30 @@ model Project {
   dateCreated    DateTime? @map("date_created") @db.Date
   dateDue        DateTime? @map("date_due") @db.Date
   createdBy      Int?      @map("created_by")
+
+  // Property fields
+  address      String  @default("")
+  city         String  @default("")
+  state        String  @default("")
+  zip          String  @default("")
+  propertyType String  @default("") @map("property_type")
+  bedrooms     Int?
+  bathrooms    String  @default("")
+  sqft         Int?
+  lotSize      String  @default("") @map("lot_size")
+  yearBuilt    String  @default("") @map("year_built")
+  amenities    Json    @default("[]")
+  photos       Json    @default("[]")
+  videos       Json    @default("[]")
+  coverPhotoIndex Int  @default(0) @map("cover_photo_index")
+
+  // Listing fields
+  listingPrice  Decimal? @db.Decimal(14, 2) @map("listing_price")
+  listingStatus String   @default("active") @map("listing_status")
+  listingSlug   String?  @unique @map("listing_slug")
+  isPublished   Boolean  @default(false) @map("is_published")
+  publishedAt   DateTime? @map("published_at")
+
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
