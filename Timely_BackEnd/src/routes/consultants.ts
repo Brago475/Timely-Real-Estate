@@ -8,9 +8,10 @@ import { authenticate, authorize } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/consultants — Create a new consultant
-router.post("/consultants", authenticate, authorize("admin"), async (req: Request, res: Response) => {
-  const { firstName, lastName, email, tempPassword, role: consultantRole } = req.body || {};
+// POST /api/consultants — Create a new consultant in the current org
+router.post("/consultants", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
+  const { firstName, lastName, email, tempPassword } = req.body || {};
+  const orgId = req.user!.orgId;
 
   if (!firstName || !lastName || !email) {
     return res.status(400).json({ error: "firstName, lastName and email are required." });
@@ -19,7 +20,24 @@ router.post("/consultants", authenticate, authorize("admin"), async (req: Reques
   try {
     const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (existing) {
-      return res.status(400).json({ error: "Email already exists." });
+      const alreadyMember = await prisma.orgMember.findUnique({
+        where: { userId_organizationId: { userId: existing.id, organizationId: orgId } },
+      });
+      if (alreadyMember) {
+        return res.status(400).json({ error: "This email is already a member of your organization." });
+      }
+
+      await prisma.orgMember.create({
+        data: { userId: existing.id, organizationId: orgId, role: "consultant", invitedBy: req.user!.userId },
+      });
+
+      await appendAuditLog(
+        orgId, "ADD_CONSULTANT", "consultant", existing.code,
+        req.user?.email || "unknown",
+        `Existing user added as consultant: ${existing.firstName} ${existing.lastName} (${existing.email})`
+      );
+
+      return res.json({ success: true, consultantId: existing.id, consultantCode: existing.code });
     }
 
     const password = tempPassword || "consultant123";
@@ -33,28 +51,26 @@ router.post("/consultants", authenticate, authorize("admin"), async (req: Reques
         lastName,
         email: email.toLowerCase(),
         passwordHash,
-        role: "consultant",
       },
     });
 
     const code = formatCode("CO", user.id);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { code },
+    await prisma.user.update({ where: { id: user.id }, data: { code } });
+
+    await prisma.orgMember.create({
+      data: { userId: user.id, organizationId: orgId, role: "consultant", invitedBy: req.user!.userId },
     });
 
     await appendAuditLog(
-      "CREATE_CONSULTANT",
-      "consultant",
-      code,
-      req.user?.email || "unknown_admin",
+      orgId, "CREATE_CONSULTANT", "consultant", code,
+      req.user?.email || "unknown",
       `Consultant created: ${firstName} ${lastName} (${email})`
     );
 
-    const emailCode = formatCode("EM", Date.now() % 10000);
     await prisma.emailOutbox.create({
       data: {
-        code: emailCode,
+        code: formatCode("EM", Date.now() % 10000),
+        organizationId: orgId,
         toEmail: email,
         subject: "Welcome to Timely - Consultant Account Created",
         body: `Hi ${firstName},\n\nYour consultant account has been created at Timely.\n\nEmail: ${email}\nPassword: ${password}\n\nPlease log in and change your password.\n\nBest regards,\nThe Timely Team`,
@@ -68,22 +84,25 @@ router.post("/consultants", authenticate, authorize("admin"), async (req: Reques
   }
 });
 
-// GET /api/consultants — List all consultants
-router.get("/consultants", authenticate, authorize("admin", "consultant"), async (req: Request, res: Response) => {
+// GET /api/consultants — List all consultants in the current org
+router.get("/consultants", authenticate, authorize("owner", "admin", "consultant"), async (req: Request, res: Response) => {
+  const orgId = req.user!.orgId;
+
   try {
-    const consultants = await prisma.user.findMany({
-      where: { role: "consultant" },
-      orderBy: { id: "asc" },
+    const members = await prisma.orgMember.findMany({
+      where: { organizationId: orgId, role: "consultant" },
+      include: { user: true },
+      orderBy: { user: { id: "asc" } },
     });
 
-    const data = consultants.map((c) => ({
-      consultantId: String(c.id),
-      consultantCode: c.code,
-      firstName: c.firstName,
-      lastName: c.lastName,
-      email: c.email,
+    const data = members.map((m) => ({
+      consultantId: String(m.user.id),
+      consultantCode: m.user.code,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
+      email: m.user.email,
       tempPassword: "********",
-      role: c.role,
+      role: m.role,
     }));
 
     return res.json({ data });
@@ -93,37 +112,37 @@ router.get("/consultants", authenticate, authorize("admin", "consultant"), async
   }
 });
 
-// POST /api/consultants-delete — Delete a consultant
-router.post("/consultants-delete", authenticate, authorize("admin"), async (req: Request, res: Response) => {
+// POST /api/consultants-delete — Remove a consultant from the current org
+router.post("/consultants-delete", authenticate, authorize("owner", "admin"), async (req: Request, res: Response) => {
   const { consultantId } = req.body || {};
+  const orgId = req.user!.orgId;
 
   if (!consultantId) {
     return res.status(400).json({ error: "consultantId is required." });
   }
 
   try {
-    const user = await prisma.user.findFirst({
-      where: { id: Number(consultantId), role: "consultant" },
+    const membership = await prisma.orgMember.findFirst({
+      where: { userId: Number(consultantId), organizationId: orgId, role: "consultant" },
+      include: { user: true },
     });
 
-    if (!user) {
-      return res.status(404).json({ error: "Consultant not found." });
+    if (!membership) {
+      return res.status(404).json({ error: "Consultant not found in this organization." });
     }
 
-    await prisma.user.delete({ where: { id: user.id } });
+    await prisma.orgMember.delete({ where: { id: membership.id } });
 
     await appendAuditLog(
-      "DELETE_CONSULTANT",
-      "consultant",
-      user.code,
-      req.user?.email || "unknown_admin",
-      `Consultant deleted: ${user.firstName} ${user.lastName} (${user.email})`
+      orgId, "REMOVE_CONSULTANT", "consultant", membership.user.code,
+      req.user?.email || "unknown",
+      `Consultant removed: ${membership.user.firstName} ${membership.user.lastName} (${membership.user.email})`
     );
 
     return res.json({ success: true });
   } catch (err) {
-    console.error("Error deleting consultant:", err);
-    return res.status(500).json({ error: "Failed to delete consultant." });
+    console.error("Error removing consultant:", err);
+    return res.status(500).json({ error: "Failed to remove consultant." });
   }
 });
 

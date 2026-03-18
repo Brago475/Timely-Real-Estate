@@ -208,8 +208,12 @@ router.get("/listings", authenticate, async (req: Request, res: Response) => {
 
 // GET /api/public/listings/:orgSlug — Public listings page for a firm
 router.get("/public/listings/:orgSlug", async (req: Request, res: Response) => {
-  const { orgSlug } = req.params;
-  const { propertyType, minPrice, maxPrice, city, bedrooms } = req.query;
+const orgSlug = String(req.params.orgSlug);
+  const propertyType = req.query.propertyType ? String(req.query.propertyType) : undefined;
+  const minPrice = req.query.minPrice ? String(req.query.minPrice) : undefined;
+  const maxPrice = req.query.maxPrice ? String(req.query.maxPrice) : undefined;
+  const city = req.query.city ? String(req.query.city) : undefined;
+  const bedrooms = req.query.bedrooms ? String(req.query.bedrooms) : undefined;
 
   try {
     const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
@@ -265,7 +269,8 @@ router.get("/public/listings/:orgSlug", async (req: Request, res: Response) => {
 
 // GET /api/public/listings/:orgSlug/:listingId — Single public listing
 router.get("/public/listings/:orgSlug/:listingId", async (req: Request, res: Response) => {
-  const { orgSlug, listingId } = req.params;
+  const orgSlug = String(req.params.orgSlug);
+  const listingId = String(req.params.listingId);
 
   try {
     const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });

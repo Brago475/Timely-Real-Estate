@@ -159,7 +159,7 @@ router.delete("/invites/:inviteId", authenticate, authorize("owner", "admin"), a
 
 // GET /api/invites/verify/:token — Verify an invite token (public, no auth)
 router.get("/invites/verify/:token", async (req: Request, res: Response) => {
-  const { token } = req.params;
+  const token = String(req.params.token);
 
   try {
     const invite = await prisma.invite.findUnique({
@@ -195,7 +195,7 @@ router.get("/invites/verify/:token", async (req: Request, res: Response) => {
 
 // POST /api/invites/accept/:token — Accept invite and create account (public, no auth)
 router.post("/invites/accept/:token", async (req: Request, res: Response) => {
-  const { token } = req.params;
+  const token = String(req.params.token);
   const { firstName, lastName, password } = req.body || {};
 
   if (!firstName || !lastName || !password) {
