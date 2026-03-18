@@ -26,6 +26,8 @@ const safeFetch = async (url: string) => {
     catch { return null; }
 };
 
+const flattenMember = (m: any) => { const u = m.user || m; return { customerId: String(m.userId || u.id || ''), consultantId: String(m.userId || u.id || ''), clientCode: u.code || '', firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: m.role || 'client' }; };
+
 const fmtH = (h: number): string => {
     const w = Math.floor(h), m = Math.round((h - w) * 60);
     return m === 0 ? `${w}h` : `${w}h ${m}m`;
@@ -90,17 +92,13 @@ const getActivityColor = (action: string): string => {
     return "bg-blue-400";
 };
 
-const flattenMember = (m: any) => { const u = m.user || m; return { customerId: String(m.userId || u.id || ''), consultantId: String(m.userId || u.id || ''), clientCode: u.code || '', firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: m.role || 'client' }; };
-
 const Dashboard: React.FC<DashboardProps> = ({
     sidebarToggle, setSidebarToggle, onNavigate,
     userName = "Admin", userEmail = "", userRole = "admin",
 }) => {
     const { isDark } = useTheme();
 
-    // ONE hover bg — every interactive element
     const hover = isDark ? "hover:bg-blue-500/10" : "hover:bg-blue-50";
-    // Text turns blue on parent hover — every interactive text
     const gb = isDark ? "group-hover:text-blue-400" : "group-hover:text-blue-600";
 
     const n = {
@@ -140,8 +138,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                 safeFetch(`${API_BASE}/consultants`), safeFetch(`${API_BASE}/hours-logs`),
                 safeFetch(`${API_BASE}/audit-logs/latest?limit=10`),
             ]);
-            setProjects(pR?.data || []); const _m = (cR?.data?.members || []).map(flattenMember); setClients(_m.filter((m: any) => m.role === 'client'));
-            setConsultants(_m.filter((m: any) => m.role === 'consultant' || m.role === 'admin' || m.role === 'owner')); setHoursLogs(hR?.data || []);
+            setProjects(pR?.data || []);
+            const _m = (cR?.data?.members || []).map(flattenMember);
+            setClients(_m.filter((m: any) => m.role === 'client'));
+            setConsultants(coR?.data || []);
+            setHoursLogs(hR?.data || []);
             if (aR?.data) {
                 setActivities(aR.data.map((l: any, i: number) => ({
                     id: i, user: l.performedBy || "System",
@@ -151,7 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 })));
             }
             const al: any[] = [];
-            if (isAdmin && (cR?.data || []).length === 0) al.push({ msg: "No clients yet", page: "admin" });
+            if (isAdmin && _m.filter((m: any) => m.role === 'client').length === 0) al.push({ msg: "No clients yet", page: "admin" });
             if (isAdmin && (coR?.data || []).length === 0) al.push({ msg: "No consultants registered", page: "InviteMembers" });
             (pR?.data || []).forEach((p: any) => {
                 if (p.dateDue && p.status !== "completed") {
@@ -227,7 +228,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </FadeIn>
 
-                {/* Stats — scale + bg hover + text turns blue */}
+                {/* Stats */}
                 <FadeIn delay={50}>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
                         {[
@@ -246,7 +247,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </FadeIn>
 
-                {/* Quick Actions — black text, bg hover + text turns blue */}
+                {/* Quick Actions */}
                 <FadeIn delay={80}>
                     <div className={`${n.card} p-2 mb-10 flex items-center gap-1 overflow-x-auto`}>
                         {(isAdmin ? [
@@ -277,7 +278,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {/* Left */}
                     <div className="lg:col-span-2 space-y-8">
 
-                        {/* Alerts — bg hover + text turns blue */}
+                        {/* Alerts */}
                         {alerts.length > 0 && (
                             <FadeIn delay={100}>
                                 <div>
@@ -296,7 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </FadeIn>
                         )}
 
-                        {/* Completion — black text, bg hover */}
+                        {/* Completion */}
                         <FadeIn delay={130}>
                             <div className={`${n.card} ${hover} group p-6 transition-all duration-200 rounded-2xl`}>
                                 <div className="flex items-center justify-between mb-4">
@@ -317,7 +318,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Projects — bg hover + name turns blue */}
+                        {/* Projects */}
                         <FadeIn delay={160}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -388,7 +389,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {/* Right */}
                     <div className="space-y-8">
 
-                        {/* Calendar — bg hover + text turns blue on each day */}
+                        {/* Calendar */}
                         <FadeIn delay={100}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -433,7 +434,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Clients — bg hover + name turns blue */}
+                        {/* Clients */}
                         <FadeIn delay={150}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -448,7 +449,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div key={c.customerId} onClick={() => nav("client")}
                                                 className={`${n.flat} ${hover} group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
-                                                    {c.firstName?.[0]}{c.lastName?.[0]}
+                                                    {(c.firstName || '?')[0]}{(c.lastName || '?')[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className={`text-sm font-medium ${n.text} ${gb} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
@@ -461,7 +462,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </FadeIn>
 
-                        {/* Team — bg hover + name turns blue */}
+                        {/* Team */}
                         <FadeIn delay={200}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -476,7 +477,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             <div key={c.consultantId} onClick={() => nav("consultants")}
                                                 className={`${n.flat} ${hover} group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl`}>
                                                 <div className={`w-8 h-8 rounded-full ${n.inset} flex items-center justify-center text-[10px] font-semibold ${n.secondary} flex-shrink-0`}>
-                                                    {c.firstName?.[0]}{c.lastName?.[0]}
+                                                    {(c.firstName || '?')[0]}{(c.lastName || '?')[0]}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className={`text-sm font-medium ${n.text} ${gb} truncate transition-colors`}>{c.firstName} {c.lastName}</p>
