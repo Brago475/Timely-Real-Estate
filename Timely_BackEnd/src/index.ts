@@ -14,6 +14,7 @@ import auditRoutes from "./routes/audit.js";
 import orgRoutes from "./routes/orgs.js";
 import inviteRoutes from "./routes/invites.js";
 import listingRoutes from "./routes/listings.js";
+import messageRoutes from "./routes/messages.js";
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api", auditRoutes);
 app.use("/api", orgRoutes);
 app.use("/api", inviteRoutes);
 app.use("/api", listingRoutes);
+app.use("/api", messageRoutes);
 
 const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, "0.0.0.0", () => {

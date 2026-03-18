@@ -1,6 +1,6 @@
 // ============================================================
-// Timely Real Estate — Database Schema v2
-// Multi-tenant with invite-based onboarding + public listings
+// Timely Real Estate — Database Schema v3
+// Multi-tenant + invite onboarding + listings + messaging
 // ============================================================
 
 generator client {
@@ -37,7 +37,7 @@ enum OrgPlan {
 }
 
 // ============================================================
-// ORGANIZATION (multi-tenancy foundation)
+// ORGANIZATION
 // ============================================================
 
 model Organization {
@@ -50,19 +50,20 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  members    OrgMember[]
-  projects   Project[]
-  invites    Invite[]
-  listings   Listing[]
-  feedPosts  TeamFeedPost[]
-  emails     EmailOutbox[]
-  auditLogs  AuditLog[]
+  members       OrgMember[]
+  projects      Project[]
+  invites       Invite[]
+  listings      Listing[]
+  feedPosts     TeamFeedPost[]
+  emails        EmailOutbox[]
+  auditLogs     AuditLog[]
+  conversations Conversation[]
 
   @@map("organizations")
 }
 
 // ============================================================
-// ORG MEMBER (user <-> org join table, carries role)
+// ORG MEMBER
 // ============================================================
 
 model OrgMember {
@@ -82,7 +83,7 @@ model OrgMember {
 }
 
 // ============================================================
-// USER (no role here — role lives on OrgMember per-org)
+// USER
 // ============================================================
 
 model User {
@@ -97,7 +98,7 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  // Org memberships (a user can belong to multiple orgs)
+  // Org memberships
   memberships         OrgMember[]        @relation("Memberships")
   invitedMembers      OrgMember[]        @relation("InvitedMembers")
   sentInvites         Invite[]           @relation("SentInvites")
@@ -116,11 +117,15 @@ model User {
   teamFeedPosts       TeamFeedPost[]
   teamFeedLikes       TeamFeedLike[]
 
+  // Messaging
+  conversationMemberships ConversationMember[]
+  directMessages          DirectMessage[]
+
   @@map("users")
 }
 
 // ============================================================
-// INVITE (token-based onboarding)
+// INVITE
 // ============================================================
 
 model Invite {
@@ -141,7 +146,7 @@ model Invite {
 }
 
 // ============================================================
-// PROJECT (now org-scoped)
+// PROJECT
 // ============================================================
 
 model Project {
@@ -172,7 +177,7 @@ model Project {
 }
 
 // ============================================================
-// LISTING (public property page, linked to project)
+// LISTING
 // ============================================================
 
 model Listing {
@@ -205,6 +210,7 @@ model Listing {
 
   @@map("listings")
 }
+
 // ============================================================
 // CLIENT <-> PROJECT
 // ============================================================
@@ -316,6 +322,7 @@ model ProjectAttachment {
 
   @@map("project_attachments")
 }
+
 // ============================================================
 // TEAM FEED (org-scoped)
 // ============================================================
@@ -386,4 +393,53 @@ model AuditLog {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
+}
+
+// ============================================================
+// CONVERSATIONS (org-scoped messaging)
+// ============================================================
+
+model Conversation {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  projectId      Int?     @map("project_id")
+  title          String   @default("")
+  type           String   @default("direct")
+  createdBy      Int      @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      ConversationMember[]
+  messages     DirectMessage[]
+
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  userId         Int      @map("user_id")
+  lastReadAt     DateTime @default(now()) @map("last_read_at")
+  joinedAt       DateTime @default(now()) @map("joined_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_members")
+}
+
+model DirectMessage {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  senderId       Int      @map("sender_id")
+  body           String
+  type           String   @default("text")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("direct_messages")
 }
