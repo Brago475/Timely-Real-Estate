@@ -87,7 +87,7 @@ const Navbar: React.FC<NavbarProps> = ({ sidebarToggle, setSidebarToggle, active
     const initials = (userName || "U").split(" ").map(x => x[0]).join("").toUpperCase().slice(0, 2);
     const roleLabel = safeRole === "admin" ? "Admin" : safeRole === "consultant" ? "Consultant" : "Client";
 
-    useEffect(() => { const load = async () => { try { const [p, c, cl] = await Promise.all([fetch("/api/projects").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/consultants").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/users-report").then(r => r.ok ? r.json() : { data: [] })]); setProjects(p.data || []); setConsultants(c.data || []); setClients(cl.data || []); } catch {} }; load(); }, []);
+    useEffect(() => { const load = async () => { try { const [p, c, cl] = await Promise.all([fetch("/api/projects").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/consultants").then(r => r.ok ? r.json() : { data: [] }), fetch("/api/orgs/me").then(r => r.ok ? r.json() : { data: [] })]); setProjects(p.data || []); setConsultants(c.data || []); setClients(cl.data || []); } catch {} }; load(); }, []);
 
     useEffect(() => { const handler = (e: MouseEvent) => { const t = e.target as Node; if (notifRef.current && !notifRef.current.contains(t)) setShowNotifications(false); if (userRef.current && !userRef.current.contains(t)) setShowUserMenu(false); if (searchContainerRef.current && !searchContainerRef.current.contains(t)) { setShowSearch(false); setSearchQuery(""); setSearchResults([]); } }; document.addEventListener("mousedown", handler); return () => document.removeEventListener("mousedown", handler); }, []);
 

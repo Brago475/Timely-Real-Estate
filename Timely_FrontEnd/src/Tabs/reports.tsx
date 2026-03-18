@@ -116,7 +116,7 @@ const ReportsTab: React.FC = () => {
             const [auditRes, projectsRes, hoursRes, consultantsRes, clientsRes, pcRes] = await Promise.all([
                 safeFetch(`${API_BASE}/audit-logs/latest?limit=100`), safeFetch(`${API_BASE}/projects`),
                 safeFetch(`${API_BASE}/hours-logs`), safeFetch(`${API_BASE}/consultants`),
-                safeFetch(`${API_BASE}/users-report`), safeFetch(`${API_BASE}/project-consultants`),
+                safeFetch(`${API_BASE}/orgs/me`), safeFetch(`${API_BASE}/project-consultants`),
             ]);
             if (auditRes?.data) setAuditLogs(auditRes.data.reverse());
             if (projectsRes?.data) setProjects(projectsRes.data);

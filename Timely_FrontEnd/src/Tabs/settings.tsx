@@ -70,7 +70,7 @@ const SettingsPage: React.FC = () => {
         const user = JSON.parse(raw);
         const role = (user.role || 'client').toLowerCase() as UserRole;
         setUserRole(role === 'admin' || role === 'consultant' || role === 'client' ? role : 'client');
-        const api = await safeFetch(`${API_BASE}/users-report`);
+        const api = await safeFetch(`${API_BASE}/orgs/me`);
         const full = api?.data?.find((u: any) => u.email === user.email || u.customerId === user.customerId);
         const ext = JSON.parse(localStorage.getItem('timely_clients_extended') || '{}')[user.customerId] || {};
         const names = (user.name || '').split(' ');

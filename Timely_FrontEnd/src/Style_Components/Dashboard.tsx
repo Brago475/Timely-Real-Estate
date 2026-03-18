@@ -134,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         (async () => {
             setIsLoading(true);
             const [pR, cR, coR, hR, aR] = await Promise.all([
-                safeFetch(`${API_BASE}/projects`), safeFetch(`${API_BASE}/users-report`),
+                safeFetch(`${API_BASE}/projects`), safeFetch(`${API_BASE}/orgs/me`),
                 safeFetch(`${API_BASE}/consultants`), safeFetch(`${API_BASE}/hours-logs`),
                 safeFetch(`${API_BASE}/audit-logs/latest?limit=10`),
             ]);

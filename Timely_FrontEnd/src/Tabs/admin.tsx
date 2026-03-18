@@ -88,7 +88,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
     const showToast = (msg: string, type: "success" | "error" | "info" = "success") => { const id = `t_${Date.now()}`; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000); };
 
     const safeFetch = async (url: string) => { try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); } catch { return null; } };
-    const fetchUsers = async () => { const d = await safeFetch(`${API_BASE}/api/users-report`); if (d?.data) setUsers(d.data.map((u: User) => ({ ...u, status: u.status || "active", role: u.role || "client" }))); };
+    const fetchUsers = async () => { const d = await safeFetch(`${API_BASE}/api/orgs/me`); if (d?.data) setUsers(d.data.map((u: User) => ({ ...u, status: u.status || "active", role: u.role || "client" }))); };
     const fetchConsultants = async () => { const d = await safeFetch(`${API_BASE}/api/consultants`); if (d?.data) setConsultants(d.data.map((c: Consultant) => ({ ...c, status: c.status || "active" }))); };
     const fetchProjects = async () => { const d = await safeFetch(`${API_BASE}/api/projects`); if (d?.data) setProjects(d.data); };
     const fetchHours = async () => { const d = await safeFetch(`${API_BASE}/api/hours-logs`); if (d?.data) setHoursLogs(d.data); };
