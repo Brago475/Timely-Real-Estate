@@ -248,8 +248,7 @@ const RealEstateProjects: React.FC = () => {
     };
 
     const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
-    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members.filter((m: any) => m.role === 'client').map((m: any) => ({ customerId: String(m.userId), firstName: m.name.split(' ')[0] || '', lastName: m.name.split(' ').slice(1).join(' ') || '', email: m.email }))); };
-
+const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members.filter((m: any) => m.role === 'client').map((m: any) => { const u = m.user || m; return { customerId: String(m.userId || u.id || ''), firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '' }; })); };
     const loadTimeEntries = () => {
         try { const data = localStorage.getItem(STORAGE_KEYS.timeEntries); if (data) setTimeEntries(JSON.parse(data)); } catch {}
     };
