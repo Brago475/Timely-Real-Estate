@@ -4,17 +4,19 @@ let _token: string | null = null;
 export function setToken(token: string): void {
   _token = token;
   sessionStorage.setItem("timely_token", token);
+  localStorage.setItem("timely_token", token);
 }
 
 export function getToken(): string | null {
   if (_token) return _token;
-  _token = sessionStorage.getItem("timely_token");
+  _token = sessionStorage.getItem("timely_token") || localStorage.getItem("timely_token");
   return _token;
 }
 
 export function removeToken(): void {
   _token = null;
   sessionStorage.removeItem("timely_token");
+  localStorage.removeItem("timely_token");
 }
 
 export function isAuthenticated(): boolean {

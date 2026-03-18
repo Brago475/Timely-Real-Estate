@@ -126,7 +126,7 @@ const ListingView: React.FC = () => {
 
         // 2. Find project by slug from API
         try {
-const token = sessionStorage.getItem('timely_token') || '';
+const token = sessionStorage.getItem('timely_token') || localStorage.getItem('timely_token') || '';
 const res = await fetch('/api/projects', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });            const data = res.ok ? await res.json() : null;
             const all: Project[] = data?.data || [];
             const found = all.find((p: any) => p.isPublished && p.listingSlug === slug);
