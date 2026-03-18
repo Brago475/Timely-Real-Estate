@@ -1,11 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../config/database.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "timely-dev-secret-change-in-production";
 
 export interface AuthPayload {
   userId: number;
   email: string;
+  orgId: number;
   role: string;
   code: string;
 }
@@ -55,4 +57,14 @@ export function authorize(...roles: string[]) {
 
     next();
   };
+}
+
+// Helper: look up a user's membership in a specific org
+export async function getOrgMembership(userId: number, orgId: number) {
+  return prisma.orgMember.findUnique({
+    where: {
+      userId_organizationId: { userId, organizationId: orgId },
+    },
+    include: { organization: true },
+  });
 }

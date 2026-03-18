@@ -1,6 +1,7 @@
 import prisma from "./database.js";
 
 export async function appendAuditLog(
+  organizationId: number,
   actionType: string,
   entityType: string,
   entityId: string,
@@ -10,6 +11,7 @@ export async function appendAuditLog(
   try {
     await prisma.auditLog.create({
       data: {
+        organizationId,
         actionType,
         entityType,
         entityId,

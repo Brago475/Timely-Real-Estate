@@ -1,3 +1,8 @@
+// ============================================================
+// Timely Real Estate — Database Schema v2
+// Multi-tenant with invite-based onboarding + public listings
+// ============================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,6 +12,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  owner
+  admin
+  consultant
+  client
+}
+
+enum OrgType {
+  residential
+  commercial
+  property_mgmt
+}
+
+enum OrgPlan {
+  free
+  starter
+  professional
+  enterprise
+}
+
+// ============================================================
+// ORGANIZATION (multi-tenancy foundation)
+// ============================================================
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  logoUrl   String?  @map("logo_url")
+  type      OrgType  @default(residential)
+  plan      OrgPlan  @default(free)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members    OrgMember[]
+  projects   Project[]
+  invites    Invite[]
+  listings   Listing[]
+  feedPosts  TeamFeedPost[]
+  emails     EmailOutbox[]
+  auditLogs  AuditLog[]
+
+  @@map("organizations")
+}
+
+// ============================================================
+// ORG MEMBER (user <-> org join table, carries role)
+// ============================================================
+
+model OrgMember {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  organizationId Int      @map("organization_id")
+  role           Role     @default(client)
+  invitedBy      Int?     @map("invited_by")
+  joinedAt       DateTime @default(now()) @map("joined_at")
+
+  user         User         @relation("Memberships", fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter      User?        @relation("InvitedMembers", fields: [invitedBy], references: [id])
+
+  @@unique([userId, organizationId])
+  @@map("org_members")
+}
+
+// ============================================================
+// USER (no role here — role lives on OrgMember per-org)
+// ============================================================
+
 model User {
   id           Int      @id @default(autoincrement())
   code         String   @unique
@@ -15,54 +93,121 @@ model User {
   lastName     String   @map("last_name")
   email        String   @unique
   passwordHash String   @map("password_hash")
-  role         Role     @default(client)
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  clientProjects      ClientProject[]      @relation("ClientProjects")
-  clientConsultants   ClientConsultant[]   @relation("ClientOfConsultant")
-  consultantProjects  ConsultantProject[]  @relation("ConsultantProjects")
-  consultantClients   ClientConsultant[]   @relation("ConsultantOfClient")
+  // Org memberships (a user can belong to multiple orgs)
+  memberships         OrgMember[]        @relation("Memberships")
+  invitedMembers      OrgMember[]        @relation("InvitedMembers")
+  sentInvites         Invite[]           @relation("SentInvites")
+
+  // Project relationships
+  clientProjects      ClientProject[]    @relation("ClientProjects")
+  consultantProjects  ConsultantProject[] @relation("ConsultantProjects")
+  clientConsultants   ClientConsultant[] @relation("ClientOfConsultant")
+  consultantClients   ClientConsultant[] @relation("ConsultantOfClient")
+  createdProjects     Project[]          @relation("ProjectCreator")
+
+  // Activity
   hoursLogs           HoursLog[]
   projectComments     ProjectComment[]
   projectAttachments  ProjectAttachment[]
   teamFeedPosts       TeamFeedPost[]
   teamFeedLikes       TeamFeedLike[]
-  createdProjects     Project[]            @relation("ProjectCreator")
 
   @@map("users")
 }
 
-enum Role {
-  admin
-  consultant
-  client
+// ============================================================
+// INVITE (token-based onboarding)
+// ============================================================
+
+model Invite {
+  id             Int       @id @default(autoincrement())
+  token          String    @unique @default(uuid())
+  email          String
+  organizationId Int       @map("organization_id")
+  role           Role      @default(client)
+  invitedBy      Int       @map("invited_by")
+  expiresAt      DateTime  @map("expires_at")
+  usedAt         DateTime? @map("used_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter      User         @relation("SentInvites", fields: [invitedBy], references: [id])
+
+  @@map("invites")
 }
 
-model Project {
-  id          Int      @id @default(autoincrement())
-  code        String   @unique
-  name        String
-  description String   @default("")
-  status      String   @default("Planning")
-  priority    String   @default("Medium")
-  budget      Decimal? @db.Decimal(12, 2)
-  dateCreated DateTime? @map("date_created") @db.Date
-  dateDue     DateTime? @map("date_due") @db.Date
-  createdBy   Int?     @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+// ============================================================
+// PROJECT (now org-scoped)
+// ============================================================
 
-  creator             User?              @relation("ProjectCreator", fields: [createdBy], references: [id])
+model Project {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  organizationId Int       @map("organization_id")
+  name           String
+  description    String    @default("")
+  status         String    @default("Planning")
+  priority       String    @default("Medium")
+  budget         Decimal?  @db.Decimal(12, 2)
+  dateCreated    DateTime? @map("date_created") @db.Date
+  dateDue        DateTime? @map("date_due") @db.Date
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator             User?               @relation("ProjectCreator", fields: [createdBy], references: [id])
   clientProjects      ClientProject[]
   consultantProjects  ConsultantProject[]
   hoursLogs           HoursLog[]
   comments            ProjectComment[]
   attachments         ProjectAttachment[]
+  listings            Listing[]
 
   @@map("projects")
 }
+
+// ============================================================
+// LISTING (public property page, linked to project)
+// ============================================================
+
+model Listing {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  projectId      Int       @map("project_id")
+  organizationId Int       @map("organization_id")
+  title          String
+  description    String    @default("")
+  price          Decimal?  @db.Decimal(14, 2)
+  propertyType   String    @default("") @map("property_type")
+  bedrooms       Int?
+  bathrooms      Int?
+  sqft           Int?
+  address        String    @default("")
+  city           String    @default("")
+  state          String    @default("")
+  zip            String    @default("")
+  lat            Decimal?  @db.Decimal(10, 7)
+  lng            Decimal?  @db.Decimal(10, 7)
+  status         String    @default("active")
+  photos         Json      @default("[]")
+  amenities      Json      @default("[]")
+  publishedAt    DateTime? @map("published_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("listings")
+}
+// ============================================================
+// CLIENT <-> PROJECT
+// ============================================================
 
 model ClientProject {
   id        Int      @id @default(autoincrement())
@@ -78,6 +223,10 @@ model ClientProject {
   @@map("client_projects")
 }
 
+// ============================================================
+// CONSULTANT <-> PROJECT
+// ============================================================
+
 model ConsultantProject {
   id           Int      @id @default(autoincrement())
   consultantId Int      @map("consultant_id")
@@ -91,6 +240,10 @@ model ConsultantProject {
   @@map("consultant_projects")
 }
 
+// ============================================================
+// CLIENT <-> CONSULTANT
+// ============================================================
+
 model ClientConsultant {
   id           Int      @id @default(autoincrement())
   clientId     Int      @map("client_id")
@@ -103,6 +256,10 @@ model ClientConsultant {
   @@unique([clientId, consultantId])
   @@map("client_consultants")
 }
+
+// ============================================================
+// HOURS LOGS
+// ============================================================
 
 model HoursLog {
   id           Int      @id @default(autoincrement())
@@ -121,6 +278,10 @@ model HoursLog {
   @@map("hours_logs")
 }
 
+// ============================================================
+// PROJECT COMMENTS
+// ============================================================
+
 model ProjectComment {
   id          Int      @id @default(autoincrement())
   code        String   @unique
@@ -134,6 +295,10 @@ model ProjectComment {
 
   @@map("project_comments")
 }
+
+// ============================================================
+// PROJECT ATTACHMENTS
+// ============================================================
 
 model ProjectAttachment {
   id         Int      @id @default(autoincrement())
@@ -151,16 +316,21 @@ model ProjectAttachment {
 
   @@map("project_attachments")
 }
+// ============================================================
+// TEAM FEED (org-scoped)
+// ============================================================
 
 model TeamFeedPost {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  authorId  Int      @map("author_id")
-  content   String
-  createdAt DateTime @default(now()) @map("created_at")
+  id             Int      @id @default(autoincrement())
+  code           String   @unique
+  organizationId Int      @map("organization_id")
+  authorId       Int      @map("author_id")
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  author User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  likes  TeamFeedLike[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes        TeamFeedLike[]
 
   @@map("team_feed_posts")
 }
@@ -178,28 +348,42 @@ model TeamFeedLike {
   @@map("team_feed_likes")
 }
 
+// ============================================================
+// EMAIL OUTBOX (org-scoped)
+// ============================================================
+
 model EmailOutbox {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  toEmail   String   @map("to_email")
-  fromEmail String   @default("noreply@timely.com") @map("from_email")
-  subject   String
-  body      String   @default("")
-  status    String   @default("sent")
-  createdAt DateTime @default(now()) @map("created_at")
-  sentAt    DateTime @default(now()) @map("sent_at")
+  id             Int      @id @default(autoincrement())
+  code           String   @unique
+  organizationId Int      @map("organization_id")
+  toEmail        String   @map("to_email")
+  fromEmail      String   @default("noreply@timely.com") @map("from_email")
+  subject        String
+  body           String   @default("")
+  status         String   @default("sent")
+  createdAt      DateTime @default(now()) @map("created_at")
+  sentAt         DateTime @default(now()) @map("sent_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("emails_outbox")
 }
 
+// ============================================================
+// AUDIT LOG (org-scoped)
+// ============================================================
+
 model AuditLog {
-  id          Int      @id @default(autoincrement())
-  timestamp   DateTime @default(now())
-  actionType  String   @map("action_type")
-  entityType  String   @map("entity_type")
-  entityId    String   @map("entity_id")
-  performedBy String   @map("performed_by")
-  details     String   @default("")
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  timestamp      DateTime @default(now())
+  actionType     String   @map("action_type")
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id")
+  performedBy    String   @map("performed_by")
+  details        String   @default("")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
 }
