@@ -178,6 +178,37 @@ model Project {
   videos       Json    @default("[]")
   coverPhotoIndex Int  @default(0) @map("cover_photo_index")
 
+  // Interior details
+  stories           Int?
+  flooring          String  @default("")
+  appliances        Json    @default("[]")
+  kitchenFeatures   String  @default("") @map("kitchen_features")
+  bathroomFeatures  String  @default("") @map("bathroom_features")
+  basement          String  @default("")
+  interiorFeatures  Json    @default("[]") @map("interior_features")
+
+  // Construction
+  constructionMaterials String @default("") @map("construction_materials")
+  roofType              String @default("") @map("roof_type")
+  foundationType        String @default("") @map("foundation_type")
+  exteriorFeatures      Json   @default("[]") @map("exterior_features")
+
+  // Systems
+  heatingType String @default("") @map("heating_type")
+  coolingType String @default("") @map("cooling_type")
+
+  // Parking
+  garageSpaces  Int?    @map("garage_spaces")
+  parkingSpaces Int?    @map("parking_spaces")
+  parkingType   String  @default("") @map("parking_type")
+
+  // Financial / Public records
+  hoaFee        Decimal? @db.Decimal(10, 2) @map("hoa_fee")
+  taxAssessment Decimal? @db.Decimal(14, 2) @map("tax_assessment")
+  taxYear       String   @default("") @map("tax_year")
+  parcelNumber  String   @default("") @map("parcel_number")
+  mlsNumber     String   @default("") @map("mls_number")
+
   // Listing fields
   listingPrice  Decimal? @db.Decimal(14, 2) @map("listing_price")
   listingStatus String   @default("active") @map("listing_status")
@@ -196,10 +227,27 @@ model Project {
   comments            ProjectComment[]
   attachments         ProjectAttachment[]
   listings            Listing[]
+  priceHistory        PriceHistory[]
 
   @@map("projects")
 }
+// ============================================================
+// PRICE HISTORY
+// ============================================================
 
+model PriceHistory {
+  id        Int      @id @default(autoincrement())
+  projectId Int      @map("project_id")
+  price     Decimal  @db.Decimal(14, 2)
+  eventType String   @default("price_change") @map("event_type")
+  note      String   @default("")
+  date      DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("price_history")
+}
 // ============================================================
 // LISTING
 // ============================================================
