@@ -55,7 +55,7 @@ const AdminMessages: React.FC<Props> = ({ adminEmail = "", adminName = "Admin", 
 
     useEffect(() => { loadMessages(); loadClients(); loadConsultants(); }, []);
     const loadClients = async () => { try { const r = await fetch(`${API_BASE}/users-report`); if (r.ok) { const d = await r.json(); setClients(d.data || []); } } catch {} };
-    const loadConsultants = async () => { try { const r = await fetch(`${API_BASE}/consultants`); if (r.ok) { const d = await r.json(); setConsultants((d.data || []).filter((c: ConsultantInfo) => c.role !== "admin" && c.role !== "Admin")); } } catch {} };
+    const loadConsultants = async () => { try { const r = await fetch(`${API_BASE}/consultants`); if (r.ok) { const d = await r.json(); setConsultants(d.data || []); } } catch {} };
 
     const loadMessages = () => {
         setLoading(true);

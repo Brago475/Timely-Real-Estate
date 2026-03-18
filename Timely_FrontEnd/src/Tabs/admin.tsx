@@ -105,7 +105,7 @@ const AdminTab: React.FC<AdminTabProps> = ({ onNavigate }) => {
 
     const refreshAll = async () => { setIsLoading(true); await Promise.all([fetchUsers(), fetchConsultants(), fetchProjects(), fetchHours()]); setPendingDocRequests(getPendingDocs()); setUnreadMessages(getUnreadMsgs()); setIsLoading(false); };
 
-    useEffect(() => { try { const s = localStorage.getItem("timely_user"); if (s) { const u = JSON.parse(s); if (u?.email) setAdminEmail(u.email); if (u?.firstName) setAdminName(`${u.firstName} ${u.lastName || ""}`); } const sa = localStorage.getItem("timely_custom_alerts"); if (sa) setAlerts(JSON.parse(sa).filter((a: Alert) => a.isCustom)); } catch {} refreshAll(); }, []);
+    useEffect(() => { try { const s = sessionStorage.getItem("timely_user") || localStorage.getItem("timely_user");; if (s) { const u = JSON.parse(s); if (u?.email) setAdminEmail(u.email); if (u?.firstName) setAdminName(`${u.firstName} ${u.lastName || ""}`); } const sa = localStorage.getItem("timely_custom_alerts"); if (sa) setAlerts(JSON.parse(sa).filter((a: Alert) => a.isCustom)); } catch {} refreshAll(); }, []);
     useEffect(() => { genAlerts(); }, [users, projects, hoursLogs]);
     useEffect(() => { localStorage.setItem("timely_custom_alerts", JSON.stringify(alerts.filter(a => a.isCustom))); }, [alerts]);
     useEffect(() => { if (currentView === "documents") setPendingDocRequests(getPendingDocs()); if (currentView === "messages") setUnreadMessages(getUnreadMsgs()); }, [currentView]);
