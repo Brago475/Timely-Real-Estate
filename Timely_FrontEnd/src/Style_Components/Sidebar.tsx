@@ -92,6 +92,8 @@ const Sidebar: React.FC<Props> = ({
     // ── Notification badges ───────────────────────────────────────────────────
     const [badges, setBadges] = useState<Record<string, number>>({});
     const mountedRef = useRef(true);
+    const activePageRef = useRef(activePage);
+    activePageRef.current = activePage;
 
     const loadBadges = useCallback(async () => {
         const lastSeen = getLastSeen();
@@ -194,6 +196,9 @@ const Sidebar: React.FC<Props> = ({
             }
         } catch {}
 
+        // Never show a badge for the page the user is currently on
+        delete counts[activePageRef.current];
+
         if (mountedRef.current) setBadges(counts);
     }, [userEmail]);
 
@@ -219,19 +224,26 @@ const Sidebar: React.FC<Props> = ({
         return () => events.forEach(e => window.removeEventListener(e, refresh));
     }, [loadBadges]);
 
+    // When the active page changes, mark it seen and clear its badge immediately
+    useEffect(() => {
+        markSeen(activePage);
+        setBadges(prev => {
+            if (!prev[activePage]) return prev;
+            const next = { ...prev };
+            delete next[activePage];
+            return next;
+        });
+    }, [activePage]);
+
     // ── Navigation handler — marks section as seen ────────────────────────────
     const handleNavigate = (id: string) => {
-        // Mark this section seen so the badge clears
         markSeen(id);
-
-        // Also clear related sections (e.g. clicking "projects" also clears listing awareness)
-        if (id === "projects") markSeen("listings");
 
         // Remove badge immediately for responsive feel
         setBadges(prev => {
+            if (!prev[id]) return prev;
             const next = { ...prev };
             delete next[id];
-            if (id === "projects") delete next.listings;
             return next;
         });
 
@@ -288,8 +300,10 @@ const Sidebar: React.FC<Props> = ({
                     <Icon className="w-4 h-4" />
                     {/* Dot indicator on icon for subtle hint */}
                     {badge > 0 && !isActive && (
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full ring-2 ring-current"
-                              style={{ ringColor: isDark ? '#0a0a0a' : '#ffffff' }} />
+                        <span
+                            className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${id === "messages" ? "bg-red-500" : "bg-blue-500"}`}
+                            style={{ boxShadow: `0 0 0 2px ${isDark ? '#0a0a0a' : '#ffffff'}` }}
+                        />
                     )}
                 </div>
 
