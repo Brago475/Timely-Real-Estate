@@ -50,6 +50,7 @@ const AdminDocumentRequests: React.FC<Props> = ({ onNavigate, adminEmail = "admi
         text: isDark ? "text-white" : "text-gray-900", secondary: isDark ? "text-gray-300" : "text-gray-600",
         tertiary: isDark ? "text-gray-500" : "text-gray-400", strong: isDark ? "text-white" : "text-black",
         label: isDark ? "text-blue-400" : "text-blue-600",
+        link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
         badge: isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700",
         input: isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
         modal: isDark ? "bg-[#111111] border-gray-800" : "bg-[#f0f0f0] border-gray-300",
@@ -77,8 +78,7 @@ const AdminDocumentRequests: React.FC<Props> = ({ onNavigate, adminEmail = "admi
 
     const showToast = (msg: string, type: "success" | "error" | "info" = "success") => { const id = `t_${Date.now()}`; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000); };
 
-    const loadData = async () => { setLoading(true); try { const r = await fetch(`/api/orgs/me`); if (r.ok) { const d = await r.json(); setUsers(d.data?.members || []); } } catch {} setRequests(ReqAPI.getAll()); setUploads(UplAPI.getAll()); setLoading(false); };
-    useEffect(() => { loadData(); }, []);
+const loadData = async () => { setLoading(true); try { const r = await fetch(`/api/orgs/me`); if (r.ok) { const d = await r.json(); setUsers((d.data?.members || []).filter((m: any) => m.role === 'client').map((m: any) => ({ customerId: String(m.userId || ''), clientCode: m.code || '', firstName: m.firstName || '', lastName: m.lastName || '', email: m.email || '' }))); } } catch {} setRequests(ReqAPI.getAll()); setUploads(UplAPI.getAll()); setLoading(false); };    useEffect(() => { loadData(); }, []);
 
     const filteredReqs = useMemo(() => { let r = requests; if (filterStatus !== "all") r = r.filter(x => x.status === filterStatus); if (searchQ.trim()) { const q = searchQ.toLowerCase(); r = r.filter(x => x.documentName.toLowerCase().includes(q) || x.clientName.toLowerCase().includes(q) || x.description.toLowerCase().includes(q)); } return r.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); }, [requests, filterStatus, searchQ]);
     const filteredUpls = useMemo(() => { let r = uploads; if (searchQ.trim()) { const q = searchQ.toLowerCase(); r = r.filter(u => u.fileName.toLowerCase().includes(q) || u.uploadedBy.toLowerCase().includes(q)); } return r.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()); }, [uploads, searchQ]);

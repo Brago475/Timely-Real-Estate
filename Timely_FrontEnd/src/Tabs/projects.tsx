@@ -120,8 +120,7 @@ const RealEstateProjects: React.FC = () => {
         secondary:    isDark ? 'text-gray-400'    : 'text-gray-500',
         tertiary:     isDark ? 'text-gray-500'    : 'text-gray-400',
         strong:       isDark ? 'text-white'       : 'text-gray-900',
-        label:        isDark ? 'text-blue-400'    : 'text-blue-600',
-        link:         isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500',
+        link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",        link:         isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500',
         input:        isDark ? 'bg-[#111111] border-gray-700 text-white'  : 'bg-white border-gray-200 text-gray-900',
         modal:        isDark ? 'bg-[#181818] border-gray-800' : 'bg-white border-gray-200',
         modalHead:    isDark ? 'bg-[#181818]'     : 'bg-white',
@@ -612,9 +611,9 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={loadAllData} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl ${refreshing ? 'animate-spin' : ''}`}>
-                            <RefreshCw className={`w-4 h-4 ${n.secondary}`} />
-                        </button>
+                        <button onClick={loadAllData} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl`}>
+    <RefreshCw className={`w-4 h-4 ${n.secondary} ${refreshing ? 'animate-spin' : ''}`} />
+</button>
                         {isAdmin && (
                             <button onClick={() => setShowCreateModal(true)} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium`}>
                                 <Plus className="w-4 h-4" />New Project
