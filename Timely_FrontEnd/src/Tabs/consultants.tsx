@@ -1,5 +1,5 @@
 // src/Tabs/consultants.tsx
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import  { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../Views_Layouts/ThemeContext';
 import { Search, Plus, Filter, ChevronRight, Phone, Users, Briefcase, Clock, X, Edit2, Trash2, User, TrendingUp, CheckCircle2, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, StickyNote, FolderOpen, Link2, Unlink, UserMinus, FolderPlus, RefreshCw, Timer, Play, Pause, Save, CheckCircle, AlertCircle, Info, Mail } from 'lucide-react';
 import AssignmentService from '../services/AssignmentService';
@@ -97,8 +97,7 @@ const ConsultantsPage = () => {
     const [isTimerRunning, setIsTimerRunning] = useState(false);
     const [timerSeconds, setTimerSeconds] = useState(0);
     const [timerProjectId, setTimerProjectId] = useState('');
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
-
+const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [consultantForm, setConsultantForm] = useState({ firstName: '', middleName: '', lastName: '', phone: '', department: '', specialization: '', hourlyRate: '', startDate: new Date().toISOString().split('T')[0], status: 'active' as string, notes: '' });
     const [tempPassword, setTempPassword] = useState('');
     const [timeForm, setTimeForm] = useState({ projectId: '', date: new Date().toISOString().split('T')[0], hours: 0, minutes: 0, description: '' });
@@ -126,8 +125,8 @@ const ConsultantsPage = () => {
             setConsultants(merged);
         } else { setConsultants(local.map((c: Consultant) => ({ ...c, ...ext[c.consultantId] }))); }
     };
-    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members); };
-    const loadProjects = async () => { const d = await safeFetch(`${API_BASE}/projects`); if (d?.data) { const local = JSON.parse(localStorage.getItem('timely_projects') || '[]'); setProjects([...d.data, ...local.filter((l: Project) => !d.data.find((a: Project) => a.projectId === l.projectId))]); } else { setProjects(JSON.parse(localStorage.getItem('timely_projects') || '[]')); } };
+    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members.filter((m: any) => m.role === 'client').map((m: any) => ({ customerId: String(m.userId || ''), clientCode: m.code || '', firstName: m.firstName || '', lastName: m.lastName || '', email: m.email || '' }))); };    
+    const loadProjects = async () => { const d = await safeFetch(`${API_BASE}/projects`); if (d?.data) setProjects(d.data); };
     const loadHoursLogs = () => { try { const s = localStorage.getItem(STORAGE_KEYS.hoursLogs); if (s) setHoursLogs(JSON.parse(s)); } catch {} };
     const saveHoursLogs = (data: HoursLog[]) => { localStorage.setItem(STORAGE_KEYS.hoursLogs, JSON.stringify(data)); setHoursLogs(data); };
 
@@ -152,8 +151,7 @@ const ConsultantsPage = () => {
         } catch {
             const cid = `local_${Date.now()}`, code = `CON-${Date.now().toString().slice(-6)}`;
             const local = JSON.parse(localStorage.getItem('timely_local_consultants') || '[]');
-            local.push({ consultantId: cid, consultantCode: code, firstName: consultantForm.firstName.trim(), lastName: consultantForm.lastName.trim(), email: companyEmail, tempPassword, role: 'consultant', ...consultantForm });
-            localStorage.setItem('timely_local_consultants', JSON.stringify(local));
+local.push({ consultantId: cid, consultantCode: code, email: companyEmail, tempPassword, role: 'consultant', ...consultantForm, firstName: consultantForm.firstName.trim(), lastName: consultantForm.lastName.trim() });            localStorage.setItem('timely_local_consultants', JSON.stringify(local));
             const ext = JSON.parse(localStorage.getItem(STORAGE_KEYS.consultantsExtended) || '{}');
             ext[cid] = { phone: consultantForm.phone, department: consultantForm.department, specialization: consultantForm.specialization, hourlyRate: consultantForm.hourlyRate, startDate: consultantForm.startDate, status: consultantForm.status, notes: consultantForm.notes };
             localStorage.setItem(STORAGE_KEYS.consultantsExtended, JSON.stringify(ext));
