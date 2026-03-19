@@ -120,7 +120,8 @@ const RealEstateProjects: React.FC = () => {
         secondary:    isDark ? 'text-gray-400'    : 'text-gray-500',
         tertiary:     isDark ? 'text-gray-500'    : 'text-gray-400',
         strong:       isDark ? 'text-white'       : 'text-gray-900',
-        link: isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",        link:         isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500',
+        label:        isDark ? 'text-blue-400'    : 'text-blue-600',
+        link:         isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500',
         input:        isDark ? 'bg-[#111111] border-gray-700 text-white'  : 'bg-white border-gray-200 text-gray-900',
         modal:        isDark ? 'bg-[#181818] border-gray-800' : 'bg-white border-gray-200',
         modalHead:    isDark ? 'bg-[#181818]'     : 'bg-white',
@@ -424,6 +425,7 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
         setSelectedProject(updated);
         showToast('Property details saved', 'success');
+        setDetailTab('overview');
     };
 
     const saveListingDetails = async () => {
@@ -437,8 +439,9 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
         } catch { showToast('Failed to save listing', 'error'); return; }
         const updated: Project = { ...selectedProject, listingPrice: propertyForm.listingPrice, listingStatus: propertyForm.listingStatus };
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
-        setSelectedProject(updated);
+setSelectedProject(updated);
         showToast('Listing details saved', 'success');
+        setDetailTab('overview');
     };
 
     const togglePublish = async () => {

@@ -278,16 +278,14 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = (props) => {
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={e => handlePhotoUpload(e.target.files)}
-            />
+                onChange={e => { handlePhotoUpload(e.target.files); e.target.value = ''; }}            />
             <input
                 ref={videoInputRef}
                 type="file"
                 accept="video/*"
                 multiple
                 className="hidden"
-                onChange={e => handleVideoUpload(e.target.files)}
-            />
+                onChange={e => { handleVideoUpload(e.target.files); e.target.value = ''; }}            />
 
             {/* ══ TIME MODAL ═══════════════════════════════════════════════════ */}
             {showTimeModal && selectedProject && (
