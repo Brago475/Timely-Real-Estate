@@ -4,7 +4,7 @@ import { useTheme } from "../Views_Layouts/ThemeContext";
 import {
     FolderOpen, Calendar, MapPin, Bed, Bath, Maximize,
     ExternalLink, Globe, Search, X, RefreshCw, Filter,
-    Clock, Home, Building2, ChevronRight, Lock, Tag,
+    Clock, Home, Building2, ChevronRight, Lock, Tag, Image,
 } from "lucide-react";
 
 const API_BASE = "/api";
@@ -24,7 +24,6 @@ interface Project {
     budget?: string;
     createdAt?: string;
     clientName?: string;
-    // Property fields
     address?: string;
     city?: string;
     state?: string;
@@ -38,7 +37,6 @@ interface Project {
     amenities?: string[];
     photos?: string[];
     coverPhotoIndex?: number;
-    // Listing fields
     isPublished?: boolean;
     listingSlug?: string;
     listingStatus?: string;
@@ -81,25 +79,28 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
     const { isDark } = useTheme();
 
     const n = {
-        bg:           isDark ? "neu-bg-dark"       : "neu-bg-light",
-        card:         isDark ? "neu-dark"           : "neu-light",
-        flat:         isDark ? "neu-dark-flat"      : "neu-light-flat",
-        inset:        isDark ? "neu-dark-inset"     : "neu-light-inset",
-        text:         isDark ? "text-white"         : "text-gray-900",
-        secondary:    isDark ? "text-gray-300"      : "text-gray-600",
-        tertiary:     isDark ? "text-gray-500"      : "text-gray-400",
-        strong:       isDark ? "text-white"         : "text-black",
-        label:        isDark ? "text-blue-400"      : "text-blue-600",
+        bg:           isDark ? "bg-[#141414]"     : "bg-white",
+        card:         isDark ? "bg-[#1e1e1e] shadow-[6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(50,50,50,0.12)]"
+                             : "bg-white shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.9)]",
+        flat:         isDark ? "bg-[#1a1a1a] shadow-[2px_2px_6px_rgba(0,0,0,0.6),-2px_-2px_6px_rgba(50,50,50,0.08)]"
+                             : "bg-white shadow-[2px_2px_6px_rgba(0,0,0,0.04),-2px_-2px_6px_rgba(255,255,255,0.8)]",
+        inset:        isDark ? "bg-[#111111] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.6),inset_-3px_-3px_6px_rgba(50,50,50,0.08)]"
+                             : "bg-[#f5f5f5] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.04),inset_-3px_-3px_6px_rgba(255,255,255,0.9)]",
+        text:         isDark ? "text-gray-100"    : "text-gray-900",
+        secondary:    isDark ? "text-gray-400"    : "text-gray-500",
+        tertiary:     isDark ? "text-gray-500"    : "text-gray-400",
+        strong:       isDark ? "text-white"       : "text-gray-900",
+        label:        isDark ? "text-blue-400"    : "text-blue-600",
         link:         isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500",
-        divider:      isDark ? "border-gray-800"    : "border-gray-200",
-        modal:        isDark ? "bg-[#111111] border-gray-800" : "bg-[#e4e4e4] border-gray-300",
-        modalHead:    isDark ? "bg-[#111111]"       : "bg-[#e4e4e4]",
-        input:        isDark ? "bg-transparent border-gray-700 text-white" : "bg-transparent border-gray-300 text-gray-900",
+        divider:      isDark ? "border-gray-800"  : "border-gray-100",
+        modal:        isDark ? "bg-[#181818] border-gray-800" : "bg-white border-gray-200",
+        modalHead:    isDark ? "bg-[#181818]"     : "bg-white",
+        input:        isDark ? "bg-[#111111] border-gray-700 text-white" : "bg-white border-gray-200 text-gray-900",
         btnPrimary:   "bg-blue-600 hover:bg-blue-500 text-white",
-        btnSecondary: isDark ? "bg-gray-800 hover:bg-gray-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800",
+        btnSecondary: isDark ? "bg-[#252525] hover:bg-[#2a2a2a] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800",
         edgeHover: isDark
-            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(40,40,40,0.12)]"
-            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.2),6px_6px_14px_rgba(0,0,0,0.1),-6px_-6px_14px_rgba(255,255,255,0.95)]",
+            ? "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.3),6px_6px_14px_rgba(0,0,0,0.7),-6px_-6px_14px_rgba(50,50,50,0.12)]"
+            : "hover:shadow-[0_0_0_1px_rgba(59,130,246,0.15),8px_8px_20px_rgba(0,0,0,0.08),-8px_-8px_20px_rgba(255,255,255,0.95)]",
     };
 
     const [projects, setProjects]         = useState<Project[]>([]);
@@ -118,19 +119,40 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
             const res = await fetch(`${API_BASE}/projects`);
             if (res.ok) {
                 const data = await res.json();
+                // FIX: Map ALL fields from the API response, not just basics
                 setProjects((data.data || []).map((p: any) => ({
-                    projectId: String(p.projectId),
-                    projectCode: p.projectCode || p.code || "",
-                    projectName: p.projectName || p.name || "",
-                    status: p.status || "Planning",
-                    priority: p.priority,
-                    description: p.description,
-                    startDate: p.startDate || p.dateCreated,
-                    endDate: p.endDate || p.dateDue,
-                    dateDue: p.dateDue,
-                    budget: p.budget,
-                    createdAt: p.createdAt,
-                    clientName: p.clientName,
+                    projectId:      String(p.projectId),
+                    projectCode:    p.projectCode || p.code || "",
+                    projectName:    p.projectName || p.name || "",
+                    status:         p.status || "planning",
+                    priority:       p.priority,
+                    description:    p.description,
+                    startDate:      p.startDate || p.dateCreated,
+                    endDate:        p.endDate || p.dateDue,
+                    dateDue:        p.dateDue,
+                    budget:         p.budget,
+                    createdAt:      p.createdAt,
+                    clientName:     p.clientName,
+                    // Property fields
+                    address:        p.address,
+                    city:           p.city,
+                    state:          p.state,
+                    zip:            p.zip,
+                    propertyType:   p.propertyType,
+                    bedrooms:       p.bedrooms,
+                    bathrooms:      p.bathrooms,
+                    sqft:           p.sqft,
+                    lotSize:        p.lotSize,
+                    yearBuilt:      p.yearBuilt,
+                    amenities:      p.amenities || [],
+                    photos:         p.photos || [],
+                    coverPhotoIndex: p.coverPhotoIndex || 0,
+                    // Listing fields
+                    isPublished:    p.isPublished || false,
+                    listingSlug:    p.listingSlug,
+                    listingStatus:  p.listingStatus,
+                    listingPrice:   p.listingPrice,
+                    publishedAt:    p.publishedAt,
                 })));
             }
         } catch (e) {
@@ -288,6 +310,7 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
                     {filteredProjects.map(p => {
                         const price    = formatPrice(p.listingPrice);
                         const location = [p.address, p.city, p.state].filter(Boolean).join(", ");
+                        const hasPhotos = p.photos && p.photos.length > 0;
 
                         return (
                             <div key={p.projectId} className={`${n.card} rounded-2xl overflow-hidden ${n.edgeHover} transition-all flex flex-col`}>
@@ -317,13 +340,13 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
                                     )}
 
                                     {/* Photo count chip */}
-                                    {p.photos && p.photos.length > 0 && (
+                                    {hasPhotos && (
                                         <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                            <Home className="w-3 h-3" />{p.photos.length} photos
+                                            <Image className="w-3 h-3" />{p.photos!.length}
                                         </div>
                                     )}
 
-                                    <div className="absolute bottom-0 left-0 right-0 h-6" style={{ background: isDark ? "linear-gradient(to bottom, transparent, rgba(17,17,17,0.8))" : "linear-gradient(to bottom, transparent, rgba(228,228,228,0.7))" }} />
+                                    <div className="absolute bottom-0 left-0 right-0 h-6" style={{ background: isDark ? "linear-gradient(to bottom, transparent, #1e1e1e)" : "linear-gradient(to bottom, transparent, rgba(255,255,255,0.9))" }} />
                                 </div>
 
                                 {/* Body */}
@@ -414,7 +437,7 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
                                     <h2 className="text-lg font-bold text-white">{selectedProject.projectName}</h2>
                                     <p className="text-white/60 text-xs font-mono mt-0.5">{selectedProject.projectCode}</p>
                                 </div>
-                                <button onClick={() => setSelectedProject(null)} className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center">
+                                <button onClick={() => setSelectedProject(null)} className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors">
                                     <X className="w-4 h-4 text-white" />
                                 </button>
                             </div>
@@ -440,7 +463,7 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({
 
                             {/* Property stats */}
                             {(selectedProject.bedrooms || selectedProject.bathrooms || selectedProject.sqft || selectedProject.yearBuilt) && (
-                                <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3`}>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     {selectedProject.bedrooms && (
                                         <div className={`${n.flat} p-3 rounded-xl text-center`}>
                                             <Bed className={`w-4 h-4 ${n.label} mx-auto mb-1`} />
