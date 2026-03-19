@@ -241,6 +241,34 @@ const RealEstateProjects: React.FC = () => {
         setRefreshing(false);
     };
 
+    // After projects + consultants are loaded, ensure assignments are stored
+    // under ALL known ID formats for each consultant (code, userId, email).
+    // This fixes the mismatch where assignments are stored under "CO-0001"
+    // but the logged-in consultant's session has userId "5".
+    useEffect(() => {
+        if (projects.length === 0 || consultants.length === 0) return;
+        for (const p of projects) {
+            const pid = String(p.projectId);
+            const assignedIds = AssignmentService.getConsultantsForProject(pid);
+            if (assignedIds.length === 0) continue;
+            for (const assignedId of assignedIds) {
+                // Find the consultant record that matches this assigned ID
+                const match = consultants.find(c =>
+                    c.consultantId === assignedId ||
+                    c.email === assignedId ||
+                    String((c as any).userId) === assignedId
+                );
+                if (match) {
+                    // Mirror the assignment under ALL the consultant's known IDs
+                    AssignmentService.assignConsultantToProject(pid, match.consultantId);
+                    if ((match as any).userId) AssignmentService.assignConsultantToProject(pid, String((match as any).userId));
+                    if ((match as any).customerId) AssignmentService.assignConsultantToProject(pid, String((match as any).customerId));
+                }
+            }
+        }
+        setAssignmentRefreshKey(k => k + 1);
+    }, [projects, consultants]);
+
     const loadProjects = async () => {
         const d = await safeFetch(`${API_BASE}/projects`);
         if (d?.data) {
@@ -255,6 +283,7 @@ const RealEstateProjects: React.FC = () => {
                     for (const cid of p.assignedConsultants) AssignmentService.assignConsultantToProject(pid, String(cid));
                 }
                 if (p.clientId) AssignmentService.assignClientToProject(pid, String(p.clientId));
+                if (p.consultantId) AssignmentService.assignConsultantToProject(pid, String(p.consultantId));
             }
         }
     };
@@ -324,6 +353,15 @@ const RealEstateProjects: React.FC = () => {
                 // so the project is immediately visible to the assigned client/consultant
                 if (selClients.length > 0 || selConsultants.length > 0) {
                     AssignmentService.setupProjectAssignments(newId, selConsultants, selClients);
+                    // Also store consultant assignments under their userId/customerId
+                    // so consultants can see the project regardless of which ID format their session uses
+                    for (const cid of selConsultants) {
+                        const match = consultants.find(c => c.consultantId === cid);
+                        if (match) {
+                            if ((match as any).userId) AssignmentService.assignConsultantToProject(newId, String((match as any).userId));
+                            if ((match as any).customerId) AssignmentService.assignConsultantToProject(newId, String((match as any).customerId));
+                        }
+                    }
                 }
 
                 showToast('Project created!', 'success');
@@ -600,18 +638,46 @@ const RealEstateProjects: React.FC = () => {
     const formatTime       = (h: number, m: number) => `${h}h ${m}m`;
     const getPublicUrl     = (slug: string) => ListingService.getPublicUrl(slug);
 
+    // ── Resolve all possible IDs for the logged-in consultant ───────────────
+    // The session might store a numeric userId as consultantId, but
+    // AssignmentService stores the consultant code (e.g. "CO-0001").
+    // We collect ALL possible IDs so filtering works regardless of format.
+    const resolvedConsultantIds = useMemo(() => {
+        if (!isConsultant) return [];
+        const ids = new Set<string>();
+        if (userConsultantId) ids.add(userConsultantId);
+        if (userCustomerId) ids.add(userCustomerId);
+        if (userEmail) ids.add(userEmail);
+        // Match against loaded consultants list by email to find consultant code
+        const match = consultants.find(c => c.email === userEmail);
+        if (match) ids.add(match.consultantId);
+        return Array.from(ids);
+    }, [isConsultant, userConsultantId, userCustomerId, userEmail, consultants]);
+
     // ── Filtered projects ─────────────────────────────────────────────────────
     const filteredProjects = useMemo(() => {
         let filtered = projects;
-        if (isClient && userCustomerId)       { const ids = AssignmentService.getProjectsForClient(userCustomerId);       filtered = filtered.filter(p => ids.includes(String(p.projectId))); }
-        if (isConsultant && userConsultantId) { const ids = AssignmentService.getProjectsForConsultant(userConsultantId); filtered = filtered.filter(p => ids.includes(String(p.projectId))); }
+        if (isClient && userCustomerId) {
+            const ids = AssignmentService.getProjectsForClient(userCustomerId);
+            filtered = filtered.filter(p => ids.includes(String(p.projectId)));
+        }
+        if (isConsultant && resolvedConsultantIds.length > 0) {
+            // Collect projects assigned to ANY of the consultant's known IDs
+            const projectIds = new Set<string>();
+            for (const cid of resolvedConsultantIds) {
+                for (const pid of AssignmentService.getProjectsForConsultant(cid)) {
+                    projectIds.add(pid);
+                }
+            }
+            filtered = filtered.filter(p => projectIds.has(String(p.projectId)));
+        }
         filtered = filtered.filter(p => {
             const matchSearch = p.projectName.toLowerCase().includes(searchTerm.toLowerCase()) || (p.projectCode || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.clientName || '').toLowerCase().includes(searchTerm.toLowerCase());
             const matchStatus = statusFilter === 'all' || p.status === statusFilter;
             return matchSearch && matchStatus;
         });
         return filtered.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-    }, [projects, searchTerm, statusFilter, isClient, isConsultant, userCustomerId, userConsultantId, assignmentRefreshKey]);
+    }, [projects, searchTerm, statusFilter, isClient, isConsultant, userCustomerId, resolvedConsultantIds, assignmentRefreshKey]);
 
     const pStats = useMemo(() => ({
         total:     filteredProjects.length,
