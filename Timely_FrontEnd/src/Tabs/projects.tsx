@@ -1,5 +1,5 @@
 ﻿// src/Tabs/projects.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTheme } from '../Views_Layouts/ThemeContext';
 import {
     Calendar, Plus, Search, Filter, ChevronRight, Clock, Users,
@@ -97,7 +97,7 @@ const compressImage = (file: File): Promise<string> =>
         reader.readAsDataURL(file);
     });
 
-// ─── Toast interface (local) ──────────────────────────────────────────────────
+// ─── Toast interface ──────────────────────────────────────────────────────────
 
 interface Toast { id: string; message: string; type: 'success' | 'error' | 'info'; }
 
@@ -179,20 +179,18 @@ const RealEstateProjects: React.FC = () => {
     const [timerDisplay, setTimerDisplay] = useState('00:00:00');
     const [timeForm, setTimeForm] = useState({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] });
 
-    // ── Form state ────────────────────────────────────────────────────────────
-    const emptyProjectForm = {
+    // ── Form state (lazy initializers — fresh object each mount) ──────────────
+    const [projectForm,  setProjectForm]  = useState(() => ({
         projectName: '', description: '', status: 'planning', priority: 'medium',
         startDate: new Date().toISOString().split('T')[0], endDate: '', budget: '',
         selectedConsultants: [] as string[], selectedClients: [] as string[],
-    };
-    const emptyPropertyForm = {
+    }));
+    const [propertyForm, setPropertyForm] = useState(() => ({
         address: '', city: '', state: '', zip: '',
         propertyType: 'house', bedrooms: '', bathrooms: '',
         sqft: '', lotSize: '', yearBuilt: '', amenities: [] as string[],
         listingPrice: '', listingStatus: 'active',
-    };
-    const [projectForm,  setProjectForm]  = useState(emptyProjectForm);
-    const [propertyForm, setPropertyForm] = useState(emptyPropertyForm);
+    }));
 
     // ── Status definitions ────────────────────────────────────────────────────
     const statuses = [
@@ -238,17 +236,32 @@ const RealEstateProjects: React.FC = () => {
         setRefreshing(true);
         await Promise.all([loadProjects(), loadConsultants(), loadClients()]);
         loadTimeEntries();
-        AssignmentService.syncClientConsultantsFromAPI();
+        await AssignmentService.syncClientConsultantsFromAPI();
+        setAssignmentRefreshKey(k => k + 1);
         setRefreshing(false);
     };
 
     const loadProjects = async () => {
         const d = await safeFetch(`${API_BASE}/projects`);
-        if (d?.data) { setProjects(d.data); }
+        if (d?.data) {
+            setProjects(d.data);
+            // Sync any assignment data embedded in the API response into localStorage
+            for (const p of d.data) {
+                const pid = String(p.projectId);
+                if (Array.isArray(p.assignedClients)) {
+                    for (const cid of p.assignedClients) AssignmentService.assignClientToProject(pid, String(cid));
+                }
+                if (Array.isArray(p.assignedConsultants)) {
+                    for (const cid of p.assignedConsultants) AssignmentService.assignConsultantToProject(pid, String(cid));
+                }
+                if (p.clientId) AssignmentService.assignClientToProject(pid, String(p.clientId));
+            }
+        }
     };
 
     const loadConsultants = async () => { const d = await safeFetch(`${API_BASE}/consultants`); if (d?.data) setConsultants(d.data); };
-const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members.filter((m: any) => m.role === 'client').map((m: any) => { const u = m.user || m; return { customerId: String(m.userId || u.id || ''), firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '' }; })); };
+    const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me`); if (d?.data?.members) setClients(d.data.members.filter((m: any) => m.role === 'client').map((m: any) => { const u = m.user || m; return { customerId: String(m.userId || u.id || ''), firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '' }; })); };
+
     const loadTimeEntries = () => {
         try { const data = localStorage.getItem(STORAGE_KEYS.timeEntries); if (data) setTimeEntries(JSON.parse(data)); } catch {}
     };
@@ -256,6 +269,24 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
         localStorage.setItem(STORAGE_KEYS.timeEntries, JSON.stringify(data));
         setTimeEntries(data);
     };
+
+    // ── Form reset (fresh object every call) ──────────────────────────────────
+    const resetProjectForm = useCallback(() => {
+        setProjectForm({
+            projectName: '', description: '', status: 'planning', priority: 'medium',
+            startDate: new Date().toISOString().split('T')[0], endDate: '', budget: '',
+            selectedConsultants: [], selectedClients: [],
+        });
+    }, []);
+
+    const resetPropertyForm = useCallback(() => {
+        setPropertyForm({
+            address: '', city: '', state: '', zip: '',
+            propertyType: 'house', bedrooms: '', bathrooms: '',
+            sqft: '', lotSize: '', yearBuilt: '', amenities: [],
+            listingPrice: '', listingStatus: 'active',
+        });
+    }, []);
 
     // ── Project CRUD ──────────────────────────────────────────────────────────
     const getClientNameFromSelection = () => {
@@ -280,14 +311,31 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
             if (res.ok) {
                 const data = await res.json();
                 const newId = String(data.projectId || data.data?.projectId || data.id || data.data?.id);
-                if (selClients.length > 0) {
+
+                // Assign via API
+                if (selClients.length > 0 || selConsultants.length > 0) {
                     await fetch(`${API_BASE}/projects/assign`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ clientId: selClients[0], projectId: newId, consultantIds: selConsultants }),
+                        body: JSON.stringify({ clientId: selClients[0] || undefined, projectId: newId, consultantIds: selConsultants }),
                     }).catch(() => {});
                 }
+
+                // FIX: Also mirror assignments into AssignmentService (localStorage)
+                // so the project is immediately visible to the assigned client/consultant
+                if (selClients.length > 0 || selConsultants.length > 0) {
+                    AssignmentService.setupProjectAssignments(newId, selConsultants, selClients);
+                }
+
                 showToast('Project created!', 'success');
-                setShowCreateModal(false); resetProjectForm(); await loadProjects();
+                window.dispatchEvent(new Event('project-change'));
+
+                // FIX: Close modal and fully reset BOTH forms before reloading
+                setShowCreateModal(false);
+                resetProjectForm();
+                resetPropertyForm();
+
+                await loadProjects();
+                setAssignmentRefreshKey(k => k + 1);
             } else {
                 showToast('Failed to create project', 'error');
             }
@@ -305,6 +353,7 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
         setSelectedProject(updated);
         setShowEditModal(false); setShowDetailsModal(true);
         showToast('Project updated', 'success');
+        window.dispatchEvent(new Event('project-change'));
     };
 
     const updateProjectStatus = async (projectId: string, newStatus: string) => {
@@ -316,6 +365,7 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
         setProjects(projects.map(p => p.projectId === projectId ? updated : p));
         if (selectedProject?.projectId === projectId) setSelectedProject(updated);
         showToast(`Status → ${fmtStatus(newStatus)}`, 'success');
+        window.dispatchEvent(new Event('project-change'));
     };
 
     const deleteProject = async (pid: string) => {
@@ -323,9 +373,11 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
         try {
             const res = await fetch(`${API_BASE}/projects/${pid}`, { method: 'DELETE' });
             if (res.ok) {
+                AssignmentService.cleanupProjectAssignments(pid);
                 setProjects(prev => prev.filter(p => p.projectId !== pid));
                 setShowDeleteConfirm(null); setShowDetailsModal(false); setSelectedProject(null);
                 showToast('Project deleted', 'success');
+                window.dispatchEvent(new Event('project-change'));
             } else { showToast('Failed to delete', 'error'); }
         } catch { showToast('Failed to delete', 'error'); }
     };
@@ -342,10 +394,7 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
         }
         const allPhotos = [...existing, ...newPhotos];
         try {
-            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/photos`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ photos: allPhotos, coverPhotoIndex: selectedProject.coverPhotoIndex || 0 }),
-            });
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/photos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photos: allPhotos, coverPhotoIndex: selectedProject.coverPhotoIndex || 0 }) });
             if (!res.ok) throw new Error('Failed');
         } catch { showToast('Failed to save photos', 'error'); setPhotoUploading(false); return; }
         const updated: Project = { ...selectedProject, photos: allPhotos };
@@ -415,10 +464,7 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
     const savePropertyDetails = async () => {
         if (!selectedProject) return;
         try {
-            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/property`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: propertyForm.address, city: propertyForm.city, state: propertyForm.state, zip: propertyForm.zip, propertyType: propertyForm.propertyType, bedrooms: propertyForm.bedrooms, bathrooms: propertyForm.bathrooms, sqft: propertyForm.sqft, lotSize: propertyForm.lotSize, yearBuilt: propertyForm.yearBuilt, amenities: propertyForm.amenities }),
-            });
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/property`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: propertyForm.address, city: propertyForm.city, state: propertyForm.state, zip: propertyForm.zip, propertyType: propertyForm.propertyType, bedrooms: propertyForm.bedrooms, bathrooms: propertyForm.bathrooms, sqft: propertyForm.sqft, lotSize: propertyForm.lotSize, yearBuilt: propertyForm.yearBuilt, amenities: propertyForm.amenities }) });
             if (!res.ok) throw new Error('Failed');
         } catch { showToast('Failed to save property', 'error'); return; }
         const updated: Project = { ...selectedProject, address: propertyForm.address, city: propertyForm.city, state: propertyForm.state, zip: propertyForm.zip, propertyType: propertyForm.propertyType, bedrooms: propertyForm.bedrooms, bathrooms: propertyForm.bathrooms, sqft: propertyForm.sqft, lotSize: propertyForm.lotSize, yearBuilt: propertyForm.yearBuilt, amenities: propertyForm.amenities };
@@ -431,15 +477,12 @@ const loadClients = async () => { const d = await safeFetch(`${API_BASE}/orgs/me
     const saveListingDetails = async () => {
         if (!selectedProject) return;
         try {
-            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/listing`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ listingPrice: propertyForm.listingPrice, listingStatus: propertyForm.listingStatus }),
-            });
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/listing`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ listingPrice: propertyForm.listingPrice, listingStatus: propertyForm.listingStatus }) });
             if (!res.ok) throw new Error('Failed');
         } catch { showToast('Failed to save listing', 'error'); return; }
         const updated: Project = { ...selectedProject, listingPrice: propertyForm.listingPrice, listingStatus: propertyForm.listingStatus };
         setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
-setSelectedProject(updated);
+        setSelectedProject(updated);
         showToast('Listing details saved', 'success');
         setDetailTab('overview');
     };
@@ -447,25 +490,19 @@ setSelectedProject(updated);
     const togglePublish = async () => {
         if (!selectedProject || !isAdmin) return;
         try {
-            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/publish`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-            });
+            const res = await fetch(`${API_BASE}/projects/${selectedProject.projectId}/publish`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
             if (!res.ok) throw new Error('Failed');
             const data = await res.json();
             const updated: Project = { ...selectedProject, isPublished: data.isPublished, listingSlug: data.listingSlug, publishedAt: data.isPublished ? (selectedProject.publishedAt || new Date().toISOString()) : selectedProject.publishedAt };
             setProjects(projects.map(p => p.projectId === updated.projectId ? updated : p));
             setSelectedProject(updated);
             showToast(data.isPublished ? 'Listing enabled for assigned clients' : 'Listing hidden', data.isPublished ? 'success' : 'info');
+            window.dispatchEvent(new Event('listing-change'));
         } catch { showToast('Failed to toggle publish', 'error'); }
     };
 
     const toggleAmenity = (amenity: string) =>
-        setPropertyForm(f => ({
-            ...f,
-            amenities: f.amenities.includes(amenity)
-                ? f.amenities.filter(a => a !== amenity)
-                : [...f.amenities, amenity],
-        }));
+        setPropertyForm(f => ({ ...f, amenities: f.amenities.includes(amenity) ? f.amenities.filter(a => a !== amenity) : [...f.amenities, amenity] }));
 
     // ── Timer ─────────────────────────────────────────────────────────────────
     const startTimer = (projectId: string) => {
@@ -495,6 +532,7 @@ setSelectedProject(updated);
         setTimeForm({ hours: 0, minutes: 0, description: '', date: new Date().toISOString().split('T')[0] });
         setShowTimeModal(false);
         showToast(`Logged ${timeForm.hours}h ${timeForm.minutes}m`, 'success');
+        window.dispatchEvent(new Event('hours-change'));
     };
 
     const deleteTimeEntry = (id: string) => {
@@ -503,19 +541,44 @@ setSelectedProject(updated);
         if (!isAdmin && entry.consultantId !== (userConsultantId || userEmail)) { showToast('Can only delete your own entries', 'error'); return; }
         saveTimeEntries(timeEntries.filter(e => e.id !== id));
         showToast('Entry deleted', 'success');
+        window.dispatchEvent(new Event('hours-change'));
     };
 
-    // ── Assignments ───────────────────────────────────────────────────────────
+    // ── Assignments (FIX: all handlers now sync BOTH localStorage AND API) ───
     const getProjectTimeEntries = (pid: string) => timeEntries.filter(te => te.projectId === pid);
     const getProjectTotalTime   = (pid: string) => {
         const totalMin = getProjectTimeEntries(pid).reduce((s, e) => s + (e.hours * 60) + e.minutes, 0);
         return { hours: Math.floor(totalMin / 60), minutes: totalMin % 60 };
     };
 
-    const assignConsultantToProject   = (cid: string) => { if (!isAdmin || !selectedProject) return; const r = AssignmentService.assignConsultantToProject(selectedProject.projectId, cid); showToast(r ? 'Assigned' : 'Already assigned', r ? 'success' : 'info'); };
-    const removeConsultantFromProject = (cid: string) => { if (!isAdmin || !selectedProject) return; AssignmentService.removeConsultantFromProject(selectedProject.projectId, cid); showToast('Removed', 'success'); };
-    const assignClientToProject       = (cid: string) => { if (!isAdmin || !selectedProject) return; const r = AssignmentService.assignClientToProject(selectedProject.projectId, cid); showToast(r ? 'Assigned' : 'Already assigned', r ? 'success' : 'info'); };
-    const removeClientFromProject     = (cid: string) => { if (!isAdmin || !selectedProject) return; AssignmentService.removeClientFromProject(selectedProject.projectId, cid); showToast('Removed', 'success'); };
+    const assignConsultantToProject = async (cid: string) => {
+        if (!isAdmin || !selectedProject) return;
+        const r = AssignmentService.assignConsultantToProject(selectedProject.projectId, cid);
+        try { await fetch(`${API_BASE}/projects/assign`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: selectedProject.projectId, consultantIds: [cid] }) }); } catch {}
+        setAssignmentRefreshKey(k => k + 1);
+        showToast(r ? 'Assigned' : 'Already assigned', r ? 'success' : 'info');
+    };
+    const removeConsultantFromProject = async (cid: string) => {
+        if (!isAdmin || !selectedProject) return;
+        AssignmentService.removeConsultantFromProject(selectedProject.projectId, cid);
+        try { await fetch(`${API_BASE}/projects/unassign`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: selectedProject.projectId, consultantId: cid }) }); } catch {}
+        setAssignmentRefreshKey(k => k + 1);
+        showToast('Removed', 'success');
+    };
+    const assignClientToProject = async (cid: string) => {
+        if (!isAdmin || !selectedProject) return;
+        const r = AssignmentService.assignClientToProject(selectedProject.projectId, cid);
+        try { await fetch(`${API_BASE}/projects/assign`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: selectedProject.projectId, clientId: cid }) }); } catch {}
+        setAssignmentRefreshKey(k => k + 1);
+        showToast(r ? 'Assigned' : 'Already assigned', r ? 'success' : 'info');
+    };
+    const removeClientFromProject = async (cid: string) => {
+        if (!isAdmin || !selectedProject) return;
+        AssignmentService.removeClientFromProject(selectedProject.projectId, cid);
+        try { await fetch(`${API_BASE}/projects/unassign`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: selectedProject.projectId, clientId: cid }) }); } catch {}
+        setAssignmentRefreshKey(k => k + 1);
+        showToast('Removed', 'success');
+    };
 
     const getProjectConsultants   = (pid: string) => { const ids = AssignmentService.getConsultantsForProject(String(pid)); return consultants.filter(c => ids.includes(c.consultantId)); };
     const getProjectClients       = (pid: string) => { const ids = AssignmentService.getClientsForProject(String(pid));     return clients.filter(c => ids.includes(c.customerId)); };
@@ -523,8 +586,6 @@ setSelectedProject(updated);
     const getAvailableClients     = (pid: string) => { const ids = AssignmentService.getClientsForProject(pid);     return clients.filter(c => !ids.includes(c.customerId)); };
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    const resetProjectForm = () => setProjectForm(emptyProjectForm);
-
     const openProjectDetails = (p: Project) => {
         setSelectedProject(p);
         setDetailTab('overview');
@@ -574,8 +635,6 @@ setSelectedProject(updated);
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className={`min-h-screen ${n.bg} ${n.text}`}>
-
-            {/* ── Toasts ── */}
             <div className="fixed top-4 right-4 z-[10000] space-y-2">
                 {toasts.map(t => (
                     <div key={t.id} className={`${n.card} flex items-center gap-3 px-4 py-3 rounded-xl text-sm animate-fadeIn`}>
@@ -586,7 +645,6 @@ setSelectedProject(updated);
                 ))}
             </div>
 
-            {/* ── Active timer float ── */}
             {activeTimer && (
                 <div className="fixed bottom-4 right-4 z-[9998]">
                     <div className={`${n.card} p-4 flex items-center gap-4 rounded-2xl`}>
@@ -602,10 +660,7 @@ setSelectedProject(updated);
                 </div>
             )}
 
-            {/* ══ MAIN PAGE ═════════════════════════════════════════════════════ */}
             <div className="max-w-7xl mx-auto px-6 py-8">
-
-                {/* Header */}
                 <div className="flex items-start justify-between mb-8">
                     <div>
                         <h1 className={`text-2xl font-semibold tracking-tight ${n.strong} mb-1`}>Projects</h1>
@@ -615,22 +670,21 @@ setSelectedProject(updated);
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={loadAllData} disabled={refreshing} className={`w-9 h-9 ${n.flat} flex items-center justify-center rounded-xl`}>
-    <RefreshCw className={`w-4 h-4 ${n.secondary} ${refreshing ? 'animate-spin' : ''}`} />
-</button>
+                            <RefreshCw className={`w-4 h-4 ${n.secondary} ${refreshing ? 'animate-spin' : ''}`} />
+                        </button>
                         {isAdmin && (
-                            <button onClick={() => setShowCreateModal(true)} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium`}>
+                            <button onClick={() => { resetProjectForm(); resetPropertyForm(); setShowCreateModal(true); }} className={`${n.btnPrimary} px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium`}>
                                 <Plus className="w-4 h-4" />New Project
                             </button>
                         )}
                     </div>
                 </div>
 
-                {/* Stats */}
                 <div className="grid grid-cols-3 gap-4 mb-8">
                     {[
-                        { label: 'Total Projects', value: pStats.total,     dot: 'bg-blue-500' },
-                        { label: 'Active',          value: pStats.active,    dot: 'bg-emerald-500' },
-                        { label: 'Completed',       value: pStats.completed, dot: 'bg-gray-500' },
+                        { label: 'Total Projects', value: pStats.total, dot: 'bg-blue-500' },
+                        { label: 'Active', value: pStats.active, dot: 'bg-emerald-500' },
+                        { label: 'Completed', value: pStats.completed, dot: 'bg-gray-500' },
                     ].map((st, i) => (
                         <div key={i} className={`${n.card} ${n.edgeHover} p-5 transition-all rounded-2xl`}>
                             <div className="flex items-center gap-2 mb-3">
@@ -642,7 +696,6 @@ setSelectedProject(updated);
                     ))}
                 </div>
 
-                {/* Search + filter */}
                 <div className="flex gap-3 items-center mb-4">
                     <div className={`flex-1 ${n.flat} flex items-center gap-2 px-4 py-2.5 rounded-xl`}>
                         <Search className={`w-4 h-4 ${n.tertiary} flex-shrink-0`} />
@@ -664,20 +717,17 @@ setSelectedProject(updated);
                             </select>
                         </div>
                         {statusFilter !== 'all' && (
-                            <button onClick={() => setStatusFilter('all')} className={`mt-5 text-xs ${n.link} flex items-center gap-1`}>
-                                <X className="w-3 h-3" />Clear
-                            </button>
+                            <button onClick={() => setStatusFilter('all')} className={`mt-5 text-xs ${n.link} flex items-center gap-1`}><X className="w-3 h-3" />Clear</button>
                         )}
                     </div>
                 )}
 
-                {/* ── Card grid ── */}
                 {filteredProjects.length === 0 ? (
                     <div className={`${n.card} rounded-2xl text-center py-20`}>
                         <FolderOpen className={`w-12 h-12 ${n.tertiary} mx-auto mb-4`} strokeWidth={1.5} />
                         <p className={`${n.secondary} text-sm`}>{isClient || isConsultant ? 'No projects assigned to you yet' : 'No projects match your search'}</p>
                         {isAdmin && (
-                            <button onClick={() => setShowCreateModal(true)} className={`mt-5 px-4 py-2 ${n.btnPrimary} rounded-xl text-sm inline-flex items-center gap-2`}>
+                            <button onClick={() => { resetProjectForm(); resetPropertyForm(); setShowCreateModal(true); }} className={`mt-5 px-4 py-2 ${n.btnPrimary} rounded-xl text-sm inline-flex items-center gap-2`}>
                                 <Plus className="w-4 h-4" />Create your first project
                             </button>
                         )}
@@ -685,40 +735,28 @@ setSelectedProject(updated);
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                         {filteredProjects.map(p => {
-                            const statusInfo   = statuses.find(s => s.value === p.status);
-                            const pClients     = getProjectClients(p.projectId);
+                            const statusInfo = statuses.find(s => s.value === p.status);
+                            const pClients = getProjectClients(p.projectId);
                             const pConsultants = getProjectConsultants(p.projectId);
-                            const totalTime    = getProjectTotalTime(p.projectId);
-                            const teamCount    = pClients.length + pConsultants.length;
-                            const clientLabel  = pClients.length > 0
-                                ? `${pClients[0].firstName} ${pClients[0].lastName}${pClients.length > 1 ? ` +${pClients.length - 1}` : ''}`
-                                : p.clientName || null;
-                            const hasPhotos    = p.photos && (p.photos as string[]).length > 0;
-                            const hasVideos    = p.videos && (p.videos as string[]).length > 0;
-                            const displayPrice = p.listingPrice
-                                ? `$${Number(p.listingPrice).toLocaleString()}`
-                                : formatBudget(p.budget);
+                            const totalTime = getProjectTotalTime(p.projectId);
+                            const teamCount = pClients.length + pConsultants.length;
+                            const clientLabel = pClients.length > 0 ? `${pClients[0].firstName} ${pClients[0].lastName}${pClients.length > 1 ? ` +${pClients.length - 1}` : ''}` : p.clientName || null;
+                            const hasPhotos = p.photos && (p.photos as string[]).length > 0;
+                            const hasVideos = p.videos && (p.videos as string[]).length > 0;
+                            const displayPrice = p.listingPrice ? `$${Number(p.listingPrice).toLocaleString()}` : formatBudget(p.budget);
 
                             return (
                                 <div key={p.projectId} className={`${n.card} rounded-2xl overflow-hidden group transition-all duration-200 ${n.edgeHover} flex flex-col`}>
-
-                                    {/* Cover */}
                                     <div className="relative h-44 flex-shrink-0 overflow-hidden">
                                         <ProjectCover p={p} />
-
-                                        {/* Status badge */}
                                         <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white flex items-center gap-1.5 ${statusInfo?.color || 'bg-gray-600'}`}>
                                             <div className="w-1.5 h-1.5 rounded-full bg-white/70" />{fmtStatus(p.status)}
                                         </div>
-
-                                        {/* Listing active badge */}
                                         {p.isPublished && (
                                             <div className="absolute top-3 right-3 px-2 py-1 bg-emerald-600 rounded-lg text-[10px] font-semibold text-white flex items-center gap-1">
                                                 <Globe className="w-2.5 h-2.5" />Listing On
                                             </div>
                                         )}
-
-                                        {/* Admin hover delete (only when listing is off) */}
                                         {isAdmin && !p.isPublished && (
                                             <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={e => { e.stopPropagation(); setShowDeleteConfirm(p.projectId); }} className="w-7 h-7 bg-black/50 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-red-500/80 transition-colors">
@@ -726,90 +764,45 @@ setSelectedProject(updated);
                                                 </button>
                                             </div>
                                         )}
-
-                                        {/* Price chip */}
                                         {displayPrice && (
-                                            <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/55 backdrop-blur-sm rounded-lg text-white text-xs font-semibold">
-                                                {displayPrice}
-                                            </div>
+                                            <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/55 backdrop-blur-sm rounded-lg text-white text-xs font-semibold">{displayPrice}</div>
                                         )}
-
-                                        {/* Team + photo chips */}
                                         <div className="absolute bottom-3 left-3 flex gap-1.5">
-                                            {teamCount > 0 && (
-                                                <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                    <Users className="w-3 h-3" />{teamCount}
-                                                </div>
-                                            )}
-                                            {hasPhotos && (
-                                                <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                    <Image className="w-3 h-3" />{(p.photos as string[]).length}
-                                                </div>
-                                            )}
-                                            {hasVideos && (
-                                                <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1">
-                                                    <Video className="w-3 h-3" />{(p.videos as string[]).length}
-                                                </div>
-                                            )}
+                                            {teamCount > 0 && <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1"><Users className="w-3 h-3" />{teamCount}</div>}
+                                            {hasPhotos && <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1"><Image className="w-3 h-3" />{(p.photos as string[]).length}</div>}
+                                            {hasVideos && <div className="px-2 py-1 bg-black/40 backdrop-blur-sm rounded-lg text-white/80 text-[11px] flex items-center gap-1"><Video className="w-3 h-3" />{(p.videos as string[]).length}</div>}
                                         </div>
-
                                         <div className="absolute bottom-0 left-0 right-0 h-6" style={{ background: isDark ? 'linear-gradient(to bottom, transparent, #1e1e1e)' : 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.9))' }} />
                                     </div>
-
-                                    {/* Card body */}
                                     <div className="p-4 flex flex-col flex-1 gap-2.5">
                                         <div>
                                             <h3 className={`${n.strong} font-semibold text-[15px] leading-snug`}>{p.projectName}</h3>
                                             <p className={`${n.tertiary} text-[11px] mt-0.5 font-mono`}>{p.projectCode}</p>
                                         </div>
-
-                                        {(p.city || p.address) && (
-                                            <div className="flex items-center gap-1.5">
-                                                <MapPin className={`w-3 h-3 ${n.tertiary} flex-shrink-0`} />
-                                                <span className={`${n.secondary} text-xs truncate`}>{[p.address, p.city, p.state].filter(Boolean).join(', ')}</span>
-                                            </div>
-                                        )}
-
+                                        {(p.city || p.address) && <div className="flex items-center gap-1.5"><MapPin className={`w-3 h-3 ${n.tertiary} flex-shrink-0`} /><span className={`${n.secondary} text-xs truncate`}>{[p.address, p.city, p.state].filter(Boolean).join(', ')}</span></div>}
                                         {(p.bedrooms || p.bathrooms || p.sqft) && (
                                             <div className={`flex items-center gap-3 text-[11px] ${n.tertiary}`}>
-                                                {p.bedrooms  && <span className="flex items-center gap-1"><Bed      className="w-3 h-3" />{p.bedrooms} bd</span>}
-                                                {p.bathrooms && <span className="flex items-center gap-1"><Bath     className="w-3 h-3" />{p.bathrooms} ba</span>}
-                                                {p.sqft      && <span className="flex items-center gap-1"><Maximize className="w-3 h-3" />{Number(p.sqft).toLocaleString()} sqft</span>}
+                                                {p.bedrooms && <span className="flex items-center gap-1"><Bed className="w-3 h-3" />{p.bedrooms} bd</span>}
+                                                {p.bathrooms && <span className="flex items-center gap-1"><Bath className="w-3 h-3" />{p.bathrooms} ba</span>}
+                                                {p.sqft && <span className="flex items-center gap-1"><Maximize className="w-3 h-3" />{Number(p.sqft).toLocaleString()} sqft</span>}
                                             </div>
                                         )}
-
-                                        {clientLabel && (
-                                            <div className="flex items-center gap-1.5">
-                                                <Users className={`w-3.5 h-3.5 ${n.tertiary} flex-shrink-0`} />
-                                                <span className={`${n.secondary} text-xs truncate`}>{clientLabel}</span>
-                                            </div>
-                                        )}
-
+                                        {clientLabel && <div className="flex items-center gap-1.5"><Users className={`w-3.5 h-3.5 ${n.tertiary} flex-shrink-0`} /><span className={`${n.secondary} text-xs truncate`}>{clientLabel}</span></div>}
                                         {p.description && <p className={`${n.secondary} text-xs leading-relaxed line-clamp-2`}>{p.description}</p>}
-
                                         {(p.startDate || p.endDate) && (
                                             <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}>
                                                 <Calendar className="w-3 h-3 flex-shrink-0" />
                                                 <span>{p.startDate ? formatDate(p.startDate) : '—'}{p.endDate && ` — ${formatDate(p.endDate)}`}</span>
                                             </div>
                                         )}
-
                                         <div className="flex-1" />
-
-                                        {/* Footer */}
                                         <div className={`flex items-center justify-between pt-3 border-t ${n.divider}`}>
-                                            <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}>
-                                                <Clock className="w-3 h-3" />{formatTime(totalTime.hours, totalTime.minutes)}
-                                            </div>
+                                            <div className={`flex items-center gap-1.5 text-[11px] ${n.tertiary}`}><Clock className="w-3 h-3" />{formatTime(totalTime.hours, totalTime.minutes)}</div>
                                             <div className="flex items-center gap-1.5">
                                                 {canEdit && !activeTimer && (
-                                                    <button onClick={e => { e.stopPropagation(); startTimer(p.projectId); }} className={`w-7 h-7 ${n.flat} rounded-lg flex items-center justify-center`} title="Start timer">
-                                                        <Play className="w-3 h-3 text-emerald-400" />
-                                                    </button>
+                                                    <button onClick={e => { e.stopPropagation(); startTimer(p.projectId); }} className={`w-7 h-7 ${n.flat} rounded-lg flex items-center justify-center`} title="Start timer"><Play className="w-3 h-3 text-emerald-400" /></button>
                                                 )}
-                                                <button onClick={() => openProjectDetails(p)} className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-[11px] font-medium flex items-center gap-1`}>
-                                                    View Details<ChevronRight className="w-3 h-3" />
-                                                </button>
+                                                <button onClick={() => openProjectDetails(p)} className={`px-3 py-1.5 ${n.btnPrimary} rounded-lg text-[11px] font-medium flex items-center gap-1`}>View Details<ChevronRight className="w-3 h-3" /></button>
                                             </div>
                                         </div>
                                     </div>
@@ -820,84 +813,40 @@ setSelectedProject(updated);
                 )}
             </div>
 
-            {/* ── All modals delegated to ProjectDetailModal ── */}
             <ProjectDetailModal
-                isDark={isDark}
-                n={n}
-                isAdmin={isAdmin}
-                isConsultant={isConsultant}
-                canEdit={canEdit}
-                userConsultantId={userConsultantId}
-                userEmail={userEmail}
-                userName={userName}
-                selectedProject={selectedProject}
-                consultants={consultants}
-                clients={clients}
-                timeEntries={timeEntries}
-                statuses={statuses}
-                showDetailsModal={showDetailsModal}
-                showCreateModal={showCreateModal}
-                showEditModal={showEditModal}
-                showConsultantsModal={showConsultantsModal}
-                showClientsModal={showClientsModal}
-                showTimeModal={showTimeModal}
-                showDeleteConfirm={showDeleteConfirm}
-                showGallery={showGallery}
-                galleryIndex={galleryIndex}
-                projectForm={projectForm}
-                propertyForm={propertyForm}
-                detailTab={detailTab}
-                loading={loading}
-                photoUploading={photoUploading}
-                videoUploading={videoUploading}
+                isDark={isDark} n={n} isAdmin={isAdmin} isConsultant={isConsultant} canEdit={canEdit}
+                userConsultantId={userConsultantId} userEmail={userEmail} userName={userName}
+                selectedProject={selectedProject} consultants={consultants} clients={clients}
+                timeEntries={timeEntries} statuses={statuses}
+                showDetailsModal={showDetailsModal} showCreateModal={showCreateModal} showEditModal={showEditModal}
+                showConsultantsModal={showConsultantsModal} showClientsModal={showClientsModal}
+                showTimeModal={showTimeModal} showDeleteConfirm={showDeleteConfirm}
+                showGallery={showGallery} galleryIndex={galleryIndex}
+                projectForm={projectForm} propertyForm={propertyForm} detailTab={detailTab}
+                loading={loading} photoUploading={photoUploading} videoUploading={videoUploading}
                 timeForm={timeForm}
-                setDetailTab={setDetailTab}
-                setGalleryIndex={setGalleryIndex}
-                setShowDetailsModal={setShowDetailsModal}
-                setShowCreateModal={setShowCreateModal}
-                setShowEditModal={setShowEditModal}
-                setShowConsultantsModal={setShowConsultantsModal}
-                setShowClientsModal={setShowClientsModal}
-                setShowTimeModal={setShowTimeModal}
-                setShowDeleteConfirm={setShowDeleteConfirm}
-                setShowGallery={setShowGallery}
-                setSelectedProject={setSelectedProject}
-                setProjectForm={setProjectForm}
-                setPropertyForm={setPropertyForm}
-                setTimeForm={setTimeForm}
-                createProject={createProject}
-                updateProject={updateProject}
-                deleteProject={deleteProject}
-                updateProjectStatus={updateProjectStatus}
-                handlePhotoUpload={handlePhotoUpload}
-                removePhoto={removePhoto}
-                setCoverPhoto={setCoverPhoto}
-                handleVideoUpload={handleVideoUpload}
-                removeVideo={removeVideo}
-                savePropertyDetails={savePropertyDetails}
-                saveListingDetails={saveListingDetails}
-                togglePublish={togglePublish}
-                toggleAmenity={toggleAmenity}
-                addTimeEntry={addTimeEntry}
-                deleteTimeEntry={deleteTimeEntry}
-                assignConsultantToProject={assignConsultantToProject}
-                removeConsultantFromProject={removeConsultantFromProject}
-                assignClientToProject={assignClientToProject}
-                removeClientFromProject={removeClientFromProject}
-                getProjectConsultants={getProjectConsultants}
-                getProjectClients={getProjectClients}
-                getAvailableConsultants={getAvailableConsultants}
-                getAvailableClients={getAvailableClients}
-                getProjectTimeEntries={getProjectTimeEntries}
-                getProjectTotalTime={getProjectTotalTime}
-                resetProjectForm={resetProjectForm}
-                showToast={showToast}
-                formatDate={formatDate}
-                formatBudget={formatBudget}
-                formatTime={formatTime}
-                getPriorityColor={getPriorityColor}
-                fmtStatus={fmtStatus}
-                getPublicUrl={getPublicUrl}
+                setDetailTab={setDetailTab} setGalleryIndex={setGalleryIndex}
+                setShowDetailsModal={setShowDetailsModal} setShowCreateModal={setShowCreateModal}
+                setShowEditModal={setShowEditModal} setShowConsultantsModal={setShowConsultantsModal}
+                setShowClientsModal={setShowClientsModal} setShowTimeModal={setShowTimeModal}
+                setShowDeleteConfirm={setShowDeleteConfirm} setShowGallery={setShowGallery}
+                setSelectedProject={setSelectedProject} setProjectForm={setProjectForm}
+                setPropertyForm={setPropertyForm} setTimeForm={setTimeForm}
+                createProject={createProject} updateProject={updateProject}
+                deleteProject={deleteProject} updateProjectStatus={updateProjectStatus}
+                handlePhotoUpload={handlePhotoUpload} removePhoto={removePhoto} setCoverPhoto={setCoverPhoto}
+                handleVideoUpload={handleVideoUpload} removeVideo={removeVideo}
+                savePropertyDetails={savePropertyDetails} saveListingDetails={saveListingDetails}
+                togglePublish={togglePublish} toggleAmenity={toggleAmenity}
+                addTimeEntry={addTimeEntry} deleteTimeEntry={deleteTimeEntry}
+                assignConsultantToProject={assignConsultantToProject} removeConsultantFromProject={removeConsultantFromProject}
+                assignClientToProject={assignClientToProject} removeClientFromProject={removeClientFromProject}
+                getProjectConsultants={getProjectConsultants} getProjectClients={getProjectClients}
+                getAvailableConsultants={getAvailableConsultants} getAvailableClients={getAvailableClients}
+                getProjectTimeEntries={getProjectTimeEntries} getProjectTotalTime={getProjectTotalTime}
+                resetProjectForm={resetProjectForm} showToast={showToast}
+                formatDate={formatDate} formatBudget={formatBudget} formatTime={formatTime}
+                getPriorityColor={getPriorityColor} fmtStatus={fmtStatus} getPublicUrl={getPublicUrl}
             />
         </div>
     );
